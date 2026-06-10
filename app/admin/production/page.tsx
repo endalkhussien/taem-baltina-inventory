@@ -42,7 +42,7 @@ export default function ProductionPage() {
     }))
   }, [quantityProduced, recipe.data])
 
-  const materialCost = requiredMaterials.reduce((sum, line) => sum + line.quantity * line.costPerUnit, 0)
+  const materialCost = requiredMaterials.reduce((sum: number, line: { quantity: number; costPerUnit: number }) => sum + line.quantity * line.costPerUnit, 0)
 
   const onSubmit = async (values: any) => {
     setMessage('')
