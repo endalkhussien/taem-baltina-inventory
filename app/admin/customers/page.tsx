@@ -39,37 +39,41 @@ export default function CustomersPage() {
   return (
     <>
       <AdminNav />
-      <div className="min-h-screen bg-spice-50">
-        <div className="max-w-7xl mx-auto p-4 sm:p-6 space-y-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div className="app-page">
+        <div className="app-container">
+          <div className="page-hero-subtle flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h1 className="font-display text-3xl font-bold text-earth-900">Customers</h1>
-              <p className="text-earth-500 text-sm mt-1">Track credit customers, phone numbers, notes, and open balances.</p>
+              <div className="eyebrow">Customer accounts</div>
+              <h1 className="mt-2 font-display text-4xl font-black text-earth-950">Credit Customers and Balances</h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-earth-500">
+                Maintain customer contact details and see who still owes money from partial or unpaid sales.
+              </p>
             </div>
-            <div className="rounded-2xl bg-white px-5 py-3 shadow-spice border border-earth-100">
+            <div className="rounded-3xl bg-spice-50 px-5 py-4 shadow-sm border border-spice-100">
               <div className="text-xs uppercase tracking-wide text-earth-500">Total customer credit</div>
-              <div className="text-2xl font-bold text-spice-700">{totalOutstanding.toFixed(2)} ETB</div>
+              <div className="text-3xl font-black text-spice-800">{totalOutstanding.toFixed(2)} ETB</div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="card">
-              <h2 className="font-display text-lg font-semibold text-earth-900 mb-4">{editing ? 'Edit Customer' : 'New Customer'}</h2>
+              <h2 className="font-display text-xl font-black text-earth-950 mb-1">{editing ? 'Edit Customer Account' : 'Add Customer Account'}</h2>
+              <p className="mb-5 text-sm text-earth-500">Use customer accounts for buyers who take products on partial payment or credit.</p>
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-earth-700 mb-1.5">Name</label>
+                  <label className="block text-sm font-bold text-earth-700 mb-1.5">Customer / Shop Name</label>
                   <input className="input-field" {...register('name', { required: true })} placeholder="Customer or shop name" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-earth-700 mb-1.5">Phone</label>
+                  <label className="block text-sm font-bold text-earth-700 mb-1.5">Phone Number</label>
                   <input className="input-field" {...register('phone')} placeholder="+251..." />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-earth-700 mb-1.5">Notes</label>
+                  <label className="block text-sm font-bold text-earth-700 mb-1.5">Account Notes</label>
                   <textarea className="input-field" {...register('notes')} rows={3} placeholder="Location, credit terms, contact person..." />
                 </div>
                 <div className="flex gap-2">
-                  <button className="btn-primary flex-1" type="submit">{editing ? 'Update Customer' : 'Create Customer'}</button>
+                  <button className="btn-primary flex-1" type="submit">{editing ? 'Update Account' : 'Create Account'}</button>
                   {editing && <button className="btn-secondary" type="button" onClick={() => setEditing(null)}>Cancel</button>}
                 </div>
               </form>
@@ -81,13 +85,14 @@ export default function CustomersPage() {
               ) : list.length === 0 ? (
                 <div className="card md:col-span-2 text-earth-500">No customers yet. Add credit customers before recording unpaid sales.</div>
               ) : list.map((customer) => (
-                <div key={customer.id} className="card">
+                <div key={customer.id} className="card relative overflow-hidden">
+                  <div className={`absolute inset-x-0 top-0 h-1.5 ${Number(customer.outstanding_balance) > 0 ? 'bg-red-500' : 'bg-green-500'}`} />
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h2 className="font-semibold text-earth-900">{customer.name}</h2>
+                      <h2 className="text-lg font-black text-earth-950">{customer.name}</h2>
                       <p className="text-sm text-earth-500">{customer.phone || 'No phone recorded'}</p>
                     </div>
-                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${Number(customer.outstanding_balance) > 0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                    <span className={`status-pill ${Number(customer.outstanding_balance) > 0 ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
                       {Number(customer.outstanding_balance).toFixed(2)} ETB
                     </span>
                   </div>

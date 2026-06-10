@@ -57,25 +57,28 @@ export default function SalesPage() {
   return (
     <>
       <AdminNav />
-      <div className="min-h-screen bg-spice-50">
-        <div className="max-w-7xl mx-auto p-4 sm:p-6 space-y-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div className="app-page">
+        <div className="app-container">
+          <div className="page-hero flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <h1 className="font-display text-3xl font-bold text-earth-900">Sales & Credit</h1>
-              <p className="text-earth-500 text-sm mt-1">Record daily product sales, link credit customers, and trace partial repayments.</p>
+              <div className="text-xs font-bold uppercase tracking-[0.28em] text-spice-200">Sales & credit desk</div>
+              <h1 className="mt-3 font-display text-4xl font-black leading-tight sm:text-5xl">Daily Sales and Customer Credit</h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-earth-100 sm:text-base">
+                Record sold products, connect unpaid balances to customers, and trace every partial repayment until the sale is fully paid.
+              </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="card !p-4">
-                <div className="text-xs uppercase text-earth-500">Daily sales</div>
-                <div className="text-xl font-bold text-spice-700">{totalDailySales.toFixed(2)}</div>
+              <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15">
+                <div className="text-xs uppercase tracking-[0.16em] text-spice-100">Selected day sales</div>
+                <div className="text-xl font-black text-white">{totalDailySales.toFixed(2)}</div>
               </div>
-              <div className="card !p-4">
-                <div className="text-xs uppercase text-earth-500">Daily cash</div>
-                <div className="text-xl font-bold text-green-700">{totalDailyCash.toFixed(2)}</div>
+              <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15">
+                <div className="text-xs uppercase tracking-[0.16em] text-spice-100">Cash received</div>
+                <div className="text-xl font-black text-white">{totalDailyCash.toFixed(2)}</div>
               </div>
-              <div className="card !p-4">
-                <div className="text-xs uppercase text-earth-500">Open credit</div>
-                <div className="text-xl font-bold text-red-700">{totalOutstanding.toFixed(2)}</div>
+              <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15">
+                <div className="text-xs uppercase tracking-[0.16em] text-spice-100">Open credit</div>
+                <div className="text-xl font-black text-white">{totalOutstanding.toFixed(2)}</div>
               </div>
             </div>
           </div>
@@ -84,14 +87,15 @@ export default function SalesPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="card">
-              <h2 className="font-display text-lg font-semibold text-earth-900 mb-4">New Sale</h2>
+              <h2 className="font-display text-xl font-black text-earth-950 mb-1">Record Product Sale</h2>
+              <p className="mb-5 text-sm text-earth-500">Paid sales can be walk-in; partial or credit sales must use a customer account.</p>
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-earth-700 mb-1.5">Sale Date</label>
+                  <label className="block text-sm font-bold text-earth-700 mb-1.5">Sale Date</label>
                   <input type="date" className="input-field" {...register('saleDate')} />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-earth-700 mb-1.5">Product</label>
+                  <label className="block text-sm font-bold text-earth-700 mb-1.5">Finished Good Sold</label>
                   <select className="input-field" {...register('productId', { valueAsNumber: true })}>
                     <option value={0}>Select product</option>
                     {productList.map((product) => (
@@ -100,7 +104,7 @@ export default function SalesPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-earth-700 mb-1.5">Customer</label>
+                  <label className="block text-sm font-bold text-earth-700 mb-1.5">Customer Account</label>
                   <select className="input-field" {...register('customerId', { valueAsNumber: true })}>
                     <option value={0}>Walk-in / paid customer</option>
                     {customerList.map((customer) => (
@@ -111,27 +115,27 @@ export default function SalesPage() {
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-earth-700 mb-1.5">Qty</label>
+                    <label className="block text-sm font-bold text-earth-700 mb-1.5">Qty</label>
                     <input type="number" className="input-field" {...register('quantity', { valueAsNumber: true })} />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-earth-700 mb-1.5">Unit Price</label>
+                    <label className="block text-sm font-bold text-earth-700 mb-1.5">Unit Price</label>
                     <input type="number" step="0.01" className="input-field" {...register('unitPrice', { valueAsNumber: true })} />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-earth-700 mb-1.5">Paid</label>
+                    <label className="block text-sm font-bold text-earth-700 mb-1.5">Paid Now</label>
                     <input type="number" step="0.01" className="input-field" {...register('amountPaid', { valueAsNumber: true })} />
                   </div>
                 </div>
-                <button className="btn-primary w-full" type="submit">Record sale</button>
+                <button className="btn-primary w-full" type="submit">Post sale</button>
               </form>
             </div>
 
             <div className="lg:col-span-2 card overflow-x-auto">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
                 <div>
-                  <h2 className="font-display text-lg font-semibold text-earth-900">Daily Sales</h2>
-                  <p className="text-sm text-earth-500">Filter by date to review daily sold quantity and credit.</p>
+                  <h2 className="font-display text-xl font-black text-earth-950">Daily Sales Register</h2>
+                  <p className="text-sm text-earth-500">Filter by date to review sold quantity, cash collected, and credit created.</p>
                 </div>
                 <input type="date" className="input-field sm:max-w-[180px]" value={filterDate} onChange={(event) => setFilterDate(event.target.value)} />
               </div>
@@ -139,9 +143,9 @@ export default function SalesPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-left text-xs uppercase tracking-wide text-earth-500">
-                      <th className="pb-3">Code</th>
-                      <th className="pb-3">Customer</th>
-                      <th className="pb-3">Product</th>
+                      <th className="pb-3">Sale Code</th>
+                      <th className="pb-3">Customer Account</th>
+                      <th className="pb-3">Finished Good</th>
                       <th className="pb-3">Qty</th>
                       <th className="pb-3">Total</th>
                       <th className="pb-3">Paid</th>
@@ -165,9 +169,9 @@ export default function SalesPage() {
                         </td>
                         <td className="py-3 whitespace-nowrap">
                           {Number(sale.balance) > 0 && (
-                            <button className="text-spice-700 font-medium mr-3" onClick={() => setRepaySaleId(sale.id)}>Payment</button>
+                            <button className="text-spice-700 font-bold mr-3" onClick={() => setRepaySaleId(sale.id)}>Record Payment</button>
                           )}
-                          <button className="text-red-600 font-medium" onClick={() => deleteSale(sale.id)}>Delete</button>
+                          <button className="text-red-600 font-bold" onClick={() => deleteSale(sale.id)}>Delete</button>
                         </td>
                       </tr>
                     ))}
@@ -179,7 +183,8 @@ export default function SalesPage() {
 
           {repaySaleId && (
             <div className="card max-w-xl">
-              <h2 className="font-display text-lg font-semibold text-earth-900 mb-4">Record Partial Payment</h2>
+              <h2 className="font-display text-xl font-black text-earth-950 mb-1">Record Customer Repayment</h2>
+              <p className="mb-4 text-sm text-earth-500">Apply a partial or full payment against the selected credit sale.</p>
               <form onSubmit={handleRepaymentSubmit(onRepaymentSubmit)} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3">
                 <input type="number" step="0.01" className="input-field" {...registerRepayment('amount', { valueAsNumber: true })} placeholder="Amount" />
                 <input type="date" className="input-field" {...registerRepayment('paymentDate')} />
@@ -190,7 +195,8 @@ export default function SalesPage() {
           )}
 
           <div className="card overflow-x-auto">
-            <h2 className="font-display text-lg font-semibold text-earth-900 mb-4">Recent Repayments</h2>
+            <h2 className="font-display text-xl font-black text-earth-950 mb-1">Repayment Trail</h2>
+            <p className="mb-4 text-sm text-earth-500">Recent customer payments applied to credit sales.</p>
             {repaymentList.length === 0 ? <div className="text-earth-500">No repayments recorded yet.</div> : (
               <table className="w-full text-sm">
                 <thead>

@@ -39,7 +39,6 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex">
-      {/* Left panel — branding */}
       <div className="hidden lg:flex lg:w-1/2 bg-spice-gradient relative overflow-hidden">
         <div className="absolute inset-0 bg-spice-radial" />
         <div className="absolute -top-20 -right-20 w-80 h-80 rounded-full bg-spice-400/10 blur-3xl" />
@@ -51,23 +50,23 @@ export default function LoginPage() {
               <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-xl">
                 🌶
               </div>
-              <span className="font-display text-xl font-semibold tracking-wide">Taem Baltina</span>
+              <span className="font-display text-xl font-semibold tracking-wide">Taem Baltina Operations</span>
             </div>
 
             <h1 className="font-display text-5xl font-bold leading-tight mb-6">
-              Ethiopian Spice<br />
-              <span className="text-spice-200">Production Hub</span>
+              Spice Inventory<br />
+              <span className="text-spice-200">Control Room</span>
             </h1>
             <p className="text-spice-100/80 text-lg max-w-md leading-relaxed">
-              Track inventory, manage B2B sales, monitor credit, and grow your spice business — all in one place.
+              Track raw materials, production batches, finished goods, customer credit, repayments, and operating costs.
             </p>
           </div>
 
           <div className="grid grid-cols-3 gap-4">
             {[
-              { label: 'Products', value: 'Inventory' },
-              { label: 'Sales', value: 'B2B Credit' },
-              { label: 'Insights', value: 'Dashboard' }
+              { label: 'Goods', value: 'Stock' },
+              { label: 'Credit', value: 'Repayments' },
+              { label: 'Batches', value: 'Production' }
             ].map((item) => (
               <div key={item.label} className="rounded-xl bg-white/10 backdrop-blur-sm p-4 border border-white/10">
                 <div className="text-spice-200 text-xs font-medium uppercase tracking-wider">{item.label}</div>
@@ -82,16 +81,16 @@ export default function LoginPage() {
       <div className="flex-1 flex items-center justify-center bg-spice-50 px-6 py-12">
         <div className="w-full max-w-md">
           <div className="lg:hidden flex items-center gap-3 mb-8 justify-center">
-            <div className="w-10 h-10 rounded-xl bg-spice-600 flex items-center justify-center text-xl">
-              🌶
+              <div className="w-10 h-10 rounded-xl bg-spice-600 flex items-center justify-center text-sm font-black text-white">
+                TB
             </div>
-            <span className="font-display text-2xl font-bold text-earth-900">Taem Baltina</span>
+            <span className="font-display text-2xl font-bold text-earth-900">Taem Baltina Ops</span>
           </div>
 
           <div className="card">
             <div className="mb-8">
-              <h2 className="font-display text-2xl font-bold text-earth-900">Welcome back</h2>
-              <p className="text-earth-500 text-sm mt-1">Sign in to your admin dashboard</p>
+              <h2 className="font-display text-3xl font-black text-earth-950">Open Operations Console</h2>
+              <p className="text-earth-500 text-sm mt-2">Sign in to manage stock, batches, sales, and credit accounts.</p>
             </div>
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">

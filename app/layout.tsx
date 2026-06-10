@@ -15,8 +15,8 @@ const dmSans = DM_Sans({
 })
 
 export const metadata = {
-  title: 'Taem Baltina — Spice Tracker',
-  description: 'Ethiopian spice production, sales, and expense management'
+  title: 'Taem Baltina Operations Console',
+  description: 'Internal spice inventory, production, sales credit, and cost management'
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

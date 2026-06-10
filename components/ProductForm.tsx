@@ -44,28 +44,29 @@ export default function ProductForm({ editingId, onDone }: Props) {
 
   return (
     <div className="card">
-      <h2 className="font-display text-lg font-semibold text-earth-900 mb-4">
-        {editingId ? 'Edit Product' : 'New Product'}
+      <h2 className="font-display text-xl font-black text-earth-950 mb-1">
+        {editingId ? 'Edit Finished Good' : 'Add Finished Good'}
       </h2>
+      <p className="mb-5 text-sm text-earth-500">Finished goods are items you produce and sell to customers.</p>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-earth-700 mb-1.5">Name</label>
+          <label className="block text-sm font-bold text-earth-700 mb-1.5">Product Name</label>
           <input className="input-field" placeholder="e.g. Berbere" {...register('name')} />
         </div>
         <div>
-          <label className="block text-sm font-medium text-earth-700 mb-1.5">Selling Price (ETB)</label>
+          <label className="block text-sm font-bold text-earth-700 mb-1.5">Selling Price (ETB)</label>
           <input type="number" step="0.01" className="input-field" {...register('sellingPrice', { valueAsNumber: true })} />
         </div>
         <div>
-          <label className="block text-sm font-medium text-earth-700 mb-1.5">Stock Quantity</label>
+          <label className="block text-sm font-bold text-earth-700 mb-1.5">Finished Stock On Hand</label>
           <input type="number" className="input-field" {...register('stockQuantity', { valueAsNumber: true })} />
         </div>
         <div>
-          <label className="block text-sm font-medium text-earth-700 mb-1.5">Alert Threshold</label>
+          <label className="block text-sm font-bold text-earth-700 mb-1.5">Reorder Alert Level</label>
           <input type="number" className="input-field" {...register('alertThreshold', { valueAsNumber: true })} />
         </div>
         <button className="btn-primary w-full" type="submit">
-          {editingId ? 'Update Product' : 'Create Product'}
+          {editingId ? 'Update Finished Good' : 'Create Finished Good'}
         </button>
       </form>
     </div>

@@ -75,8 +75,8 @@ export default function ProductRecipeEditor({ productId, productName }: Props) {
   if (!productId) {
     return (
       <div className="card border-dashed">
-        <h2 className="font-display text-lg font-semibold text-earth-900">Recipe / BOM</h2>
-        <p className="text-sm text-earth-500 mt-2">Select a product recipe to manage the raw materials used for each produced unit.</p>
+        <h2 className="font-display text-xl font-black text-earth-950">Production Recipe</h2>
+        <p className="text-sm text-earth-500 mt-2">Select a finished good to define the raw materials consumed for each unit produced.</p>
       </div>
     )
   }
@@ -85,7 +85,7 @@ export default function ProductRecipeEditor({ productId, productName }: Props) {
     <div className="card">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-4">
         <div>
-          <h2 className="font-display text-lg font-semibold text-earth-900">Recipe / BOM</h2>
+          <h2 className="font-display text-xl font-black text-earth-950">Production Recipe</h2>
           <p className="text-sm text-earth-500">Raw materials used to produce one unit of {productName ?? 'this product'}.</p>
         </div>
         <div className="rounded-xl bg-spice-50 px-3 py-2 text-sm text-spice-800">
@@ -124,7 +124,7 @@ export default function ProductRecipeEditor({ productId, productName }: Props) {
                   next[index] = { ...line, quantityPerUnit: Number(event.target.value) }
                   setLines(next)
                 }}
-                placeholder="Qty/unit"
+                placeholder="Qty per unit"
               />
               <button
                 className="btn-secondary !px-3"
@@ -151,10 +151,10 @@ export default function ProductRecipeEditor({ productId, productName }: Props) {
           type="button"
           onClick={() => setLines([...lines, { ingredientId: ingredientList[0]?.id ?? 0, quantityPerUnit: 0.001 }])}
         >
-          Add raw material
+          Add recipe line
         </button>
         <button className="btn-primary" type="button" disabled={saving || recipe.isLoading} onClick={saveRecipe}>
-          {saving ? 'Saving...' : 'Save recipe'}
+          {saving ? 'Saving...' : 'Save production recipe'}
         </button>
       </div>
     </div>
