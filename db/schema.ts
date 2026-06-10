@@ -51,11 +51,22 @@ export const purchases = pgTable('purchases', {
   created_at: timestamp('created_at').defaultNow().notNull()
 })
 
+// Customers that buy products directly or on credit
+export const customers = pgTable('customers', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 255 }).notNull(),
+  phone: varchar('phone', { length: 50 }),
+  notes: text('notes'),
+  created_at: timestamp('created_at').defaultNow().notNull(),
+  updated_at: timestamp('updated_at').defaultNow().notNull()
+})
+
 // Sales (finished-goods sold to customers)
 export const sales = pgTable('sales', {
   id: serial('id').primaryKey(),
   sale_code: varchar('sale_code', { length: 50 }).notNull(),
   product_id: integer('product_id').notNull().references(() => products.id),
+  customer_id: integer('customer_id').references(() => customers.id, { onDelete: 'set null' }),
   quantity: integer('quantity').notNull(),
   unit_price: numeric('unit_price', { precision: 12, scale: 2, mode: 'number' }).notNull(),
   total_amount: numeric('total_amount', { precision: 14, scale: 2, mode: 'number' }).notNull(),
@@ -63,6 +74,16 @@ export const sales = pgTable('sales', {
   balance: numeric('balance', { precision: 14, scale: 2, mode: 'number' }).notNull().default(0),
   payment_status: varchar('payment_status', { length: 20 }).notNull().default('Credit'),
   sale_date: timestamp('sale_date').defaultNow().notNull(),
+  created_at: timestamp('created_at').defaultNow().notNull()
+})
+
+// Production batches consume raw ingredients through product recipes and increase product stock
+export const production_batches = pgTable('production_batches', {
+  id: serial('id').primaryKey(),
+  product_id: integer('product_id').notNull().references(() => products.id),
+  quantity_produced: integer('quantity_produced').notNull(),
+  produced_at: timestamp('produced_at').defaultNow().notNull(),
+  notes: text('notes'),
   created_at: timestamp('created_at').defaultNow().notNull()
 })
 
