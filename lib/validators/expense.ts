@@ -9,3 +9,7 @@ export const expenseCreateSchema = z.object({
 })
 
 export type ExpenseCreate = z.infer<typeof expenseCreateSchema>
+
+export const expensePatchSchema = expenseCreateSchema.partial()
+
+export type ExpensePatch = z.infer<typeof expensePatchSchema>

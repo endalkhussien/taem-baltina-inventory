@@ -28,13 +28,13 @@ Development notes: Drizzle is used for DB modeling and migrations. See `db/schem
 Migrations and seed
 -------------------
 
-After starting the local Postgres (`docker compose up -d`), apply the initial migration and seed sample products:
+After starting the local Postgres (`docker compose up -d`), apply the initial migration and seed sample products, raw ingredients, and product recipes:
 
 ```bash
 npm ci
 # Push schema using drizzle-kit (configured in `drizzle.config.ts`)
 npm run drizzle:push
-# Seed initial products (Berbere, Shiro, Mitmita)
+# Seed initial products (Berbere, Shiro, Mitmita), ingredients, and recipes
 npm run seed
 ```
 

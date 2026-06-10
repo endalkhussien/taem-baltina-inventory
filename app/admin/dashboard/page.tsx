@@ -1,16 +1,18 @@
 "use client"
 import React from 'react'
 import { useProducts } from '../../../hooks/useProducts'
-import { useSales, useExpenses } from '../../../hooks/useModules'
+import { useIngredients, useSales, useExpenses } from '../../../hooks/useModules'
 import AdminNav from '../../../components/AdminNav'
-import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts'
+import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 export default function DashboardPage() {
   const { data: products } = useProducts()
+  const { data: ingredients } = useIngredients()
   const { data: sales } = useSales()
   const { data: expenses } = useExpenses()
 
   const productList = Array.isArray(products) ? products : []
+  const ingredientList = Array.isArray(ingredients) ? ingredients : []
   const salesList = Array.isArray(sales) ? sales : []
   const expensesList = Array.isArray(expenses) ? expenses : []
 
@@ -22,6 +24,7 @@ export default function DashboardPage() {
   const profitMargin = totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : '0'
 
   const lowStockProducts = productList.filter((p: any) => p.stock_quantity <= p.alert_threshold)
+  const lowStockIngredients = ingredientList.filter((i: any) => Number(i.quantity) <= Number(i.alert_threshold))
 
   const revenueByProduct = productList.map((p: any) => ({
     name: p.name,
@@ -79,8 +82,15 @@ export default function DashboardPage() {
 
       {lowStockProducts.length > 0 && (
         <div className="rounded-xl bg-amber-50 border border-amber-200 p-4">
-          <h2 className="text-lg font-semibold text-amber-800 mb-2">⚠️ Low Stock Alert</h2>
+          <h2 className="text-lg font-semibold text-amber-800 mb-2">Low Product Stock Alert</h2>
           <div className="text-sm text-amber-700">{lowStockProducts.map((p: any) => `${p.name}: ${p.stock_quantity} units`).join(', ')}</div>
+        </div>
+      )}
+
+      {lowStockIngredients.length > 0 && (
+        <div className="rounded-xl bg-orange-50 border border-orange-200 p-4">
+          <h2 className="text-lg font-semibold text-orange-800 mb-2">Low Ingredient Stock Alert</h2>
+          <div className="text-sm text-orange-700">{lowStockIngredients.map((i: any) => `${i.name}: ${Number(i.quantity).toFixed(3)} ${i.unit}`).join(', ')}</div>
         </div>
       )}
 
