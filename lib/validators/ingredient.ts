@@ -10,3 +10,7 @@ export const ingredientCreateSchema = z.object({
 })
 
 export type IngredientCreate = z.infer<typeof ingredientCreateSchema>
+
+export const ingredientPatchSchema = ingredientCreateSchema.partial()
+
+export type IngredientPatch = z.infer<typeof ingredientPatchSchema>

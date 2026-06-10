@@ -1,13 +1,37 @@
 "use client"
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useIngredients } from '../../../hooks/useModules'
 import AdminNav from '../../../components/AdminNav'
+import { ingredientCreateSchema } from '../../../lib/validators/ingredient'
 
 export default function IngredientsPage() {
   const { data: ingredients, isLoading, createIngredient, updateIngredient, deleteIngredient } = useIngredients()
   const [editing, setEditing] = useState<number | null>(null)
-  const { register, handleSubmit, reset } = useForm({ defaultValues: { name: '', quantity: 0, unit: '', costPerUnit: 0, alertThreshold: 0 } })
+  const { register, handleSubmit, reset, formState: { errors } } = useForm({
+    resolver: zodResolver(ingredientCreateSchema as any),
+    defaultValues: { name: '', quantity: 0, unit: '', costPerUnit: 0, alertThreshold: 0 }
+  })
+
+  const list = Array.isArray(ingredients) ? ingredients : []
+
+  useEffect(() => {
+    if (editing) {
+      const ingredient = Array.isArray(ingredients) ? ingredients.find((item) => item.id === editing) : null
+      if (ingredient) {
+        reset({
+          name: ingredient.name,
+          quantity: Number(ingredient.quantity),
+          unit: ingredient.unit,
+          costPerUnit: Number(ingredient.cost_per_unit),
+          alertThreshold: Number(ingredient.alert_threshold)
+        })
+      }
+    } else {
+      reset({ name: '', quantity: 0, unit: '', costPerUnit: 0, alertThreshold: 0 })
+    }
+  }, [editing, ingredients, reset])
 
   const onSubmit = async (vals: any) => {
     if (editing) await updateIngredient(editing, vals)
@@ -16,30 +40,100 @@ export default function IngredientsPage() {
     setEditing(null)
   }
 
-  const list = Array.isArray(ingredients) ? ingredients : []
-
   return (
     <>
       <AdminNav />
+      <div className="min-h-screen bg-spice-50">
       <div className="max-w-6xl mx-auto p-6">
-        <h1 className="text-2xl font-semibold mb-6">Ingredients</h1>
+        <div className="mb-8">
+          <h1 className="font-display text-3xl font-bold text-earth-900">Ingredients</h1>
+          <p className="text-earth-500 text-sm mt-1">Manage raw material inventory, costs, and reorder alerts.</p>
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="bg-white shadow rounded p-4">
-            <h2 className="text-lg font-medium mb-3">{editing ? 'Edit' : 'Create'} Ingredient</h2>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
-              <div><label className="block text-sm text-gray-700">Name</label><input className="w-full border rounded px-2 py-1" {...register('name')} /></div>
-              <div><label className="block text-sm text-gray-700">Quantity</label><input type="number" step="0.01" className="w-full border rounded px-2 py-1" {...register('quantity')} /></div>
-              <div><label className="block text-sm text-gray-700">Unit (kg, L, etc)</label><input className="w-full border rounded px-2 py-1" {...register('unit')} /></div>
-              <div><label className="block text-sm text-gray-700">Cost Per Unit (ETB)</label><input type="number" step="0.01" className="w-full border rounded px-2 py-1" {...register('costPerUnit')} /></div>
-              <div><label className="block text-sm text-gray-700">Alert Threshold</label><input type="number" step="0.01" className="w-full border rounded px-2 py-1" {...register('alertThreshold')} /></div>
-              <button className="w-full bg-blue-600 text-white py-2 rounded">{editing ? 'Update' : 'Create'}</button>
+          <div className="card">
+            <h2 className="font-display text-lg font-semibold text-earth-900 mb-4">{editing ? 'Edit Ingredient' : 'New Ingredient'}</h2>
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-earth-700 mb-1.5">Name</label>
+                <input className="input-field" placeholder="e.g. Red pepper" {...register('name')} />
+                {errors.name && <p className="mt-1 text-xs text-red-600">Name is required.</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-earth-700 mb-1.5">Quantity</label>
+                <input type="number" step="0.001" className="input-field" {...register('quantity', { valueAsNumber: true })} />
+                {errors.quantity && <p className="mt-1 text-xs text-red-600">Quantity must be zero or higher.</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-earth-700 mb-1.5">Unit (kg, L, etc)</label>
+                <input className="input-field" placeholder="kg" {...register('unit')} />
+                {errors.unit && <p className="mt-1 text-xs text-red-600">Unit is required.</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-earth-700 mb-1.5">Cost Per Unit (ETB)</label>
+                <input type="number" step="0.01" className="input-field" {...register('costPerUnit', { valueAsNumber: true })} />
+                {errors.costPerUnit && <p className="mt-1 text-xs text-red-600">Cost must be zero or higher.</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-earth-700 mb-1.5">Alert Threshold</label>
+                <input type="number" step="0.001" className="input-field" {...register('alertThreshold', { valueAsNumber: true })} />
+                {errors.alertThreshold && <p className="mt-1 text-xs text-red-600">Alert threshold must be zero or higher.</p>}
+              </div>
+              <div className="flex gap-2">
+                <button className="btn-primary flex-1" type="submit">{editing ? 'Update Ingredient' : 'Create Ingredient'}</button>
+                {editing && (
+                  <button className="btn-secondary" type="button" onClick={() => setEditing(null)}>
+                    Cancel
+                  </button>
+                )}
+              </div>
             </form>
           </div>
-          <div className="lg:col-span-2 bg-white shadow rounded p-4">
-            <h2 className="text-lg font-medium mb-3">Ingredients List</h2>
-            {isLoading ? <div>Loading...</div> : <table className="w-full text-sm"><thead><tr className="text-left text-xs text-gray-500"><th className="pb-2">Name</th><th className="pb-2">Qty</th><th className="pb-2">Unit</th><th className="pb-2">Cost</th><th className="pb-2">Actions</th></tr></thead><tbody>{list.map((i: any) => (<tr key={i.id} className="border-t"><td className="py-2">{i.name}</td><td className="py-2">{i.quantity}</td><td className="py-2">{i.unit}</td><td className="py-2">{Number(i.cost_per_unit).toFixed(2)}</td><td className="py-2 text-sm"><button className="text-blue-600 mr-2" onClick={() => setEditing(i.id)}>Edit</button><button className="text-red-600" onClick={() => deleteIngredient(i.id)}>Delete</button></td></tr>))}</tbody></table>}
+          <div className="lg:col-span-2 card overflow-x-auto">
+            <h2 className="font-display text-lg font-semibold text-earth-900 mb-4">Ingredients List</h2>
+            {isLoading ? (
+              <div className="text-earth-500">Loading ingredients...</div>
+            ) : list.length === 0 ? (
+              <div className="text-earth-500">No ingredients yet.</div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs uppercase tracking-wide text-earth-500">
+                    <th className="pb-3">Name</th>
+                    <th className="pb-3">Qty</th>
+                    <th className="pb-3">Unit</th>
+                    <th className="pb-3">Cost</th>
+                    <th className="pb-3">Alert</th>
+                    <th className="pb-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {list.map((ingredient) => {
+                    const isLowStock = Number(ingredient.quantity) <= Number(ingredient.alert_threshold)
+
+                    return (
+                      <tr key={ingredient.id} className={`border-t border-earth-100 ${isLowStock ? 'bg-amber-50' : ''}`}>
+                        <td className="py-3 font-medium text-earth-900">{ingredient.name}</td>
+                        <td className="py-3 text-earth-700">{Number(ingredient.quantity).toFixed(3)}</td>
+                        <td className="py-3 text-earth-700">{ingredient.unit}</td>
+                        <td className="py-3 text-earth-700">{Number(ingredient.cost_per_unit).toFixed(2)}</td>
+                        <td className="py-3">
+                          <span className={isLowStock ? 'text-amber-700 font-medium' : 'text-earth-700'}>
+                            {Number(ingredient.alert_threshold).toFixed(3)}
+                          </span>
+                        </td>
+                        <td className="py-3 text-sm">
+                          <button className="text-spice-700 hover:text-spice-900 mr-3" onClick={() => setEditing(ingredient.id)}>Edit</button>
+                          <button className="text-red-600 hover:text-red-800" onClick={() => deleteIngredient(ingredient.id)}>Delete</button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
+      </div>
       </div>
     </>
   )

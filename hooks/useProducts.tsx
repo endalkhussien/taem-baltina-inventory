@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 export type Product = {
   id: number
   name: string
-  selling_price: string
+  selling_price: number
   stock_quantity: number
   alert_threshold: number
 }

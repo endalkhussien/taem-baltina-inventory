@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db, schema } from '../../../../lib/db'
 import { eq } from 'drizzle-orm'
-import { z } from 'zod'
+import { ingredientPatchSchema } from '../../../../lib/validators/ingredient'
 
 export async function GET(_request: Request, { params }: { params: { id: string } }) {
   const id = Number(params.id)
@@ -15,16 +15,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   const id = Number(params.id)
   if (!Number.isInteger(id)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
 
-  const patchSchema = z.object({
-    name: z.string().min(1).optional(),
-    quantity: z.union([z.string(), z.number()]).transform((v) => Number(v)).optional(),
-    unit: z.string().min(1).optional(),
-    costPerUnit: z.union([z.string(), z.number()]).transform((v) => Number(v)).optional(),
-    alertThreshold: z.union([z.string(), z.number()]).transform((v) => Number(v)).optional()
-  })
-
   const body = await request.json()
-  const parsed = patchSchema.safeParse(body)
+  const parsed = ingredientPatchSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: parsed.error.format() }, { status: 422 })
 
   const updateData: any = {}
