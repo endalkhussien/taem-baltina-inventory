@@ -31,7 +31,7 @@ export default function SalesPage() {
 
   const productList = Array.isArray(products) ? products : []
   const customerList = Array.isArray(customers) ? customers : []
-  const salesList = Array.isArray(sales) ? sales : []
+  const salesList = useMemo(() => Array.isArray(sales) ? sales : [], [sales])
   const repaymentList = Array.isArray(repayments) ? repayments : []
   const filteredSales = useMemo(
     () => salesList.filter((sale) => new Date(sale.sale_date).toISOString().slice(0, 10) === filterDate),
