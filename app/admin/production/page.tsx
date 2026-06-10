@@ -58,19 +58,25 @@ export default function ProductionPage() {
   return (
     <>
       <AdminNav />
-      <div className="min-h-screen bg-spice-50">
-        <div className="max-w-7xl mx-auto p-4 sm:p-6 space-y-6">
-          <div>
-            <h1 className="font-display text-3xl font-bold text-earth-900">Production</h1>
-            <p className="text-earth-500 text-sm mt-1">Record finished products made from recurring raw-material recipes.</p>
+      <div className="app-page">
+        <div className="app-container">
+          <div className="page-hero">
+            <div className="relative z-10 max-w-3xl">
+              <div className="text-xs font-bold uppercase tracking-[0.28em] text-spice-200">Batch production</div>
+              <h1 className="mt-3 font-display text-4xl font-black leading-tight sm:text-5xl">Convert Raw Materials Into Finished Goods</h1>
+              <p className="mt-3 text-sm leading-6 text-earth-100 sm:text-base">
+                Select a product, enter the batch quantity, and the system deducts every recipe ingredient while increasing finished stock.
+              </p>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="card">
-              <h2 className="font-display text-lg font-semibold text-earth-900 mb-4">New Production Batch</h2>
+              <h2 className="font-display text-xl font-black text-earth-950 mb-1">Record New Batch</h2>
+              <p className="mb-5 text-sm text-earth-500">A batch consumes raw materials from the saved production recipe.</p>
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-earth-700 mb-1.5">Product</label>
+                  <label className="block text-sm font-bold text-earth-700 mb-1.5">Finished Good Produced</label>
                   <select className="input-field" {...register('productId', { valueAsNumber: true })}>
                     <option value={0}>Select product</option>
                     {productList.map((product) => (
@@ -79,18 +85,18 @@ export default function ProductionPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-earth-700 mb-1.5">Quantity Produced</label>
+                  <label className="block text-sm font-bold text-earth-700 mb-1.5">Batch Output Quantity</label>
                   <input type="number" min="1" className="input-field" {...register('quantityProduced', { valueAsNumber: true })} />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-earth-700 mb-1.5">Production Date</label>
+                  <label className="block text-sm font-bold text-earth-700 mb-1.5">Batch Date</label>
                   <input type="date" className="input-field" {...register('producedAt')} />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-earth-700 mb-1.5">Notes</label>
+                  <label className="block text-sm font-bold text-earth-700 mb-1.5">Batch Notes</label>
                   <textarea className="input-field" rows={3} {...register('notes')} placeholder="Batch notes, staff, packaging..." />
                 </div>
-                <button className="btn-primary w-full" type="submit">Record production</button>
+                <button className="btn-primary w-full" type="submit">Post production batch</button>
               </form>
               {message && <div className="mt-4 rounded-xl bg-earth-50 border border-earth-100 p-3 text-sm text-earth-700">{message}</div>}
             </div>
@@ -98,18 +104,18 @@ export default function ProductionPage() {
             <div className="card lg:col-span-2">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <h2 className="font-display text-lg font-semibold text-earth-900">Materials Required</h2>
-                  <p className="text-sm text-earth-500">Preview of raw materials consumed by this batch.</p>
+                  <h2 className="font-display text-xl font-black text-earth-950">Material Consumption Preview</h2>
+                  <p className="text-sm text-earth-500">Raw materials that will be deducted when this batch is posted.</p>
                 </div>
                 <div className="rounded-xl bg-spice-50 px-3 py-2 text-sm text-spice-800">
-                  Estimated material cost: <span className="font-semibold">{materialCost.toFixed(2)} ETB</span>
+                  Estimated batch cost: <span className="font-semibold">{materialCost.toFixed(2)} ETB</span>
                 </div>
               </div>
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {selectedProductId === 0 ? (
                   <div className="rounded-xl border border-dashed border-earth-200 p-4 text-sm text-earth-500 sm:col-span-2">Choose a product to preview material usage.</div>
                 ) : requiredMaterials.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-earth-200 p-4 text-sm text-earth-500 sm:col-span-2">No recipe found. Add recipe lines from the Products page.</div>
+                  <div className="rounded-xl border border-dashed border-earth-200 p-4 text-sm text-earth-500 sm:col-span-2">No recipe found. Add recipe lines from the Finished Goods workspace.</div>
                 ) : requiredMaterials.map((line: any) => (
                   <div key={line.name} className="rounded-xl bg-earth-50 border border-earth-100 p-4">
                     <div className="font-medium text-earth-900">{line.name}</div>
@@ -122,7 +128,8 @@ export default function ProductionPage() {
           </div>
 
           <div className="card overflow-x-auto">
-            <h2 className="font-display text-lg font-semibold text-earth-900 mb-4">Recent Production</h2>
+            <h2 className="font-display text-xl font-black text-earth-950 mb-1">Production Batch History</h2>
+            <p className="mb-4 text-sm text-earth-500">Completed batches and finished goods added to inventory.</p>
             {isLoading ? <div>Loading...</div> : (
               <table className="w-full text-sm">
                 <thead>

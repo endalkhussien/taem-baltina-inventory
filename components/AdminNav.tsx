@@ -4,13 +4,13 @@ import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 
 const links = [
-  { href: '/admin/dashboard', label: 'Dashboard', short: 'Home' },
-  { href: '/admin/production', label: 'Production', short: 'Make' },
-  { href: '/admin/products', label: 'Products', short: 'Goods' },
-  { href: '/admin/ingredients', label: 'Raw Materials', short: 'Raw' },
-  { href: '/admin/sales', label: 'Sales & Credit', short: 'Sales' },
-  { href: '/admin/customers', label: 'Customers', short: 'Clients' },
-  { href: '/admin/expenses', label: 'Expenses', short: 'Costs' }
+  { href: '/admin/dashboard', label: 'Command Center', short: 'Home' },
+  { href: '/admin/production', label: 'Batch Production', short: 'Batch' },
+  { href: '/admin/products', label: 'Finished Goods', short: 'Goods' },
+  { href: '/admin/ingredients', label: 'Raw Material Ledger', short: 'Raw' },
+  { href: '/admin/sales', label: 'Sales & Credit Desk', short: 'Credit' },
+  { href: '/admin/customers', label: 'Customer Accounts', short: 'Clients' },
+  { href: '/admin/expenses', label: 'Operating Costs', short: 'Costs' }
 ]
 
 export default function AdminNav() {
@@ -24,19 +24,19 @@ export default function AdminNav() {
   }
 
   return (
-    <nav className="bg-earth-950 text-white sticky top-0 z-50 border-b border-white/10 shadow-xl shadow-earth-950/10">
+    <nav className="sticky top-0 z-50 border-b border-white/10 bg-earth-950/95 text-white shadow-xl shadow-earth-950/10 backdrop-blur-xl">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
         <Link href="/admin" className="flex items-center gap-2.5 group">
-          <div className="w-9 h-9 rounded-xl bg-spice-600 flex items-center justify-center text-sm group-hover:bg-spice-500 transition-colors shadow-spice">
+          <div className="w-10 h-10 rounded-2xl bg-spice-600 flex items-center justify-center text-sm font-black group-hover:bg-spice-500 transition-colors shadow-spice">
             TB
           </div>
           <div>
             <span className="font-display text-lg font-semibold tracking-wide leading-none">Taem Baltina</span>
-            <div className="hidden sm:block text-[11px] uppercase tracking-[0.2em] text-earth-300">Inventory desk</div>
+            <div className="hidden sm:block text-[11px] uppercase tracking-[0.2em] text-earth-300">Operations console</div>
           </div>
         </Link>
 
-        <div className="hidden lg:flex gap-1 items-center rounded-xl bg-white/5 p-1">
+        <div className="hidden xl:flex gap-1 items-center rounded-2xl bg-white/5 p-1 ring-1 ring-white/10">
           {links.map((link) => (
             <Link
               key={link.href}
@@ -50,14 +50,14 @@ export default function AdminNav() {
 
         <button
           onClick={logout}
-          className="rounded-lg bg-red-600/90 px-4 py-2 text-sm font-medium hover:bg-red-600 transition-colors"
+          className="rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-earth-100 ring-1 ring-white/10 transition-colors hover:bg-red-600 hover:text-white"
         >
-          Logout
+          Sign out
         </button>
       </div>
 
       {/* Mobile nav */}
-      <div className="lg:hidden flex gap-1 px-4 pb-3 overflow-x-auto">
+      <div className="xl:hidden flex gap-2 px-4 pb-3 overflow-x-auto">
         {links.map((link) => (
           <Link
             key={link.href}

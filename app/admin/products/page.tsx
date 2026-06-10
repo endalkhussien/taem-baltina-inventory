@@ -16,11 +16,14 @@ export default function ProductsPage() {
   return (
     <>
       <AdminNav />
-      <div className="min-h-screen bg-spice-50">
-      <div className="max-w-6xl mx-auto p-6">
-        <div className="mb-8">
-          <h1 className="font-display text-3xl font-bold text-earth-900">Products</h1>
-          <p className="text-earth-500 text-sm mt-1">Manage finished goods, selling prices, recipes, and product stock.</p>
+      <div className="app-page">
+      <div className="app-container">
+        <div className="page-hero-subtle">
+          <div className="eyebrow">Finished goods catalog</div>
+          <h1 className="mt-2 font-display text-4xl font-black text-earth-950">Finished Goods Ready to Sell</h1>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-earth-500">
+            Maintain selling prices, available stock, reorder alerts, and the recipes that connect each product to raw materials.
+          </p>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1">

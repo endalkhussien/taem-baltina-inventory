@@ -8,32 +8,87 @@
   }
 
   body {
-    @apply font-sans antialiased;
+    @apply min-h-screen bg-earth-50 font-sans antialiased text-earth-900;
+    background:
+      radial-gradient(circle at top left, rgba(212, 120, 42, 0.12), transparent 34rem),
+      radial-gradient(circle at bottom right, rgba(58, 22, 12, 0.08), transparent 28rem),
+      #f6f3ef;
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-spice-600 px-5 py-2.5 text-sm font-semibold text-white shadow-spice transition-all duration-200 hover:bg-spice-700 hover:shadow-spice-lg active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-spice-700 px-5 py-2.5 text-sm font-semibold text-white shadow-spice transition-all duration-200 hover:-translate-y-0.5 hover:bg-spice-800 hover:shadow-spice-lg active:translate-y-0 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-earth-200 bg-white px-5 py-2.5 text-sm font-semibold text-earth-800 transition-all duration-200 hover:border-spice-300 hover:bg-spice-50 active:scale-[0.98];
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-earth-200 bg-white/90 px-5 py-2.5 text-sm font-semibold text-earth-800 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-spice-300 hover:bg-spice-50 active:translate-y-0 active:scale-[0.98];
   }
 
   .input-field {
-    @apply w-full rounded-lg border border-earth-200 bg-white px-4 py-2.5 text-sm text-earth-900 placeholder:text-earth-400 transition-colors duration-200 focus:border-spice-400 focus:outline-none focus:ring-2 focus:ring-spice-200;
+    @apply w-full rounded-xl border border-earth-200 bg-white/95 px-4 py-2.5 text-sm text-earth-900 shadow-sm placeholder:text-earth-400 transition-all duration-200 focus:border-spice-400 focus:outline-none focus:ring-4 focus:ring-spice-100;
   }
 
   .card {
-    @apply rounded-2xl border border-earth-100 bg-white p-6 shadow-spice;
+    @apply rounded-3xl border border-white/70 bg-white/90 p-6 shadow-spice backdrop-blur-sm;
+  }
+
+  .app-page {
+    @apply min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(212,120,42,0.12),transparent_28rem)] px-4 py-5 sm:px-6 lg:px-8;
+  }
+
+  .app-container {
+    @apply mx-auto max-w-7xl space-y-6;
+  }
+
+  .page-hero {
+    @apply relative overflow-hidden rounded-[2rem] border border-white/70 bg-earth-950 p-6 text-white shadow-spice-lg sm:p-8;
+    background:
+      radial-gradient(circle at top left, rgba(222, 148, 71, 0.32), transparent 24rem),
+      linear-gradient(135deg, #281c18 0%, #3a160c 46%, #83391e 100%);
+  }
+
+  .page-hero-subtle {
+    @apply relative overflow-hidden rounded-[2rem] border border-earth-100 bg-white/90 p-6 shadow-spice sm:p-8;
+  }
+
+  .eyebrow {
+    @apply text-xs font-bold uppercase tracking-[0.24em] text-spice-500;
+  }
+
+  .metric-card {
+    @apply rounded-3xl border border-white/70 bg-white/90 p-5 shadow-spice backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-spice-lg;
+  }
+
+  .metric-label {
+    @apply text-xs font-bold uppercase tracking-[0.18em] text-earth-500;
+  }
+
+  .metric-value {
+    @apply mt-2 text-2xl font-black tracking-tight text-earth-950;
+  }
+
+  .table-shell {
+    @apply overflow-x-auto rounded-2xl border border-earth-100 bg-white/70;
+  }
+
+  .table-head {
+    @apply bg-earth-50 text-left text-[11px] font-bold uppercase tracking-[0.18em] text-earth-500;
+  }
+
+  .table-row {
+    @apply border-t border-earth-100 transition-colors hover:bg-spice-50/60;
+  }
+
+  .status-pill {
+    @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-bold;
   }
 
   .nav-link {
-    @apply rounded-lg px-3 py-2 text-sm font-medium text-earth-200 transition-colors duration-200 hover:bg-white/10 hover:text-white;
+    @apply rounded-xl px-3 py-2 text-sm font-semibold text-earth-200 transition-all duration-200 hover:bg-white/10 hover:text-white;
   }
 
   .nav-link-active {
-    @apply rounded-lg bg-white/15 px-3 py-2 text-sm font-medium text-white;
+    @apply rounded-xl bg-white px-3 py-2 text-sm font-bold text-earth-950 shadow-sm;
   }
 }
