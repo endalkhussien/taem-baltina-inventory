@@ -1,10 +1,15 @@
 import { NextResponse } from 'next/server'
 import { db, schema } from '../../../lib/db'
 import { ingredientCreateSchema } from '../../../lib/validators/ingredient'
+import { databaseErrorResponse } from '../../../lib/apiErrors'
 
 export async function GET() {
-  const ingredients = await db.select().from(schema.ingredients)
-  return NextResponse.json(ingredients)
+  try {
+    const ingredients = await db.select().from(schema.ingredients)
+    return NextResponse.json(ingredients)
+  } catch (err) {
+    return databaseErrorResponse(err, 'Could not load raw materials')
+  }
 }
 
 export async function POST(request: Request) {
@@ -28,6 +33,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json(created, { status: 201 })
   } catch (err) {
-    return NextResponse.json({ error: String(err) }, { status: 500 })
+    return databaseErrorResponse(err, 'Could not create raw material')
   }
 }

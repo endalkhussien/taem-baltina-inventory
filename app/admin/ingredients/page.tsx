@@ -9,9 +9,11 @@ import { ingredientCreateSchema } from '../../../lib/validators/ingredient'
 const today = new Date().toISOString().slice(0, 10)
 
 export default function IngredientsPage() {
-  const { data: ingredients, isLoading, createIngredient, updateIngredient, deleteIngredient } = useIngredients()
+  const { data: ingredients, isLoading, createIngredient, updateIngredient, isCreatingIngredient, isUpdatingIngredient, deleteIngredient } = useIngredients()
   const { data: purchases, createPurchase } = usePurchases()
   const [editing, setEditing] = useState<number | null>(null)
+  const [submitError, setSubmitError] = useState('')
+  const isSaving = isCreatingIngredient || isUpdatingIngredient
   const { register, handleSubmit, reset, formState: { errors } } = useForm({
     resolver: zodResolver(ingredientCreateSchema as any),
     defaultValues: { name: '', quantity: 0, unit: '', costPerUnit: 0, alertThreshold: 0 }
@@ -41,10 +43,16 @@ export default function IngredientsPage() {
   }, [editing, ingredients, reset])
 
   const onSubmit = async (vals: any) => {
-    if (editing) await updateIngredient(editing, vals)
-    else await createIngredient(vals)
-    reset()
-    setEditing(null)
+    setSubmitError('')
+
+    try {
+      if (editing) await updateIngredient(editing, vals)
+      else await createIngredient(vals)
+      reset()
+      setEditing(null)
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Could not save raw material.')
+    }
   }
 
   const onPurchaseSubmit = async (vals: any) => {
@@ -96,13 +104,20 @@ export default function IngredientsPage() {
                 {errors.alertThreshold && <p className="mt-1 text-xs text-red-600">Alert threshold must be zero or higher.</p>}
               </div>
               <div className="flex gap-2">
-                <button className="btn-primary flex-1" type="submit">{editing ? 'Update Raw Material' : 'Create Raw Material'}</button>
+                <button className="btn-primary flex-1" type="submit" disabled={isSaving}>
+                  {isSaving ? 'Saving...' : editing ? 'Update Raw Material' : 'Create Raw Material'}
+                </button>
                 {editing && (
                   <button className="btn-secondary" type="button" onClick={() => setEditing(null)}>
                     Cancel
                   </button>
                 )}
               </div>
+              {submitError && (
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                  {submitError}
+                </div>
+              )}
             </form>
           </div>
           <div className="card">
