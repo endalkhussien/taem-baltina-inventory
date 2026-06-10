@@ -5,13 +5,18 @@ import { useForm } from 'react-hook-form'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
+type LoginFormValues = {
+  username: string
+  password: string
+}
+
 export default function LoginPage() {
-  const { register, handleSubmit } = useForm()
+  const { register, handleSubmit } = useForm<LoginFormValues>()
   const router = useRouter()
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const onSubmit = async (data: { username: string; password: string }) => {
+  const onSubmit = async (data: LoginFormValues) => {
     setError('')
     setLoading(true)
     try {

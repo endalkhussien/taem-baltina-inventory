@@ -1,6 +1,7 @@
 node_modules
 .next
 .env
+tsconfig.tsbuildinfo
 /dist
 /.vscode
 **/.DS_Store
