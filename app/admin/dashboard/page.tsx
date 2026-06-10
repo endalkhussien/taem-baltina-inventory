@@ -1,25 +1,35 @@
 "use client"
 import React from 'react'
 import { useProducts } from '../../../hooks/useProducts'
-import { useIngredients, useSales, useExpenses } from '../../../hooks/useModules'
+import { useCustomers, useIngredients, useProduction, useSales, useExpenses } from '../../../hooks/useModules'
 import AdminNav from '../../../components/AdminNav'
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 export default function DashboardPage() {
   const { data: products } = useProducts()
   const { data: ingredients } = useIngredients()
+  const { data: customers } = useCustomers()
+  const { data: production } = useProduction()
   const { data: sales } = useSales()
   const { data: expenses } = useExpenses()
 
   const productList = Array.isArray(products) ? products : []
   const ingredientList = Array.isArray(ingredients) ? ingredients : []
+  const customerList = Array.isArray(customers) ? customers : []
+  const productionList = Array.isArray(production) ? production : []
   const salesList = Array.isArray(sales) ? sales : []
   const expensesList = Array.isArray(expenses) ? expenses : []
+  const today = new Date().toISOString().slice(0, 10)
+  const todaySales = salesList.filter((s: any) => new Date(s.sale_date).toISOString().slice(0, 10) === today)
+  const todayProduction = productionList.filter((batch: any) => new Date(batch.produced_at).toISOString().slice(0, 10) === today)
 
   const totalRevenue = salesList.reduce((acc, s: any) => acc + Number(s.total_amount), 0)
   const totalCashCollected = salesList.reduce((acc, s: any) => acc + Number(s.amount_paid), 0)
   const totalExpenses = expensesList.reduce((acc, e: any) => acc + Number(e.amount), 0)
   const outstandingCredit = salesList.reduce((acc, s: any) => acc + Number(s.balance), 0)
+  const todayRevenue = todaySales.reduce((acc, s: any) => acc + Number(s.total_amount), 0)
+  const todayProduced = todayProduction.reduce((acc, batch: any) => acc + Number(batch.quantity_produced), 0)
+  const customersWithCredit = customerList.filter((customer: any) => Number(customer.outstanding_balance) > 0)
   const netProfit = totalRevenue - totalExpenses
   const profitMargin = totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : '0'
 
@@ -46,8 +56,27 @@ export default function DashboardPage() {
       <div className="min-h-screen bg-spice-50">
       <div className="max-w-7xl mx-auto p-6 space-y-6">
       <div>
-        <h1 className="font-display text-3xl font-bold text-earth-900">Financial Dashboard</h1>
-        <p className="text-earth-500 text-sm mt-1">Overview of revenue, expenses, and profit</p>
+        <h1 className="font-display text-3xl font-bold text-earth-900">Inventory Dashboard</h1>
+        <p className="text-earth-500 text-sm mt-1">Daily production, sales, customer credit, and stock health.</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="card !p-5 border-l-4 border-l-spice-500">
+          <div className="text-sm text-earth-500">Today Sales (ETB)</div>
+          <div className="text-2xl font-bold text-spice-600 mt-1">{todayRevenue.toFixed(2)}</div>
+        </div>
+        <div className="card !p-5 border-l-4 border-l-amber-500">
+          <div className="text-sm text-earth-500">Today Produced</div>
+          <div className="text-2xl font-bold text-amber-600 mt-1">{todayProduced}</div>
+        </div>
+        <div className="card !p-5 border-l-4 border-l-red-500">
+          <div className="text-sm text-earth-500">Customers With Credit</div>
+          <div className="text-2xl font-bold text-red-600 mt-1">{customersWithCredit.length}</div>
+        </div>
+        <div className="card !p-5 border-l-4 border-l-orange-500">
+          <div className="text-sm text-earth-500">Low Raw Materials</div>
+          <div className="text-2xl font-bold text-orange-600 mt-1">{lowStockIngredients.length}</div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

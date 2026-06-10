@@ -3,7 +3,7 @@
 import React from 'react'
 import { useProducts } from '../hooks/useProducts'
 
-export default function ProductList({ onEdit }: { onEdit: (id: number) => void }) {
+export default function ProductList({ onEdit, onRecipe }: { onEdit: (id: number) => void; onRecipe: (id: number) => void }) {
   const { data: products, isLoading, refetch, deleteProduct } = useProducts()
 
   if (isLoading) {
@@ -53,6 +53,9 @@ export default function ProductList({ onEdit }: { onEdit: (id: number) => void }
                   <td className="px-6 py-3">
                     <button className="text-sm text-spice-600 hover:text-spice-700 font-medium mr-4" onClick={() => onEdit(p.id)}>
                       Edit
+                    </button>
+                    <button className="text-sm text-earth-700 hover:text-earth-900 font-medium mr-4" onClick={() => onRecipe(p.id)}>
+                      Recipe
                     </button>
                     <button
                       className="text-sm text-red-500 hover:text-red-700 font-medium"

@@ -3,7 +3,6 @@
 import React, { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 
 type LoginFormValues = {
   username: string
@@ -142,12 +141,6 @@ export default function LoginPage() {
               Default credentials: <span className="font-medium text-earth-600">admin</span> / <span className="font-medium text-earth-600">password</span>
             </p>
           </div>
-
-          <p className="text-center text-sm text-earth-500 mt-6">
-            <Link href="/" className="hover:text-spice-600 transition-colors">
-              ← Back to home
-            </Link>
-          </p>
         </div>
       </div>
     </div>

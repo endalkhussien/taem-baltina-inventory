@@ -2,10 +2,12 @@ import Link from 'next/link'
 import AdminNav from '../../components/AdminNav'
 
 const modules = [
-  { href: '/admin/dashboard', label: 'Dashboard', desc: 'Revenue, profit & charts', icon: '📊', color: 'from-blue-500 to-blue-700' },
-  { href: '/admin/products', label: 'Products', desc: 'Finished goods inventory', icon: '📦', color: 'from-spice-500 to-spice-700' },
-  { href: '/admin/ingredients', label: 'Ingredients', desc: 'Raw materials & stock', icon: '🌿', color: 'from-green-500 to-green-700' },
-  { href: '/admin/sales', label: 'Sales', desc: 'B2B sales & credit', icon: '💰', color: 'from-purple-500 to-purple-700' },
+  { href: '/admin/dashboard', label: 'Dashboard', desc: 'Today sales, credit, stock alerts', icon: '📊', color: 'from-blue-500 to-blue-700' },
+  { href: '/admin/production', label: 'Production', desc: 'Convert raw materials to products', icon: '🏭', color: 'from-amber-500 to-amber-700' },
+  { href: '/admin/products', label: 'Products', desc: 'Finished goods, recipes, margins', icon: '📦', color: 'from-spice-500 to-spice-700' },
+  { href: '/admin/ingredients', label: 'Raw Materials', desc: 'Stock, cost, restock history', icon: '🌿', color: 'from-green-500 to-green-700' },
+  { href: '/admin/sales', label: 'Sales & Credit', desc: 'Daily sales and partial payments', icon: '💰', color: 'from-purple-500 to-purple-700' },
+  { href: '/admin/customers', label: 'Customers', desc: 'Credit customers and balances', icon: '🤝', color: 'from-cyan-500 to-cyan-700' },
   { href: '/admin/expenses', label: 'Expenses', desc: 'Track business costs', icon: '🧾', color: 'from-red-500 to-red-700' }
 ]
 

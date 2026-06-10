@@ -2,19 +2,26 @@
 import React, { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useIngredients } from '../../../hooks/useModules'
+import { useIngredients, usePurchases } from '../../../hooks/useModules'
 import AdminNav from '../../../components/AdminNav'
 import { ingredientCreateSchema } from '../../../lib/validators/ingredient'
 
+const today = new Date().toISOString().slice(0, 10)
+
 export default function IngredientsPage() {
   const { data: ingredients, isLoading, createIngredient, updateIngredient, deleteIngredient } = useIngredients()
+  const { data: purchases, createPurchase } = usePurchases()
   const [editing, setEditing] = useState<number | null>(null)
   const { register, handleSubmit, reset, formState: { errors } } = useForm({
     resolver: zodResolver(ingredientCreateSchema as any),
     defaultValues: { name: '', quantity: 0, unit: '', costPerUnit: 0, alertThreshold: 0 }
   })
+  const { register: registerPurchase, handleSubmit: handlePurchaseSubmit, reset: resetPurchase } = useForm({
+    defaultValues: { ingredientId: 0, quantity: 0, costTotal: 0, supplier: '', purchaseDate: today }
+  })
 
   const list = Array.isArray(ingredients) ? ingredients : []
+  const purchaseList = Array.isArray(purchases) ? purchases : []
 
   useEffect(() => {
     if (editing) {
@@ -40,6 +47,11 @@ export default function IngredientsPage() {
     setEditing(null)
   }
 
+  const onPurchaseSubmit = async (vals: any) => {
+    await createPurchase(vals)
+    resetPurchase({ ingredientId: 0, quantity: 0, costTotal: 0, supplier: '', purchaseDate: today })
+  }
+
   return (
     <>
       <AdminNav />
@@ -50,6 +62,7 @@ export default function IngredientsPage() {
           <p className="text-earth-500 text-sm mt-1">Manage raw material inventory, costs, and reorder alerts.</p>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="space-y-6">
           <div className="card">
             <h2 className="font-display text-lg font-semibold text-earth-900 mb-4">{editing ? 'Edit Ingredient' : 'New Ingredient'}</h2>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -87,6 +100,40 @@ export default function IngredientsPage() {
                 )}
               </div>
             </form>
+          </div>
+          <div className="card">
+            <h2 className="font-display text-lg font-semibold text-earth-900 mb-4">Restock Raw Material</h2>
+            <form onSubmit={handlePurchaseSubmit(onPurchaseSubmit)} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-earth-700 mb-1.5">Ingredient</label>
+                <select className="input-field" {...registerPurchase('ingredientId', { valueAsNumber: true })}>
+                  <option value={0}>Select ingredient</option>
+                  {list.map((ingredient) => (
+                    <option key={ingredient.id} value={ingredient.id}>{ingredient.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-earth-700 mb-1.5">Quantity</label>
+                  <input type="number" step="0.001" className="input-field" {...registerPurchase('quantity', { valueAsNumber: true })} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-earth-700 mb-1.5">Total Cost</label>
+                  <input type="number" step="0.01" className="input-field" {...registerPurchase('costTotal', { valueAsNumber: true })} />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-earth-700 mb-1.5">Supplier</label>
+                <input className="input-field" {...registerPurchase('supplier')} placeholder="Market, farmer, vendor..." />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-earth-700 mb-1.5">Purchase Date</label>
+                <input type="date" className="input-field" {...registerPurchase('purchaseDate')} />
+              </div>
+              <button className="btn-primary w-full" type="submit">Record restock</button>
+            </form>
+          </div>
           </div>
           <div className="lg:col-span-2 card overflow-x-auto">
             <h2 className="font-display text-lg font-semibold text-earth-900 mb-4">Ingredients List</h2>
@@ -132,6 +179,35 @@ export default function IngredientsPage() {
               </table>
             )}
           </div>
+        </div>
+        <div className="card overflow-x-auto mt-6">
+          <h2 className="font-display text-lg font-semibold text-earth-900 mb-4">Purchase History</h2>
+          {purchaseList.length === 0 ? (
+            <div className="text-earth-500">No purchases recorded yet.</div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase tracking-wide text-earth-500">
+                  <th className="pb-3">Date</th>
+                  <th className="pb-3">Ingredient</th>
+                  <th className="pb-3">Qty</th>
+                  <th className="pb-3">Cost</th>
+                  <th className="pb-3">Supplier</th>
+                </tr>
+              </thead>
+              <tbody>
+                {purchaseList.slice(0, 12).map((purchase) => (
+                  <tr key={purchase.id} className="border-t border-earth-100">
+                    <td className="py-3">{new Date(purchase.purchase_date).toLocaleDateString()}</td>
+                    <td className="py-3 font-medium text-earth-900">{purchase.ingredient_name}</td>
+                    <td className="py-3">{Number(purchase.quantity).toFixed(3)}</td>
+                    <td className="py-3">{Number(purchase.cost_total).toFixed(2)} ETB</td>
+                    <td className="py-3 text-earth-500">{purchase.supplier || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
       </div>

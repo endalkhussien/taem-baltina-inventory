@@ -54,6 +54,12 @@ const recipes = [
   }
 ]
 
+const customers = [
+  { name: 'Merkato Mini Market', phone: '+251911000001', notes: 'Wholesale buyer, usually pays weekly.' },
+  { name: 'Addis Restaurant Supply', phone: '+251911000002', notes: 'Buys Berbere and Shiro on partial credit.' },
+  { name: 'Bole Grocery', phone: '+251911000003', notes: 'Prefers monthly statement.' }
+]
+
 async function seed() {
   const client = await pool.connect()
   try {
@@ -112,6 +118,20 @@ async function seed() {
       }
 
       console.log('Seeded recipe for', recipe.product)
+    }
+
+    for (const customer of customers) {
+      const res = await client.query('SELECT id FROM customers WHERE name = $1', [customer.name])
+      if (res.rowCount === 0) {
+        await client.query(
+          `INSERT INTO customers (name, phone, notes, created_at, updated_at)
+           VALUES ($1, $2, $3, now(), now())`,
+          [customer.name, customer.phone, customer.notes]
+        )
+        console.log('Inserted customer', customer.name)
+      } else {
+        console.log('Already exists customer:', customer.name)
+      }
     }
   } finally {
     client.release()

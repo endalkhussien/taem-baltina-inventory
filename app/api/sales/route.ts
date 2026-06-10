@@ -1,10 +1,37 @@
 import { NextResponse } from 'next/server'
 import { db, schema } from '../../../lib/db'
 import { saleCreateSchema } from '../../../lib/validators/sale'
-import { and, eq, gte, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, sql } from 'drizzle-orm'
+
+function parseDate(value?: string) {
+  if (!value) return new Date()
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? null : date
+}
 
 export async function GET() {
-  const sales = await db.select().from(schema.sales)
+  const sales = await db
+    .select({
+      id: schema.sales.id,
+      sale_code: schema.sales.sale_code,
+      product_id: schema.sales.product_id,
+      product_name: schema.products.name,
+      customer_id: schema.sales.customer_id,
+      customer_name: schema.customers.name,
+      quantity: schema.sales.quantity,
+      unit_price: schema.sales.unit_price,
+      total_amount: schema.sales.total_amount,
+      amount_paid: schema.sales.amount_paid,
+      balance: schema.sales.balance,
+      payment_status: schema.sales.payment_status,
+      sale_date: schema.sales.sale_date,
+      created_at: schema.sales.created_at
+    })
+    .from(schema.sales)
+    .leftJoin(schema.products, eq(schema.sales.product_id, schema.products.id))
+    .leftJoin(schema.customers, eq(schema.sales.customer_id, schema.customers.id))
+    .orderBy(desc(schema.sales.sale_date))
+
   return NextResponse.json(sales)
 }
 
@@ -14,11 +41,17 @@ export async function POST(request: Request) {
     const parsed = saleCreateSchema.safeParse(body)
     if (!parsed.success) return NextResponse.json({ error: parsed.error.format() }, { status: 422 })
 
-    const { productId, quantity, unitPrice, amountPaid = 0 } = parsed.data
+    const { productId, customerId = 0, quantity, unitPrice, amountPaid = 0, saleDate } = parsed.data
+    const parsedSaleDate = parseDate(saleDate)
+    if (!parsedSaleDate) return NextResponse.json({ error: 'Invalid sale date.' }, { status: 422 })
 
     const totalAmount = quantity * unitPrice
     if (amountPaid > totalAmount) {
       return NextResponse.json({ error: 'Amount paid cannot exceed the sale total.' }, { status: 422 })
+    }
+
+    if (amountPaid < totalAmount && customerId === 0) {
+      return NextResponse.json({ error: 'Credit or partial sales must be linked to a customer.' }, { status: 422 })
     }
 
     const balance = totalAmount - amountPaid
@@ -27,6 +60,16 @@ export async function POST(request: Request) {
     const saleCode = `S-${Date.now()}`
 
     const result = await db.transaction(async (tx) => {
+      if (customerId > 0) {
+        const [customer] = await tx
+          .select({ id: schema.customers.id })
+          .from(schema.customers)
+          .where(eq(schema.customers.id, customerId))
+          .limit(1)
+
+        if (!customer) return { error: 'Customer not found.', status: 404 as const }
+      }
+
       const [updatedProduct] = await tx
         .update(schema.products)
         .set({ stock_quantity: sql`${schema.products.stock_quantity} - ${quantity}` })
@@ -46,12 +89,14 @@ export async function POST(request: Request) {
         .values({
           sale_code: saleCode,
           product_id: productId,
+          customer_id: customerId > 0 ? customerId : null,
           quantity,
           unit_price: unitPrice,
           total_amount: totalAmount,
           amount_paid: amountPaid,
           balance,
-          payment_status: paymentStatus
+          payment_status: paymentStatus,
+          sale_date: parsedSaleDate
         })
         .returning()
 
