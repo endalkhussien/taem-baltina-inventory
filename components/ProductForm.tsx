@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { productCreateSchema } from '../lib/validators/product'
@@ -12,9 +12,11 @@ type Props = {
 }
 
 export default function ProductForm({ editingId, onDone }: Props) {
-  const { data: products, createProduct, updateProduct } = useProducts()
+  const { data: products, createProduct, updateProduct, isCreatingProduct, isUpdatingProduct } = useProducts()
+  const [submitError, setSubmitError] = useState('')
+  const isSaving = isCreatingProduct || isUpdatingProduct
 
-  const { register, handleSubmit, reset } = useForm({
+  const { register, handleSubmit, reset, formState: { errors } } = useForm({
     resolver: zodResolver(productCreateSchema as any),
     defaultValues: { name: '', sellingPrice: 0, stockQuantity: 0, alertThreshold: 0 }
   })
@@ -36,10 +38,16 @@ export default function ProductForm({ editingId, onDone }: Props) {
   }, [editingId, products, reset])
 
   const onSubmit = async (vals: any) => {
-    if (editingId) await updateProduct(editingId, vals)
-    else await createProduct(vals)
-    reset()
-    onDone?.()
+    setSubmitError('')
+
+    try {
+      if (editingId) await updateProduct(editingId, vals)
+      else await createProduct(vals)
+      reset()
+      onDone?.()
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Could not save finished good.')
+    }
   }
 
   return (
@@ -52,21 +60,30 @@ export default function ProductForm({ editingId, onDone }: Props) {
         <div>
           <label className="block text-sm font-bold text-earth-700 mb-1.5">Product Name</label>
           <input className="input-field" placeholder="e.g. Berbere" {...register('name')} />
+          {errors.name && <p className="mt-1 text-xs font-semibold text-red-600">Product name is required.</p>}
         </div>
         <div>
           <label className="block text-sm font-bold text-earth-700 mb-1.5">Selling Price (ETB)</label>
           <input type="number" step="0.01" className="input-field" {...register('sellingPrice', { valueAsNumber: true })} />
+          {errors.sellingPrice && <p className="mt-1 text-xs font-semibold text-red-600">Selling price must be zero or higher.</p>}
         </div>
         <div>
           <label className="block text-sm font-bold text-earth-700 mb-1.5">Finished Stock On Hand</label>
           <input type="number" className="input-field" {...register('stockQuantity', { valueAsNumber: true })} />
+          {errors.stockQuantity && <p className="mt-1 text-xs font-semibold text-red-600">Stock must be a whole number zero or higher.</p>}
         </div>
         <div>
           <label className="block text-sm font-bold text-earth-700 mb-1.5">Reorder Alert Level</label>
           <input type="number" className="input-field" {...register('alertThreshold', { valueAsNumber: true })} />
+          {errors.alertThreshold && <p className="mt-1 text-xs font-semibold text-red-600">Alert level must be a whole number zero or higher.</p>}
         </div>
-        <button className="btn-primary w-full" type="submit">
-          {editingId ? 'Update Finished Good' : 'Create Finished Good'}
+        {submitError && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+            {submitError}
+          </div>
+        )}
+        <button className="btn-primary w-full" type="submit" disabled={isSaving}>
+          {isSaving ? 'Saving...' : editingId ? 'Update Finished Good' : 'Create Finished Good'}
         </button>
       </form>
     </div>
