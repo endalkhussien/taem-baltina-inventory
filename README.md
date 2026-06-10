@@ -25,6 +25,11 @@ npm run dev
 
 Development notes: Drizzle is used for DB modeling and migrations. See `db/schema.ts` for table definitions.
 
+Live deployment
+---------------
+
+See [`DEPLOYMENT.md`](./DEPLOYMENT.md) for step-by-step instructions to put the app live with Vercel and Neon Postgres.
+
 Migrations and seed
 -------------------
 
