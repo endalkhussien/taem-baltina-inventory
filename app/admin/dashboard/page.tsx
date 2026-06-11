@@ -72,7 +72,10 @@ export default function DashboardPage() {
   const periodProduced = periodProduction.reduce((acc, batch: any) => acc + Number(batch.quantity_produced), 0)
   const periodSoldUnits = periodSales.reduce((acc, sale: any) => acc + Number(sale.quantity), 0)
   const periodNetCash = periodCash + periodRepaymentCash - periodOperatingCosts - periodPurchaseCosts
-  const netProfit = totalRevenue - totalExpenses - purchaseList.reduce((acc, purchase: any) => acc + Number(purchase.cost_total), 0)
+  const periodNetProfit = periodRevenue - periodOperatingCosts - periodPurchaseCosts
+  const periodProfitMargin = periodRevenue > 0 ? ((periodNetProfit / periodRevenue) * 100).toFixed(1) : '0'
+  const totalPurchaseCosts = purchaseList.reduce((acc, purchase: any) => acc + Number(purchase.cost_total), 0)
+  const netProfit = totalRevenue - totalExpenses - totalPurchaseCosts
   const profitMargin = totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : '0'
 
   const lowStockProducts = productList.filter((p: any) => p.stock_quantity <= p.alert_threshold)
@@ -166,6 +169,24 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="metric-card">
+          <div className="metric-label">Today&apos;s sales</div>
+          <div className="metric-value text-spice-700">{todayRevenue.toFixed(2)} ETB</div>
+          <div className="mt-2 text-xs font-semibold text-earth-500">{todaySales.length} sale{todaySales.length === 1 ? '' : 's'} posted today.</div>
+        </div>
+        <div className="metric-card">
+          <div className="metric-label">Today&apos;s production</div>
+          <div className="metric-value text-amber-700">{todayProduced} units</div>
+          <div className="mt-2 text-xs font-semibold text-earth-500">{todayProduction.length} batch{todayProduction.length === 1 ? '' : 'es'} completed today.</div>
+        </div>
+        <Link href="/admin/customers" className="metric-card block">
+          <div className="metric-label">Credit customers</div>
+          <div className="metric-value text-red-700">{customersWithCredit.length}</div>
+          <div className="mt-2 text-xs font-semibold text-earth-500">Click to review customer balances.</div>
+        </Link>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Link href="/admin/ingredients" className="metric-card block">
           <div className="metric-label">Raw materials value</div>
@@ -218,6 +239,22 @@ export default function DashboardPage() {
         <div className="metric-card">
           <div className="metric-label">Net cash movement</div>
           <div className={`metric-value ${periodNetCash >= 0 ? 'text-green-700' : 'text-red-700'}`}>{periodNetCash.toFixed(2)} ETB</div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="metric-card">
+          <div className="metric-label">{periodLabels[period]} operating costs</div>
+          <div className="metric-value text-purple-700">{periodOperatingCosts.toFixed(2)} ETB</div>
+        </div>
+        <div className="metric-card">
+          <div className="metric-label">{periodLabels[period]} estimated net</div>
+          <div className={`metric-value ${periodNetProfit >= 0 ? 'text-spice-700' : 'text-red-700'}`}>{periodNetProfit.toFixed(2)} ETB</div>
+          <div className="mt-2 text-xs font-semibold text-earth-500">Sales minus expenses and raw purchases.</div>
+        </div>
+        <div className="metric-card">
+          <div className="metric-label">{periodLabels[period]} margin estimate</div>
+          <div className={`metric-value ${Number(periodProfitMargin) >= 0 ? 'text-amber-700' : 'text-red-700'}`}>{periodProfitMargin}%</div>
         </div>
       </div>
 
@@ -294,6 +331,23 @@ export default function DashboardPage() {
             </tbody>
           </table>
         )}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="metric-card">
+          <div className="metric-label">Lifetime revenue</div>
+          <div className="metric-value text-blue-700">{totalRevenue.toFixed(2)} ETB</div>
+        </div>
+        <div className="metric-card">
+          <div className="metric-label">Lifetime cash collected</div>
+          <div className="metric-value text-green-700">{totalCashCollected.toFixed(2)} ETB</div>
+          <div className="mt-2 text-xs font-semibold text-earth-500">Sale payments only, excluding repayments.</div>
+        </div>
+        <div className="metric-card">
+          <div className="metric-label">All-time net estimate</div>
+          <div className={`metric-value ${netProfit >= 0 ? 'text-spice-700' : 'text-red-700'}`}>{netProfit.toFixed(2)} ETB</div>
+          <div className="mt-2 text-xs font-semibold text-earth-500">Margin: {profitMargin}%</div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

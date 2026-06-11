@@ -45,3 +45,4 @@ npm run seed
 
 If you prefer to run the raw SQL migration instead of `drizzle:push`, you can execute the file `drizzle/migrations/0001_init.sql` against your database.
 Then apply `drizzle/migrations/0002_customers_production.sql` for customers, customer-linked sales, and production batches.
+Apply `drizzle/migrations/0003_ingredient_categories.sql` to add raw-material categories for filtered stock views.
