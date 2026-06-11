@@ -6,10 +6,12 @@ import AdminNav from '../../../components/AdminNav'
 import { useCustomers } from '../../../hooks/useModules'
 
 export default function CustomersPage() {
-  const { data: customers, isLoading, createCustomer, updateCustomer, deleteCustomer } = useCustomers()
+  const { data: customers, isLoading, createCustomer, updateCustomer, isCreatingCustomer, isUpdatingCustomer, deleteCustomer } = useCustomers()
   const [editing, setEditing] = useState<number | null>(null)
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const { register, handleSubmit, reset } = useForm({ defaultValues: { name: '', phone: '', notes: '' } })
   const list = Array.isArray(customers) ? customers : []
+  const isSaving = isCreatingCustomer || isUpdatingCustomer
 
   useEffect(() => {
     if (!editing) {
@@ -28,10 +30,17 @@ export default function CustomersPage() {
   }, [editing, customers, reset])
 
   const onSubmit = async (values: any) => {
-    if (editing) await updateCustomer(editing, values)
-    else await createCustomer(values)
-    setEditing(null)
-    reset()
+    setMessage(null)
+
+    try {
+      if (editing) await updateCustomer(editing, values)
+      else await createCustomer(values)
+      setEditing(null)
+      reset()
+      setMessage({ type: 'success', text: 'Customer account saved.' })
+    } catch (err) {
+      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not save customer account.' })
+    }
   }
 
   const totalOutstanding = list.reduce((sum, customer) => sum + Number(customer.outstanding_balance), 0)
@@ -73,9 +82,16 @@ export default function CustomersPage() {
                   <textarea className="input-field" {...register('notes')} rows={3} placeholder="Location, credit terms, contact person..." />
                 </div>
                 <div className="flex gap-2">
-                  <button className="btn-primary flex-1" type="submit">{editing ? 'Update Account' : 'Create Account'}</button>
+                  <button className="btn-primary flex-1" type="submit" disabled={isSaving}>
+                    {isSaving ? 'Saving...' : editing ? 'Update Account' : 'Create Account'}
+                  </button>
                   {editing && <button className="btn-secondary" type="button" onClick={() => setEditing(null)}>Cancel</button>}
                 </div>
+                {message && (
+                  <div className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${message.type === 'success' ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'}`}>
+                    {message.text}
+                  </div>
+                )}
               </form>
             </div>
 
@@ -99,7 +115,21 @@ export default function CustomersPage() {
                   {customer.notes && <p className="mt-4 text-sm text-earth-600">{customer.notes}</p>}
                   <div className="mt-5 flex gap-3 text-sm">
                     <button className="font-medium text-spice-700 hover:text-spice-900" onClick={() => setEditing(customer.id)}>Edit</button>
-                    <button className="font-medium text-red-600 hover:text-red-800" onClick={() => deleteCustomer(customer.id)}>Delete</button>
+                    <button
+                      className="font-medium text-red-600 hover:text-red-800"
+                      onClick={async () => {
+                        if (!confirm('Delete this customer account? Credit sales may prevent deletion.')) return
+                        setMessage(null)
+                        try {
+                          await deleteCustomer(customer.id)
+                          setMessage({ type: 'success', text: 'Customer account deleted.' })
+                        } catch (err) {
+                          setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not delete customer account.' })
+                        }
+                      }}
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
               ))}

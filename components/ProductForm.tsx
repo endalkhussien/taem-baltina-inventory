@@ -82,9 +82,24 @@ export default function ProductForm({ editingId, onDone }: Props) {
             {submitError}
           </div>
         )}
-        <button className="btn-primary w-full" type="submit" disabled={isSaving}>
-          {isSaving ? 'Saving...' : editingId ? 'Update Finished Good' : 'Create Finished Good'}
-        </button>
+        <div className="flex gap-2">
+          <button className="btn-primary flex-1" type="submit" disabled={isSaving}>
+            {isSaving ? 'Saving...' : editingId ? 'Update Finished Good' : 'Create Finished Good'}
+          </button>
+          {editingId && (
+            <button
+              className="btn-secondary"
+              type="button"
+              onClick={() => {
+                reset({ name: '', sellingPrice: 0, stockQuantity: 0, alertThreshold: 0 })
+                setSubmitError('')
+                onDone?.()
+              }}
+            >
+              Cancel
+            </button>
+          )}
+        </div>
       </form>
     </div>
   )

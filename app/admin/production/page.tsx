@@ -11,8 +11,8 @@ const today = new Date().toISOString().slice(0, 10)
 
 export default function ProductionPage() {
   const { data: products } = useProducts()
-  const { data: batches, isLoading, createProduction } = useProduction()
-  const [message, setMessage] = useState('')
+  const { data: batches, isLoading, createProduction, isCreatingProduction } = useProduction()
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const { register, handleSubmit, reset, watch } = useForm({
     defaultValues: { productId: 0, quantityProduced: 1, producedAt: today, notes: '' }
   })
@@ -45,13 +45,13 @@ export default function ProductionPage() {
   const materialCost = requiredMaterials.reduce((sum: number, line: { quantity: number; costPerUnit: number }) => sum + line.quantity * line.costPerUnit, 0)
 
   const onSubmit = async (values: any) => {
-    setMessage('')
+    setMessage(null)
     try {
       await createProduction(values)
       reset({ productId: 0, quantityProduced: 1, producedAt: today, notes: '' })
-      setMessage('Production batch recorded and inventory updated.')
-    } catch {
-      setMessage('Could not record production. Check that the product has a recipe and enough raw materials.')
+      setMessage({ type: 'success', text: 'Production batch recorded and inventory updated.' })
+    } catch (err) {
+      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not record production batch.' })
     }
   }
 
@@ -96,9 +96,11 @@ export default function ProductionPage() {
                   <label className="block text-sm font-bold text-earth-700 mb-1.5">Batch Notes</label>
                   <textarea className="input-field" rows={3} {...register('notes')} placeholder="Batch notes, staff, packaging..." />
                 </div>
-                <button className="btn-primary w-full" type="submit">Post production batch</button>
+                <button className="btn-primary w-full" type="submit" disabled={isCreatingProduction}>
+                  {isCreatingProduction ? 'Posting batch...' : 'Post production batch'}
+                </button>
               </form>
-              {message && <div className="mt-4 rounded-xl bg-earth-50 border border-earth-100 p-3 text-sm text-earth-700">{message}</div>}
+              {message && <div className={`mt-4 rounded-2xl border px-4 py-3 text-sm font-semibold ${message.type === 'success' ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'}`}>{message.text}</div>}
             </div>
 
             <div className="card lg:col-span-2">

@@ -3,7 +3,13 @@ import { SignJWT, jwtVerify } from 'jose'
 const COOKIE_NAME = 'taem_token'
 
 function getSecret() {
-  return new TextEncoder().encode(process.env.JWT_SECRET || 'change-me')
+  const secret = process.env.JWT_SECRET
+
+  if (process.env.NODE_ENV === 'production' && !secret) {
+    throw new Error('JWT_SECRET is required in production.')
+  }
+
+  return new TextEncoder().encode(secret || 'change-me')
 }
 
 export async function signToken(payload: Record<string, unknown>) {

@@ -1,10 +1,15 @@
 import { NextResponse } from 'next/server'
 import { db, schema } from '../../../lib/db'
 import { expenseCreateSchema } from '../../../lib/validators/expense'
+import { databaseErrorResponse } from '../../../lib/apiErrors'
 
 export async function GET() {
-  const expenses = await db.select().from(schema.expenses)
-  return NextResponse.json(expenses)
+  try {
+    const expenses = await db.select().from(schema.expenses)
+    return NextResponse.json(expenses)
+  } catch (err) {
+    return databaseErrorResponse(err, 'Could not load operating costs')
+  }
 }
 
 export async function POST(request: Request) {
@@ -19,6 +24,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json(created, { status: 201 })
   } catch (err) {
-    return NextResponse.json({ error: String(err) }, { status: 500 })
+    return databaseErrorResponse(err, 'Could not record operating cost')
   }
 }
