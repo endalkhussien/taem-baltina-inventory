@@ -16,7 +16,7 @@ async function getErrorMessage(res: Response, fallback: string) {
     if (typeof body?.error === 'string') return body.error
     if (body?.error) return JSON.stringify(body.error)
   } catch {
-    // Response was not JSON.
+    // The response was not JSON; use the generic message below.
   }
 
   return fallback
