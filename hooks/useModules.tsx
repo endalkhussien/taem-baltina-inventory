@@ -7,12 +7,24 @@ export type Customer = { id: number; name: string; phone?: string | null; notes?
 export type ProductionBatch = { id: number; product_id: number; product_name: string | null; quantity_produced: number; produced_at: string; notes?: string | null }
 export type Repayment = { id: number; sale_id: number; sale_code: string | null; amount: number; payment_date: string }
 
+async function getErrorMessage(res: Response, fallback: string) {
+  try {
+    const body = await res.json()
+    if (typeof body?.error === 'string') return body.error
+    if (body?.error) return JSON.stringify(body.error)
+  } catch {
+    // Response was not JSON.
+  }
+
+  return fallback
+}
+
 export function useIngredients() {
   const qc = useQueryClient()
-  const query = useQuery<Ingredient[]>({ queryKey: ['ingredients'], queryFn: async () => { const res = await fetch('/api/ingredients'); if (!res.ok) throw new Error('Failed'); return res.json() } })
-  const create = useMutation({ mutationFn: async (data: any) => { const res = await fetch('/api/ingredients', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }); if (!res.ok) throw new Error('Create failed'); return res.json() }, onSuccess: () => qc.invalidateQueries({ queryKey: ['ingredients'] }) })
-  const update = useMutation({ mutationFn: async ({ id, data }: any) => { const res = await fetch(`/api/ingredients/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }); if (!res.ok) throw new Error('Update failed'); return res.json() }, onSuccess: () => qc.invalidateQueries({ queryKey: ['ingredients'] }) })
-  return { ...query, createIngredient: (d: any) => create.mutateAsync(d), updateIngredient: (id: number, d: any) => update.mutateAsync({ id, data: d }), deleteIngredient: async (id: number) => { const res = await fetch(`/api/ingredients/${id}`, { method: 'DELETE' }); if (!res.ok) throw new Error('Delete failed'); qc.invalidateQueries({ queryKey: ['ingredients'] }) } }
+  const query = useQuery<Ingredient[]>({ queryKey: ['ingredients'], queryFn: async () => { const res = await fetch('/api/ingredients', { credentials: 'same-origin' }); if (!res.ok) throw new Error(await getErrorMessage(res, 'Failed to load raw materials.')); return res.json() } })
+  const create = useMutation({ mutationFn: async (data: any) => { const res = await fetch('/api/ingredients', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify(data) }); if (!res.ok) throw new Error(await getErrorMessage(res, 'Could not create raw material.')); return res.json() }, onSuccess: () => qc.invalidateQueries({ queryKey: ['ingredients'] }) })
+  const update = useMutation({ mutationFn: async ({ id, data }: any) => { const res = await fetch(`/api/ingredients/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify(data) }); if (!res.ok) throw new Error(await getErrorMessage(res, 'Could not update raw material.')); return res.json() }, onSuccess: () => qc.invalidateQueries({ queryKey: ['ingredients'] }) })
+  return { ...query, createIngredient: (d: any) => create.mutateAsync(d), updateIngredient: (id: number, d: any) => update.mutateAsync({ id, data: d }), isCreatingIngredient: create.isPending, isUpdatingIngredient: update.isPending, deleteIngredient: async (id: number) => { const res = await fetch(`/api/ingredients/${id}`, { method: 'DELETE', credentials: 'same-origin' }); if (!res.ok) throw new Error(await getErrorMessage(res, 'Could not delete raw material.')); qc.invalidateQueries({ queryKey: ['ingredients'] }) } }
 }
 
 export function usePurchases() {
