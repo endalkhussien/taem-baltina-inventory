@@ -1,10 +1,15 @@
 import { NextResponse } from 'next/server'
 import { db, schema } from '../../../lib/db'
 import { productCreateSchema } from '../../../lib/validators/product'
+import { databaseErrorResponse } from '../../../lib/apiErrors'
 
 export async function GET() {
-  const products = await db.select().from(schema.products)
-  return NextResponse.json(products)
+  try {
+    const products = await db.select().from(schema.products)
+    return NextResponse.json(products)
+  } catch (err) {
+    return databaseErrorResponse(err, 'Could not load finished goods')
+  }
 }
 
 export async function POST(request: Request) {
@@ -27,6 +32,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json(created, { status: 201 })
   } catch (err) {
-    return NextResponse.json({ error: String(err) }, { status: 500 })
+    return databaseErrorResponse(err, 'Could not create finished good')
   }
 }
