@@ -18,6 +18,12 @@ export default function SalesPage() {
   const { register, handleSubmit, reset, watch, setValue } = useForm({ defaultValues: { productId: 0, customerId: 0, quantity: 1, unitPrice: 0, amountPaid: 0, saleDate: today } })
   const { register: registerRepayment, handleSubmit: handleRepaymentSubmit, reset: resetRepayment } = useForm({ defaultValues: { amount: 0, paymentDate: today } })
   const selectedProductId = Number(watch('productId') || 0)
+  const quantity = Number(watch('quantity') || 0)
+  const unitPrice = Number(watch('unitPrice') || 0)
+  const amountPaid = Number(watch('amountPaid') || 0)
+  const saleTotal = quantity * unitPrice
+  const saleBalance = Math.max(0, saleTotal - amountPaid)
+  const saleStatus = saleBalance === 0 ? 'Paid' : amountPaid > 0 ? 'Partial credit' : 'Credit'
 
   const onSubmit = async (vals: any) => {
     setMessage(null)
@@ -131,6 +137,22 @@ export default function SalesPage() {
                   <div>
                     <label className="block text-sm font-bold text-earth-700 mb-1.5">Paid Now</label>
                     <input type="number" step="0.01" className="input-field" {...register('amountPaid', { valueAsNumber: true })} />
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-earth-100 bg-earth-50 p-4">
+                  <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
+                    <div>
+                      <div className="text-xs font-bold uppercase tracking-wide text-earth-500">Sale total</div>
+                      <div className="text-xl font-black text-earth-950">{saleTotal.toFixed(2)} ETB</div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold uppercase tracking-wide text-earth-500">Balance / credit</div>
+                      <div className="text-xl font-black text-red-700">{saleBalance.toFixed(2)} ETB</div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold uppercase tracking-wide text-earth-500">Status</div>
+                      <div className={`text-xl font-black ${saleBalance === 0 ? 'text-green-700' : 'text-amber-700'}`}>{saleStatus}</div>
+                    </div>
                   </div>
                 </div>
                 <button className="btn-primary w-full" type="submit" disabled={isCreatingSale}>

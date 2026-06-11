@@ -10,14 +10,14 @@ const products = [
 ]
 
 const ingredients = [
-  { name: 'Red pepper', quantity: 50, unit: 'kg', cost_per_unit: 80, alert_threshold: 5 },
-  { name: 'Fenugreek', quantity: 20, unit: 'kg', cost_per_unit: 120, alert_threshold: 2 },
-  { name: 'Garlic', quantity: 15, unit: 'kg', cost_per_unit: 90, alert_threshold: 2 },
-  { name: 'Ginger', quantity: 15, unit: 'kg', cost_per_unit: 95, alert_threshold: 2 },
-  { name: 'Black cumin', quantity: 10, unit: 'kg', cost_per_unit: 140, alert_threshold: 1 },
-  { name: 'Chickpea flour', quantity: 80, unit: 'kg', cost_per_unit: 65, alert_threshold: 10 },
-  { name: 'Birds eye chili', quantity: 12, unit: 'kg', cost_per_unit: 180, alert_threshold: 2 },
-  { name: 'Salt', quantity: 25, unit: 'kg', cost_per_unit: 20, alert_threshold: 5 }
+  { name: 'Red pepper', category: 'Spices', quantity: 50, unit: 'kg', cost_per_unit: 80, alert_threshold: 5 },
+  { name: 'Fenugreek', category: 'Spices', quantity: 20, unit: 'kg', cost_per_unit: 120, alert_threshold: 2 },
+  { name: 'Garlic', category: 'Fresh aromatics', quantity: 15, unit: 'kg', cost_per_unit: 90, alert_threshold: 2 },
+  { name: 'Ginger', category: 'Fresh aromatics', quantity: 15, unit: 'kg', cost_per_unit: 95, alert_threshold: 2 },
+  { name: 'Black cumin', category: 'Spices', quantity: 10, unit: 'kg', cost_per_unit: 140, alert_threshold: 1 },
+  { name: 'Chickpea flour', category: 'Flours', quantity: 80, unit: 'kg', cost_per_unit: 65, alert_threshold: 10 },
+  { name: 'Birds eye chili', category: 'Spices', quantity: 12, unit: 'kg', cost_per_unit: 180, alert_threshold: 2 },
+  { name: 'Salt', category: 'Seasoning', quantity: 25, unit: 'kg', cost_per_unit: 20, alert_threshold: 5 }
 ]
 
 const recipes = [
@@ -87,15 +87,16 @@ async function seed() {
       const res = await client.query('SELECT id FROM ingredients WHERE name = $1', [ingredient.name])
       if (res.rowCount === 0) {
         const inserted = await client.query(
-          `INSERT INTO ingredients (name, quantity, unit, cost_per_unit, alert_threshold, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, $5, now(), now())
+          `INSERT INTO ingredients (name, category, quantity, unit, cost_per_unit, alert_threshold, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, now(), now())
            RETURNING id`,
-          [ingredient.name, ingredient.quantity, ingredient.unit, ingredient.cost_per_unit, ingredient.alert_threshold]
+          [ingredient.name, ingredient.category, ingredient.quantity, ingredient.unit, ingredient.cost_per_unit, ingredient.alert_threshold]
         )
         ingredientIds.set(ingredient.name, inserted.rows[0].id)
         console.log('Inserted ingredient', ingredient.name)
       } else {
         ingredientIds.set(ingredient.name, res.rows[0].id)
+        await client.query('UPDATE ingredients SET category = $1 WHERE id = $2', [ingredient.category, res.rows[0].id])
         console.log('Already exists ingredient:', ingredient.name)
       }
     }

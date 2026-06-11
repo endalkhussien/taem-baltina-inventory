@@ -23,6 +23,7 @@ export const products = pgTable('products', {
 export const ingredients = pgTable('ingredients', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 255 }).notNull(),
+  category: varchar('category', { length: 100 }).notNull().default('Spices'),
   quantity: numeric('quantity', { precision: 12, scale: 3, mode: 'number' }).notNull().default(0),
   unit: varchar('unit', { length: 50 }).notNull(),
   cost_per_unit: numeric('cost_per_unit', { precision: 12, scale: 2, mode: 'number' }).notNull().default(0),
