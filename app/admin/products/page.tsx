@@ -19,8 +19,8 @@ export default function ProductsPage() {
       <div className="app-page">
       <div className="app-container">
         <div className="page-hero-subtle">
-          <div className="eyebrow">Finished goods catalog</div>
-          <h1 className="mt-2 font-display text-4xl font-black text-earth-950">Finished Goods Ready to Sell</h1>
+          <div className="eyebrow">Stock</div>
+          <h1 className="mt-2 font-display text-4xl font-black text-earth-950">Finished Products Stock</h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-earth-500">
             Maintain selling prices, available stock, reorder alerts, and the recipes that connect each product to raw materials.
           </p>

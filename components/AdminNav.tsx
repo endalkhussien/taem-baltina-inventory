@@ -4,13 +4,13 @@ import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 
 const links = [
-  { href: '/admin/dashboard', label: 'Command Center', short: 'Home' },
-  { href: '/admin/production', label: 'Batch Production', short: 'Batch' },
-  { href: '/admin/products', label: 'Finished Goods', short: 'Goods' },
-  { href: '/admin/ingredients', label: 'Raw Material Ledger', short: 'Raw' },
-  { href: '/admin/sales', label: 'Sales & Credit Desk', short: 'Credit' },
-  { href: '/admin/customers', label: 'Customer Accounts', short: 'Clients' },
-  { href: '/admin/expenses', label: 'Operating Costs', short: 'Costs' }
+  { href: '/admin/dashboard', label: 'Dashboard', short: 'Home' },
+  { href: '/admin/products', label: 'Stock', short: 'Stock' },
+  { href: '/admin/ingredients', label: 'Raw Materials', short: 'Raw' },
+  { href: '/admin/production', label: 'Production', short: 'Make' },
+  { href: '/admin/sales', label: 'Sales', short: 'Sales' },
+  { href: '/admin/customers', label: 'Credit', short: 'Credit' },
+  { href: '/admin/expenses', label: 'Expenses', short: 'Costs' }
 ]
 
 export default function AdminNav() {

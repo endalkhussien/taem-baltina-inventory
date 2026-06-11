@@ -18,12 +18,13 @@ export async function POST(request: Request) {
     const parsed = ingredientCreateSchema.safeParse(body)
     if (!parsed.success) return NextResponse.json({ error: parsed.error.format() }, { status: 422 })
 
-    const { name, quantity, unit, costPerUnit, alertThreshold = 0 } = parsed.data
+    const { name, category, quantity, unit, costPerUnit, alertThreshold = 0 } = parsed.data
 
     const [created] = await db
       .insert(schema.ingredients)
       .values({
         name,
+        category,
         quantity,
         unit,
         cost_per_unit: costPerUnit,

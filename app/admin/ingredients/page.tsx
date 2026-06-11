@@ -1,30 +1,51 @@
 "use client"
-import React, { useEffect, useState } from 'react'
+import React, { Suspense, useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useSearchParams } from 'next/navigation'
 import { useIngredients, usePurchases } from '../../../hooks/useModules'
 import AdminNav from '../../../components/AdminNav'
 import { ingredientCreateSchema } from '../../../lib/validators/ingredient'
 
 const today = new Date().toISOString().slice(0, 10)
+const defaultCategories = ['Spices', 'Fresh aromatics', 'Flours', 'Seasoning', 'Packaging', 'Other']
 
-export default function IngredientsPage() {
+function IngredientsContent() {
   const { data: ingredients, isLoading, createIngredient, updateIngredient, isCreatingIngredient, isUpdatingIngredient, deleteIngredient } = useIngredients()
   const { data: purchases, createPurchase, isCreatingPurchase } = usePurchases()
   const [editing, setEditing] = useState<number | null>(null)
   const [submitError, setSubmitError] = useState('')
   const [purchaseMessage, setPurchaseMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const isSaving = isCreatingIngredient || isUpdatingIngredient
+  const searchParams = useSearchParams()
+  const activeCategory = searchParams.get('category') || ''
+  const lowOnly = searchParams.get('filter') === 'low'
   const { register, handleSubmit, reset, formState: { errors } } = useForm({
     resolver: zodResolver(ingredientCreateSchema as any),
-    defaultValues: { name: '', quantity: 0, unit: '', costPerUnit: 0, alertThreshold: 0 }
+    defaultValues: { name: '', category: 'Spices', quantity: 0, unit: '', costPerUnit: 0, alertThreshold: 0 }
   })
-  const { register: registerPurchase, handleSubmit: handlePurchaseSubmit, reset: resetPurchase } = useForm({
+  const { register: registerPurchase, handleSubmit: handlePurchaseSubmit, reset: resetPurchase, watch: watchPurchase } = useForm({
     defaultValues: { ingredientId: 0, quantity: 0, costTotal: 0, supplier: '', purchaseDate: today }
   })
 
   const list = Array.isArray(ingredients) ? ingredients : []
+  const categories = Array.from(new Set([...defaultCategories, ...list.map((ingredient) => ingredient.category || 'Other')]))
+  const filteredList = list.filter((ingredient) => {
+    const matchesCategory = activeCategory ? ingredient.category === activeCategory : true
+    const matchesLowStock = lowOnly ? Number(ingredient.quantity) <= Number(ingredient.alert_threshold) : true
+    return matchesCategory && matchesLowStock
+  })
+  const totalStockValue = filteredList.reduce((sum, ingredient) => sum + Number(ingredient.quantity) * Number(ingredient.cost_per_unit), 0)
   const purchaseList = Array.isArray(purchases) ? purchases : []
+  const purchaseIngredientId = Number(watchPurchase('ingredientId') || 0)
+  const purchaseQuantity = Number(watchPurchase('quantity') || 0)
+  const purchaseCostTotal = Number(watchPurchase('costTotal') || 0)
+  const selectedPurchaseIngredient = list.find((ingredient) => ingredient.id === purchaseIngredientId)
+  const restockUnitCost = purchaseQuantity > 0 ? purchaseCostTotal / purchaseQuantity : 0
+  const stockAfterRestock = selectedPurchaseIngredient ? Number(selectedPurchaseIngredient.quantity) + purchaseQuantity : purchaseQuantity
+  const weightedAverageAfterRestock = selectedPurchaseIngredient && stockAfterRestock > 0
+    ? ((Number(selectedPurchaseIngredient.quantity) * Number(selectedPurchaseIngredient.cost_per_unit)) + purchaseCostTotal) / stockAfterRestock
+    : restockUnitCost
 
   useEffect(() => {
     if (editing) {
@@ -32,6 +53,7 @@ export default function IngredientsPage() {
       if (ingredient) {
         reset({
           name: ingredient.name,
+          category: ingredient.category || 'Spices',
           quantity: Number(ingredient.quantity),
           unit: ingredient.unit,
           costPerUnit: Number(ingredient.cost_per_unit),
@@ -39,7 +61,7 @@ export default function IngredientsPage() {
         })
       }
     } else {
-      reset({ name: '', quantity: 0, unit: '', costPerUnit: 0, alertThreshold: 0 })
+      reset({ name: '', category: 'Spices', quantity: 0, unit: '', costPerUnit: 0, alertThreshold: 0 })
     }
   }, [editing, ingredients, reset])
 
@@ -90,6 +112,15 @@ export default function IngredientsPage() {
                 <label className="block text-sm font-bold text-earth-700 mb-1.5">Raw Material Name</label>
                 <input className="input-field" placeholder="e.g. Red pepper" {...register('name')} />
                 {errors.name && <p className="mt-1 text-xs text-red-600">Name is required.</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-earth-700 mb-1.5">Category</label>
+                <select className="input-field" {...register('category')}>
+                  {categories.map((category) => (
+                    <option key={category} value={category}>{category}</option>
+                  ))}
+                </select>
+                {errors.category && <p className="mt-1 text-xs text-red-600">Category is required.</p>}
               </div>
               <div>
                 <label className="block text-sm font-bold text-earth-700 mb-1.5">Current Quantity On Hand</label>
@@ -159,6 +190,23 @@ export default function IngredientsPage() {
                 <label className="block text-sm font-medium text-earth-700 mb-1.5">Purchase Date</label>
                 <input type="date" className="input-field" {...registerPurchase('purchaseDate')} />
               </div>
+              <div className="rounded-2xl border border-earth-100 bg-earth-50 p-4 text-sm text-earth-700">
+                <div className="font-bold text-earth-950">Restock preview</div>
+                <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-earth-500">Unit cost</div>
+                    <div className="font-black">{restockUnitCost.toFixed(2)} ETB</div>
+                  </div>
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-earth-500">Stock after</div>
+                    <div className="font-black">{stockAfterRestock.toFixed(3)} {selectedPurchaseIngredient?.unit || ''}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-earth-500">Avg cost after</div>
+                    <div className="font-black">{weightedAverageAfterRestock.toFixed(2)} ETB</div>
+                  </div>
+                </div>
+              </div>
               <button className="btn-primary w-full" type="submit" disabled={isCreatingPurchase}>
                 {isCreatingPurchase ? 'Recording...' : 'Record restock'}
               </button>
@@ -171,17 +219,36 @@ export default function IngredientsPage() {
           </div>
           </div>
           <div className="lg:col-span-2 card overflow-x-auto">
-            <h2 className="font-display text-xl font-black text-earth-950 mb-1">Raw Material Stock</h2>
-            <p className="mb-4 text-sm text-earth-500">Live inventory levels used by production batches.</p>
+            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <h2 className="font-display text-xl font-black text-earth-950 mb-1">Raw Material Stock</h2>
+                <p className="text-sm text-earth-500">
+                  {lowOnly ? 'Showing low-stock materials.' : activeCategory ? `Showing ${activeCategory}.` : 'Live inventory levels used by production batches.'}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-spice-50 px-4 py-3 text-sm text-spice-800">
+                Stock value: <span className="font-black">{totalStockValue.toFixed(2)} ETB</span>
+              </div>
+            </div>
+            <div className="mb-4 flex flex-wrap gap-2">
+              <a href="/admin/ingredients" className={`rounded-full px-3 py-1 text-xs font-bold ${!activeCategory && !lowOnly ? 'bg-spice-700 text-white' : 'bg-earth-100 text-earth-700'}`}>All</a>
+              <a href="/admin/ingredients?filter=low" className={`rounded-full px-3 py-1 text-xs font-bold ${lowOnly ? 'bg-red-600 text-white' : 'bg-red-100 text-red-700'}`}>Low stock</a>
+              {categories.map((category) => (
+                <a key={category} href={`/admin/ingredients?category=${encodeURIComponent(category)}`} className={`rounded-full px-3 py-1 text-xs font-bold ${activeCategory === category ? 'bg-spice-700 text-white' : 'bg-earth-100 text-earth-700'}`}>
+                  {category}
+                </a>
+              ))}
+            </div>
             {isLoading ? (
               <div className="text-earth-500">Loading ingredients...</div>
-            ) : list.length === 0 ? (
-              <div className="text-earth-500">No ingredients yet.</div>
+            ) : filteredList.length === 0 ? (
+              <div className="text-earth-500">No raw materials match this view.</div>
             ) : (
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs uppercase tracking-wide text-earth-500">
                     <th className="pb-3">Raw Material</th>
+                    <th className="pb-3">Category</th>
                     <th className="pb-3">On Hand</th>
                     <th className="pb-3">Unit</th>
                     <th className="pb-3">Avg Cost</th>
@@ -190,12 +257,13 @@ export default function IngredientsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {list.map((ingredient) => {
+                  {filteredList.map((ingredient) => {
                     const isLowStock = Number(ingredient.quantity) <= Number(ingredient.alert_threshold)
 
                     return (
                       <tr key={ingredient.id} className={`border-t border-earth-100 ${isLowStock ? 'bg-amber-50' : ''}`}>
                         <td className="py-3 font-medium text-earth-900">{ingredient.name}</td>
+                        <td className="py-3 text-earth-700">{ingredient.category}</td>
                         <td className="py-3 text-earth-700">{Number(ingredient.quantity).toFixed(3)}</td>
                         <td className="py-3 text-earth-700">{ingredient.unit}</td>
                         <td className="py-3 text-earth-700">{Number(ingredient.cost_per_unit).toFixed(2)}</td>
@@ -262,6 +330,14 @@ export default function IngredientsPage() {
       </div>
       </div>
     </>
+  )
+}
+
+export default function IngredientsPage() {
+  return (
+    <Suspense fallback={<div className="app-page"><div className="app-container"><div className="card">Loading raw materials...</div></div></div>}>
+      <IngredientsContent />
+    </Suspense>
   )
 }
 

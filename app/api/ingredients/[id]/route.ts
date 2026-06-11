@@ -26,6 +26,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
   const updateData: any = {}
   if (parsed.data.name !== undefined) updateData.name = parsed.data.name
+  if (parsed.data.category !== undefined) updateData.category = parsed.data.category
   if (parsed.data.quantity !== undefined) updateData.quantity = parsed.data.quantity
   if (parsed.data.unit !== undefined) updateData.unit = parsed.data.unit
   if (parsed.data.costPerUnit !== undefined) updateData.cost_per_unit = parsed.data.costPerUnit
