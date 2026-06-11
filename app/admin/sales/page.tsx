@@ -1,5 +1,5 @@
 "use client"
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useProducts } from '../../../hooks/useProducts'
 import { useCustomers, useRepayments, useSales } from '../../../hooks/useModules'
@@ -10,27 +10,28 @@ const today = new Date().toISOString().slice(0, 10)
 export default function SalesPage() {
   const { data: products } = useProducts()
   const { data: customers } = useCustomers()
-  const { data: sales, isLoading: sLoading, createSale, deleteSale } = useSales()
-  const { data: repayments, createRepayment } = useRepayments()
+  const { data: sales, isLoading: sLoading, createSale, isCreatingSale, deleteSale } = useSales()
+  const { data: repayments, createRepayment, isCreatingRepayment } = useRepayments()
   const [filterDate, setFilterDate] = useState(today)
   const [repaySaleId, setRepaySaleId] = useState<number | null>(null)
-  const [message, setMessage] = useState('')
-  const { register, handleSubmit, reset } = useForm({ defaultValues: { productId: 0, customerId: 0, quantity: 1, unitPrice: 0, amountPaid: 0, saleDate: today } })
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const { register, handleSubmit, reset, watch, setValue } = useForm({ defaultValues: { productId: 0, customerId: 0, quantity: 1, unitPrice: 0, amountPaid: 0, saleDate: today } })
   const { register: registerRepayment, handleSubmit: handleRepaymentSubmit, reset: resetRepayment } = useForm({ defaultValues: { amount: 0, paymentDate: today } })
+  const selectedProductId = Number(watch('productId') || 0)
 
   const onSubmit = async (vals: any) => {
-    setMessage('')
+    setMessage(null)
     try {
       await createSale(vals)
       reset({ productId: 0, customerId: 0, quantity: 1, unitPrice: 0, amountPaid: 0, saleDate: today })
-      setMessage('Sale recorded and stock updated.')
-    } catch {
-      setMessage('Could not record sale. Check stock, customer, and payment details.')
+      setMessage({ type: 'success', text: 'Sale recorded and stock updated.' })
+    } catch (err) {
+      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not record sale.' })
     }
   }
 
-  const productList = Array.isArray(products) ? products : []
-  const customerList = Array.isArray(customers) ? customers : []
+  const productList = useMemo(() => Array.isArray(products) ? products : [], [products])
+  const customerList = useMemo(() => Array.isArray(customers) ? customers : [], [customers])
   const salesList = useMemo(() => Array.isArray(sales) ? sales : [], [sales])
   const repaymentList = Array.isArray(repayments) ? repayments : []
   const filteredSales = useMemo(
@@ -41,16 +42,21 @@ export default function SalesPage() {
   const totalDailyCash = filteredSales.reduce((sum, sale) => sum + Number(sale.amount_paid), 0)
   const totalOutstanding = salesList.reduce((sum, sale) => sum + Number(sale.balance), 0)
 
+  useEffect(() => {
+    const product = productList.find((item) => item.id === selectedProductId)
+    if (product) setValue('unitPrice', Number(product.selling_price))
+  }, [productList, selectedProductId, setValue])
+
   const onRepaymentSubmit = async (vals: any) => {
     if (!repaySaleId) return
-    setMessage('')
+    setMessage(null)
     try {
       await createRepayment({ saleId: repaySaleId, ...vals })
       setRepaySaleId(null)
       resetRepayment({ amount: 0, paymentDate: today })
-      setMessage('Payment recorded and customer balance updated.')
-    } catch {
-      setMessage('Could not record payment. Make sure the payment does not exceed the balance.')
+      setMessage({ type: 'success', text: 'Payment recorded and customer balance updated.' })
+    } catch (err) {
+      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not record payment.' })
     }
   }
 
@@ -83,7 +89,7 @@ export default function SalesPage() {
             </div>
           </div>
 
-          {message && <div className="rounded-xl bg-earth-50 border border-earth-100 px-4 py-3 text-sm text-earth-700">{message}</div>}
+          {message && <div className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${message.type === 'success' ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'}`}>{message.text}</div>}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="card">
@@ -127,7 +133,9 @@ export default function SalesPage() {
                     <input type="number" step="0.01" className="input-field" {...register('amountPaid', { valueAsNumber: true })} />
                   </div>
                 </div>
-                <button className="btn-primary w-full" type="submit">Post sale</button>
+                <button className="btn-primary w-full" type="submit" disabled={isCreatingSale}>
+                  {isCreatingSale ? 'Posting sale...' : 'Post sale'}
+                </button>
               </form>
             </div>
 
@@ -171,7 +179,21 @@ export default function SalesPage() {
                           {Number(sale.balance) > 0 && (
                             <button className="text-spice-700 font-bold mr-3" onClick={() => setRepaySaleId(sale.id)}>Record Payment</button>
                           )}
-                          <button className="text-red-600 font-bold" onClick={() => deleteSale(sale.id)}>Delete</button>
+                          <button
+                            className="text-red-600 font-bold"
+                            onClick={async () => {
+                              if (!confirm('Delete this sale? Product stock will be restored.')) return
+                              setMessage(null)
+                              try {
+                                await deleteSale(sale.id)
+                                setMessage({ type: 'success', text: 'Sale deleted and stock restored.' })
+                              } catch (err) {
+                                setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not delete sale.' })
+                              }
+                            }}
+                          >
+                            Delete
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -188,7 +210,9 @@ export default function SalesPage() {
               <form onSubmit={handleRepaymentSubmit(onRepaymentSubmit)} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3">
                 <input type="number" step="0.01" className="input-field" {...registerRepayment('amount', { valueAsNumber: true })} placeholder="Amount" />
                 <input type="date" className="input-field" {...registerRepayment('paymentDate')} />
-                <button className="btn-primary" type="submit">Save</button>
+                <button className="btn-primary" type="submit" disabled={isCreatingRepayment}>
+                  {isCreatingRepayment ? 'Saving...' : 'Save'}
+                </button>
               </form>
               <button className="mt-3 text-sm text-earth-500 hover:text-earth-700" onClick={() => setRepaySaleId(null)}>Cancel payment</button>
             </div>

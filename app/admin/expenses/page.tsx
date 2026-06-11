@@ -7,8 +7,9 @@ import AdminNav from '../../../components/AdminNav'
 import { expenseCreateSchema } from '../../../lib/validators/expense'
 
 export default function ExpensesPage() {
-  const { data: expenses, isLoading, createExpense, updateExpense, deleteExpense } = useExpenses()
+  const { data: expenses, isLoading, createExpense, updateExpense, isCreatingExpense, isUpdatingExpense, deleteExpense } = useExpenses()
   const [editing, setEditing] = useState<number | null>(null)
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const { register, handleSubmit, reset, formState: { errors } } = useForm({
     resolver: zodResolver(expenseCreateSchema as any),
     defaultValues: { title: '', category: 'Other', amount: 0, notes: '' }
@@ -30,15 +31,23 @@ export default function ExpensesPage() {
     }
   }, [editing, expenses, reset])
 
-  const onSubmit = async (vals: any) => {
-    if (editing) await updateExpense(editing, vals)
-    else await createExpense(vals)
-    reset()
-    setEditing(null)
-  }
-
   const list = Array.isArray(expenses) ? expenses : []
   const categories = ['Transport', 'Packaging', 'Rent', 'Salary', 'Utilities', 'Other']
+  const isSaving = isCreatingExpense || isUpdatingExpense
+
+  const onSubmit = async (vals: any) => {
+    setMessage(null)
+
+    try {
+      if (editing) await updateExpense(editing, vals)
+      else await createExpense(vals)
+      reset()
+      setEditing(null)
+      setMessage({ type: 'success', text: 'Operating cost saved.' })
+    } catch (err) {
+      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not save operating cost.' })
+    }
+  }
 
   return (
     <>
@@ -77,19 +86,26 @@ export default function ExpensesPage() {
               <textarea className="input-field" {...register('notes')} rows={3} />
             </div>
             <div className="flex gap-2">
-              <button className="btn-primary flex-1" type="submit">{editing ? 'Update Cost' : 'Record Cost'}</button>
+              <button className="btn-primary flex-1" type="submit" disabled={isSaving}>
+                {isSaving ? 'Saving...' : editing ? 'Update Cost' : 'Record Cost'}
+              </button>
               {editing && (
                 <button className="btn-secondary" type="button" onClick={() => setEditing(null)}>
                   Cancel
                 </button>
               )}
             </div>
+            {message && (
+              <div className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${message.type === 'success' ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'}`}>
+                {message.text}
+              </div>
+            )}
           </form>
         </div>
         <div className="lg:col-span-2 card overflow-x-auto">
           <h2 className="font-display text-xl font-black text-earth-950 mb-1">Operating Cost Ledger</h2>
           <p className="mb-4 text-sm text-earth-500">Recent non-material business costs.</p>
-          {isLoading ? <div>Loading...</div> : <table className="w-full text-sm"><thead><tr className="table-head"><th className="pb-3">Description</th><th className="pb-3">Category</th><th className="pb-3">Amount</th><th className="pb-3">Actions</th></tr></thead><tbody>{list.map((e: any) => (<tr key={e.id} className="table-row"><td className="py-3 font-bold text-earth-950">{e.title}</td><td className="py-3">{e.category}</td><td className="py-3">{Number(e.amount).toFixed(2)} ETB</td><td className="py-3 text-sm"><button className="text-spice-700 font-bold mr-2" onClick={() => setEditing(e.id)}>Edit</button><button className="text-red-600 font-bold" onClick={() => deleteExpense(e.id)}>Delete</button></td></tr>))}</tbody></table>}
+          {isLoading ? <div>Loading...</div> : <table className="w-full text-sm"><thead><tr className="table-head"><th className="pb-3">Description</th><th className="pb-3">Category</th><th className="pb-3">Amount</th><th className="pb-3">Actions</th></tr></thead><tbody>{list.map((e: any) => (<tr key={e.id} className="table-row"><td className="py-3 font-bold text-earth-950">{e.title}</td><td className="py-3">{e.category}</td><td className="py-3">{Number(e.amount).toFixed(2)} ETB</td><td className="py-3 text-sm"><button className="text-spice-700 font-bold mr-2" onClick={() => setEditing(e.id)}>Edit</button><button className="text-red-600 font-bold" onClick={async () => { if (!confirm('Delete this operating cost?')) return; setMessage(null); try { await deleteExpense(e.id); setMessage({ type: 'success', text: 'Operating cost deleted.' }) } catch (err) { setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not delete operating cost.' }) } }}>Delete</button></td></tr>))}</tbody></table>}
           </div>
         </div>
       </div>

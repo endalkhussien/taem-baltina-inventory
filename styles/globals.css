@@ -34,7 +34,7 @@
   }
 
   .app-page {
-    @apply min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(212,120,42,0.12),transparent_28rem)] px-4 py-5 sm:px-6 lg:px-8;
+    @apply min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(212,120,42,0.12),transparent_28rem)] px-4 py-5 sm:px-6 lg:px-8 xl:pl-80;
   }
 
   .app-container {

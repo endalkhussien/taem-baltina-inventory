@@ -10,9 +10,10 @@ const today = new Date().toISOString().slice(0, 10)
 
 export default function IngredientsPage() {
   const { data: ingredients, isLoading, createIngredient, updateIngredient, isCreatingIngredient, isUpdatingIngredient, deleteIngredient } = useIngredients()
-  const { data: purchases, createPurchase } = usePurchases()
+  const { data: purchases, createPurchase, isCreatingPurchase } = usePurchases()
   const [editing, setEditing] = useState<number | null>(null)
   const [submitError, setSubmitError] = useState('')
+  const [purchaseMessage, setPurchaseMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const isSaving = isCreatingIngredient || isUpdatingIngredient
   const { register, handleSubmit, reset, formState: { errors } } = useForm({
     resolver: zodResolver(ingredientCreateSchema as any),
@@ -56,8 +57,15 @@ export default function IngredientsPage() {
   }
 
   const onPurchaseSubmit = async (vals: any) => {
-    await createPurchase(vals)
-    resetPurchase({ ingredientId: 0, quantity: 0, costTotal: 0, supplier: '', purchaseDate: today })
+    setPurchaseMessage(null)
+
+    try {
+      await createPurchase(vals)
+      resetPurchase({ ingredientId: 0, quantity: 0, costTotal: 0, supplier: '', purchaseDate: today })
+      setPurchaseMessage({ type: 'success', text: 'Raw-material purchase recorded and stock updated.' })
+    } catch (err) {
+      setPurchaseMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not record purchase.' })
+    }
   }
 
   return (
@@ -151,7 +159,14 @@ export default function IngredientsPage() {
                 <label className="block text-sm font-medium text-earth-700 mb-1.5">Purchase Date</label>
                 <input type="date" className="input-field" {...registerPurchase('purchaseDate')} />
               </div>
-              <button className="btn-primary w-full" type="submit">Record restock</button>
+              <button className="btn-primary w-full" type="submit" disabled={isCreatingPurchase}>
+                {isCreatingPurchase ? 'Recording...' : 'Record restock'}
+              </button>
+              {purchaseMessage && (
+                <div className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${purchaseMessage.type === 'success' ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'}`}>
+                  {purchaseMessage.text}
+                </div>
+              )}
             </form>
           </div>
           </div>
@@ -191,7 +206,20 @@ export default function IngredientsPage() {
                         </td>
                         <td className="py-3 text-sm">
                           <button className="text-spice-700 hover:text-spice-900 mr-3" onClick={() => setEditing(ingredient.id)}>Edit</button>
-                          <button className="text-red-600 hover:text-red-800" onClick={() => deleteIngredient(ingredient.id)}>Delete</button>
+                          <button
+                            className="text-red-600 hover:text-red-800"
+                            onClick={async () => {
+                              if (!confirm('Delete this raw material? Purchases or recipes may prevent deletion.')) return
+                              setSubmitError('')
+                              try {
+                                await deleteIngredient(ingredient.id)
+                              } catch (err) {
+                                setSubmitError(err instanceof Error ? err.message : 'Could not delete raw material.')
+                              }
+                            }}
+                          >
+                            Delete
+                          </button>
                         </td>
                       </tr>
                     )

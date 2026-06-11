@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db, schema } from '../../../lib/db'
 import { productionCreateSchema } from '../../../lib/validators/production'
 import { desc, eq, sql } from 'drizzle-orm'
+import { databaseErrorResponse } from '../../../lib/apiErrors'
 
 function parseDate(value?: string) {
   if (!value) return new Date()
@@ -10,21 +11,25 @@ function parseDate(value?: string) {
 }
 
 export async function GET() {
-  const batches = await db
-    .select({
-      id: schema.production_batches.id,
-      product_id: schema.production_batches.product_id,
-      product_name: schema.products.name,
-      quantity_produced: schema.production_batches.quantity_produced,
-      produced_at: schema.production_batches.produced_at,
-      notes: schema.production_batches.notes,
-      created_at: schema.production_batches.created_at
-    })
-    .from(schema.production_batches)
-    .leftJoin(schema.products, eq(schema.production_batches.product_id, schema.products.id))
-    .orderBy(desc(schema.production_batches.produced_at))
+  try {
+    const batches = await db
+      .select({
+        id: schema.production_batches.id,
+        product_id: schema.production_batches.product_id,
+        product_name: schema.products.name,
+        quantity_produced: schema.production_batches.quantity_produced,
+        produced_at: schema.production_batches.produced_at,
+        notes: schema.production_batches.notes,
+        created_at: schema.production_batches.created_at
+      })
+      .from(schema.production_batches)
+      .leftJoin(schema.products, eq(schema.production_batches.product_id, schema.products.id))
+      .orderBy(desc(schema.production_batches.produced_at))
 
-  return NextResponse.json(batches)
+    return NextResponse.json(batches)
+  } catch (err) {
+    return databaseErrorResponse(err, 'Could not load production batches')
+  }
 }
 
 export async function POST(request: Request) {
@@ -105,6 +110,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json(result.created, { status: 201 })
   } catch (err) {
-    return NextResponse.json({ error: String(err) }, { status: 500 })
+    return databaseErrorResponse(err, 'Could not post production batch')
   }
 }

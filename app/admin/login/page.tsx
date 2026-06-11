@@ -9,6 +9,8 @@ type LoginFormValues = {
   password: string
 }
 
+const isDevelopment = process.env.NODE_ENV === 'development'
+
 export default function LoginPage() {
   const { register, handleSubmit } = useForm<LoginFormValues>()
   const router = useRouter()
@@ -28,7 +30,8 @@ export default function LoginPage() {
         router.refresh()
         router.push('/admin/dashboard')
       } else {
-        setError('Invalid username or password. Try admin / password.')
+        const body = await res.json().catch(() => null)
+        setError(body?.error || 'Invalid username or password.')
       }
     } catch {
       setError('Something went wrong. Please try again.')
@@ -136,9 +139,11 @@ export default function LoginPage() {
               </button>
             </form>
 
-            <p className="text-center text-xs text-earth-400 mt-6">
-              Default credentials: <span className="font-medium text-earth-600">admin</span> / <span className="font-medium text-earth-600">password</span>
-            </p>
+            {isDevelopment && (
+              <p className="text-center text-xs text-earth-400 mt-6">
+                Local default credentials: <span className="font-medium text-earth-600">admin</span> / <span className="font-medium text-earth-600">password</span>
+              </p>
+            )}
           </div>
         </div>
       </div>

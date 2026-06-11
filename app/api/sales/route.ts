@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db, schema } from '../../../lib/db'
 import { saleCreateSchema } from '../../../lib/validators/sale'
 import { and, desc, eq, gte, sql } from 'drizzle-orm'
+import { databaseErrorResponse } from '../../../lib/apiErrors'
 
 function parseDate(value?: string) {
   if (!value) return new Date()
@@ -10,29 +11,33 @@ function parseDate(value?: string) {
 }
 
 export async function GET() {
-  const sales = await db
-    .select({
-      id: schema.sales.id,
-      sale_code: schema.sales.sale_code,
-      product_id: schema.sales.product_id,
-      product_name: schema.products.name,
-      customer_id: schema.sales.customer_id,
-      customer_name: schema.customers.name,
-      quantity: schema.sales.quantity,
-      unit_price: schema.sales.unit_price,
-      total_amount: schema.sales.total_amount,
-      amount_paid: schema.sales.amount_paid,
-      balance: schema.sales.balance,
-      payment_status: schema.sales.payment_status,
-      sale_date: schema.sales.sale_date,
-      created_at: schema.sales.created_at
-    })
-    .from(schema.sales)
-    .leftJoin(schema.products, eq(schema.sales.product_id, schema.products.id))
-    .leftJoin(schema.customers, eq(schema.sales.customer_id, schema.customers.id))
-    .orderBy(desc(schema.sales.sale_date))
+  try {
+    const sales = await db
+      .select({
+        id: schema.sales.id,
+        sale_code: schema.sales.sale_code,
+        product_id: schema.sales.product_id,
+        product_name: schema.products.name,
+        customer_id: schema.sales.customer_id,
+        customer_name: schema.customers.name,
+        quantity: schema.sales.quantity,
+        unit_price: schema.sales.unit_price,
+        total_amount: schema.sales.total_amount,
+        amount_paid: schema.sales.amount_paid,
+        balance: schema.sales.balance,
+        payment_status: schema.sales.payment_status,
+        sale_date: schema.sales.sale_date,
+        created_at: schema.sales.created_at
+      })
+      .from(schema.sales)
+      .leftJoin(schema.products, eq(schema.sales.product_id, schema.products.id))
+      .leftJoin(schema.customers, eq(schema.sales.customer_id, schema.customers.id))
+      .orderBy(desc(schema.sales.sale_date))
 
-  return NextResponse.json(sales)
+    return NextResponse.json(sales)
+  } catch (err) {
+    return databaseErrorResponse(err, 'Could not load sales')
+  }
 }
 
 export async function POST(request: Request) {
@@ -107,6 +112,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json(result.created, { status: 201 })
   } catch (err) {
-    return NextResponse.json({ error: String(err) }, { status: 500 })
+    return databaseErrorResponse(err, 'Could not record sale')
   }
 }

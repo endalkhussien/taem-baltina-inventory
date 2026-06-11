@@ -21,13 +21,26 @@ export default function ProductRecipeEditor({ productId, productName }: Props) {
   const [lines, setLines] = useState<RecipeLineForm[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const hasInvalidLines = lines.some((line) => !line.ingredientId || Number(line.quantityPerUnit) <= 0)
+
+  const getErrorMessage = async (res: Response, fallback: string) => {
+    try {
+      const body = await res.json()
+      if (typeof body?.error === 'string') return body.error
+      if (body?.error) return JSON.stringify(body.error)
+    } catch {
+      // Use fallback below.
+    }
+
+    return fallback
+  }
 
   const recipe = useQuery({
     queryKey: ['recipe', productId],
     enabled: Boolean(productId),
     queryFn: async () => {
-      const res = await fetch(`/api/products/${productId}/recipe`)
-      if (!res.ok) throw new Error('Failed to load recipe')
+      const res = await fetch(`/api/products/${productId}/recipe`, { credentials: 'same-origin' })
+      if (!res.ok) throw new Error(await getErrorMessage(res, 'Failed to load production recipe.'))
       return res.json()
     }
   })
@@ -55,15 +68,21 @@ export default function ProductRecipeEditor({ productId, productName }: Props) {
 
   const saveRecipe = async () => {
     if (!productId) return
+    if (hasInvalidLines) {
+      setError('Every recipe line needs a raw material and a quantity greater than zero.')
+      return
+    }
+
     setSaving(true)
     setError('')
     try {
       const res = await fetch(`/api/products/${productId}/recipe`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify({ lines })
       })
-      if (!res.ok) throw new Error('Could not save recipe')
+      if (!res.ok) throw new Error(await getErrorMessage(res, 'Could not save production recipe.'))
       await qc.invalidateQueries({ queryKey: ['recipe', productId] })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save recipe')
@@ -153,7 +172,7 @@ export default function ProductRecipeEditor({ productId, productName }: Props) {
         >
           Add recipe line
         </button>
-        <button className="btn-primary" type="button" disabled={saving || recipe.isLoading} onClick={saveRecipe}>
+        <button className="btn-primary" type="button" disabled={saving || recipe.isLoading || hasInvalidLines} onClick={saveRecipe}>
           {saving ? 'Saving...' : 'Save production recipe'}
         </button>
       </div>
