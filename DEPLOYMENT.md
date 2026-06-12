@@ -35,8 +35,9 @@ Keep this value. You will use it as `DATABASE_URL`.
 | --- | --- |
 | `DATABASE_URL` | Your Neon Postgres connection string |
 | `JWT_SECRET` | A long random secret, for example from a password generator |
-| `ADMIN_USER` | Your admin login username |
-| `ADMIN_PASS` | Your admin login password |
+| `PASSWORD_RESET_SECRET` | A long recovery secret used on the forgot-password page |
+| `ADMIN_USER` | Optional bootstrap username for the first login only |
+| `ADMIN_PASS` | Optional bootstrap password for the first login only |
 
 7. Click **Deploy**.
 
@@ -71,11 +72,12 @@ Required Vercel environment variables:
 | --- | --- | --- |
 | `DATABASE_URL` | Yes | Neon pooled connection string with `sslmode=require` |
 | `JWT_SECRET` | Yes | Long random secret for session cookies |
-| `ADMIN_USER` | Yes | Admin login username |
-| `ADMIN_PASS` | Yes | Admin login password |
+| `PASSWORD_RESET_SECRET` | Yes | Recovery secret for forgot-password and first-time setup |
+| `ADMIN_USER` | No | Bootstrap username used only when no admin exists yet |
+| `ADMIN_PASS` | No | Bootstrap password used only when no admin exists yet |
 | `PG_POOL_MAX` | No | Optional Postgres pool size (default `3`) |
 
-## 4. Log in
+## 4. Create your admin account
 
 Open your Vercel URL:
 
@@ -83,12 +85,27 @@ Open your Vercel URL:
 https://your-project.vercel.app
 ```
 
-The app redirects to the internal inventory dashboard/login.
+The app redirects to the login page.
 
-Log in with the values you set:
+Choose one of these first-time setup options:
 
-- Username: `ADMIN_USER`
-- Password: `ADMIN_PASS`
+### Option A — Forgot password (recommended)
+
+1. Open `/admin/forgot-password`
+2. Enter your desired username
+3. Enter your `PASSWORD_RESET_SECRET`
+4. Set a new password
+5. Sign in on `/admin/login`
+
+### Option B — Bootstrap from environment variables
+
+1. Set `ADMIN_USER` and `ADMIN_PASS` in Vercel
+2. Redeploy
+3. Sign in once with those credentials
+4. The account is saved in the database
+5. Change your password from `/admin/account`
+
+After the first account exists, day-to-day login uses the database password. You do not need to keep changing `ADMIN_PASS` in Vercel.
 
 ## 5. Recommended first real setup
 
@@ -121,13 +138,20 @@ DATABASE_URL="your-neon-connection-string" npm run drizzle:push
 
 ### Login does not work
 
-Check Vercel environment variables:
+1. Make sure `npm run drizzle:push` was run after the latest deploy so the `admin_users` table exists.
+2. Check Vercel environment variables:
+   - `DATABASE_URL`
+   - `JWT_SECRET`
+   - `PASSWORD_RESET_SECRET`
+3. If no admin account exists yet, use `/admin/forgot-password` to create one.
+4. If you prefer bootstrap login, set `ADMIN_USER` and `ADMIN_PASS`, redeploy, then sign in once.
+5. After signing in, use `/admin/account` to change your password any time.
 
-- `JWT_SECRET`
-- `ADMIN_USER`
-- `ADMIN_PASS`
+### I forgot my password
 
-Redeploy after changing environment variables.
+1. Open `/admin/forgot-password`
+2. Enter your username, `PASSWORD_RESET_SECRET`, and a new password
+3. Sign in again with the new password
 
 ### Inventory data is empty
 

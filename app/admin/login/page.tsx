@@ -1,5 +1,6 @@
 "use client"
 
+import Link from 'next/link'
 import React, { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useRouter } from 'next/navigation'
@@ -138,6 +139,12 @@ export default function LoginPage() {
                 )}
               </button>
             </form>
+
+            <p className="text-center text-sm text-earth-500 mt-4">
+              <Link href="/admin/forgot-password" className="font-semibold text-spice-700 hover:text-spice-900">
+                Forgot password?
+              </Link>
+            </p>
 
             {isDevelopment && (
               <p className="text-center text-xs text-earth-400 mt-6">

@@ -45,7 +45,9 @@ npm run seed
 
 `db/schema.ts` is the source of truth for the database. Use `npm run drizzle:push` for both local development and production (Neon).
 
-The SQL files in `drizzle/migrations/` are kept for reference. If you prefer raw SQL instead of `drizzle:push`, apply them in order: `0001_init.sql`, `0002_customers_production.sql`, and `0003_ingredient_categories.sql`.
+The SQL files in `drizzle/migrations/` are kept for reference. If you prefer raw SQL instead of `drizzle:push`, apply them in order through `0004_admin_users.sql`.
+
+Admin login is stored in the database. Use `/admin/forgot-password` with `PASSWORD_RESET_SECRET` to create or reset an account, and `/admin/account` to change your password after signing in.
 
 Quality checks
 --------------

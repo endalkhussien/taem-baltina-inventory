@@ -115,3 +115,13 @@ export const expenses = pgTable('expenses', {
   notes: text('notes'),
   created_at: timestamp('created_at').defaultNow().notNull()
 })
+
+export const admin_users = pgTable('admin_users', {
+  id: serial('id').primaryKey(),
+  username: varchar('username', { length: 255 }).notNull().unique(),
+  password_hash: text('password_hash').notNull(),
+  created_at: timestamp('created_at').defaultNow().notNull(),
+  updated_at: timestamp('updated_at').defaultNow().notNull()
+}, (table) => ({
+  usernameIdx: index('idx_admin_users_username').on(table.username)
+}))
