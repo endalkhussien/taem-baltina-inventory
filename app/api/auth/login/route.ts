@@ -1,38 +1,33 @@
 import { NextResponse } from 'next/server'
-import { z } from 'zod'
 import { signToken, COOKIE_NAME } from '../../../../lib/auth'
-
-const schema = z.object({ username: z.string().min(1), password: z.string().min(1) })
-
-function getAdminCredentials() {
-  const username = process.env.ADMIN_USER
-  const password = process.env.ADMIN_PASS
-
-  if (process.env.NODE_ENV === 'production' && (!username || !password)) {
-    throw new Error('ADMIN_USER and ADMIN_PASS are required in production.')
-  }
-
-  return {
-    username: username || 'admin',
-    password: password || 'password'
-  }
-}
+import { authenticateAdmin, bootstrapAdminFromEnv, countAdminUsers, getAuthSetupHint } from '../../../../lib/adminUsers'
+import { databaseErrorResponse, parseJsonBody } from '../../../../lib/apiErrors'
+import { loginSchema } from '../../../../lib/validators/auth'
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json()
-    const parsed = schema.safeParse(body)
+    const body = await parseJsonBody(request)
+    if (!body.ok) return body.response
+
+    const parsed = loginSchema.safeParse(body.data)
     if (!parsed.success) return NextResponse.json({ error: 'Invalid username or password.' }, { status: 422 })
 
     const { username, password } = parsed.data
-    const credentials = getAdminCredentials()
 
-    if (username !== credentials.username || password !== credentials.password) {
+    await bootstrapAdminFromEnv()
+
+    const user = await authenticateAdmin(username, password)
+    if (!user) {
+      const total = await countAdminUsers()
+      if (total === 0) {
+        return NextResponse.json({ error: getAuthSetupHint() }, { status: 503 })
+      }
+
       return NextResponse.json({ error: 'Invalid username or password.' }, { status: 401 })
     }
 
-    const token = await signToken({ username })
-    const res = NextResponse.json({ ok: true })
+    const token = await signToken({ userId: user.id, username: user.username })
+    const res = NextResponse.json({ ok: true, username: user.username })
     res.cookies.set(COOKIE_NAME, token, {
       httpOnly: true,
       path: '/',
@@ -42,6 +37,6 @@ export async function POST(request: Request) {
     })
     return res
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : 'Login failed.' }, { status: 500 })
+    return databaseErrorResponse(err, 'Login failed')
   }
 }

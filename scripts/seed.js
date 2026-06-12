@@ -1,4 +1,14 @@
 const { Pool } = require('pg')
+const { randomBytes, scrypt } = require('crypto')
+const { promisify } = require('util')
+
+const scryptAsync = promisify(scrypt)
+
+async function hashPassword(password) {
+  const salt = randomBytes(16).toString('hex')
+  const derived = await scryptAsync(password, salt, 64)
+  return `${salt}:${derived.toString('hex')}`
+}
 
 function resolveDatabaseUrl() {
   const url = process.env.DATABASE_URL
@@ -159,6 +169,22 @@ async function seed() {
       } else {
         console.log('Already exists customer:', customer.name)
       }
+    }
+
+    const adminUsername = process.env.ADMIN_USER || 'admin'
+    const adminPassword = process.env.ADMIN_PASS || 'password'
+    const adminRes = await client.query('SELECT id FROM admin_users WHERE username = $1', [adminUsername])
+
+    if (adminRes.rowCount === 0) {
+      const passwordHash = await hashPassword(adminPassword)
+      await client.query(
+        `INSERT INTO admin_users (username, password_hash, created_at, updated_at)
+         VALUES ($1, $2, now(), now())`,
+        [adminUsername, passwordHash]
+      )
+      console.log('Inserted admin user', adminUsername)
+    } else {
+      console.log('Already exists admin user:', adminUsername)
     }
   } finally {
     client.release()

@@ -2,6 +2,11 @@ import { SignJWT, jwtVerify } from 'jose'
 
 const COOKIE_NAME = 'taem_token'
 
+export type SessionPayload = {
+  userId: number
+  username: string
+}
+
 function getSecret() {
   const secret = process.env.JWT_SECRET
 
@@ -27,6 +32,27 @@ export async function verifyToken(token: string) {
   } catch {
     return null
   }
+}
+
+export async function getSessionFromRequest(request: Request) {
+  const cookieHeader = request.headers.get('cookie')
+  if (!cookieHeader) return null
+
+  const token = cookieHeader
+    .split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${COOKIE_NAME}=`))
+    ?.slice(COOKIE_NAME.length + 1)
+
+  if (!token) return null
+
+  const payload = await verifyToken(decodeURIComponent(token))
+  if (!payload || typeof payload.username !== 'string') return null
+
+  const userId = Number(payload.userId)
+  if (!Number.isInteger(userId)) return null
+
+  return { userId, username: payload.username }
 }
 
 export { COOKIE_NAME }

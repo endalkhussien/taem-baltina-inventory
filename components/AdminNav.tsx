@@ -37,12 +37,20 @@ export default function AdminNav() {
           </div>
         </Link>
 
-        <button
-          onClick={logout}
-          className="rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-earth-100 ring-1 ring-white/10 transition-colors hover:bg-red-600 hover:text-white"
-        >
-          Sign out
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/account"
+            className="rounded-xl bg-white/10 px-3 py-2 text-sm font-semibold text-earth-100 ring-1 ring-white/10 transition-colors hover:bg-white/15"
+          >
+            Account
+          </Link>
+          <button
+            onClick={logout}
+            className="rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-earth-100 ring-1 ring-white/10 transition-colors hover:bg-red-600 hover:text-white"
+          >
+            Sign out
+          </button>
+        </div>
       </div>
 
       <div className="flex gap-2 overflow-x-auto px-4 pb-3">
@@ -97,9 +105,15 @@ export default function AdminNav() {
         <div className="mt-auto rounded-3xl bg-white/5 p-4 ring-1 ring-white/10">
           <div className="text-xs font-bold uppercase tracking-[0.18em] text-spice-200">Session</div>
           <p className="mt-2 text-sm text-earth-200">Secure internal inventory access.</p>
+          <Link
+            href="/admin/account"
+            className="mt-4 block w-full rounded-2xl bg-white/10 px-4 py-2.5 text-center text-sm font-bold text-white transition-colors hover:bg-white/15"
+          >
+            Change password
+          </Link>
           <button
             onClick={logout}
-            className="mt-4 w-full rounded-2xl bg-red-600/90 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-600"
+            className="mt-3 w-full rounded-2xl bg-red-600/90 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-600"
           >
             Sign out
           </button>

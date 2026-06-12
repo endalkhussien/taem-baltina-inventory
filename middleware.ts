@@ -10,7 +10,7 @@ export async function middleware(req: NextRequest) {
 
     const tokenCookie = req.cookies.get(COOKIE_NAME)
 
-    if (pathname === '/admin/login') {
+    if (pathname === '/admin/login' || pathname === '/admin/forgot-password') {
       if (!tokenCookie) return NextResponse.next()
 
       const valid = await verifyToken(tokenCookie.value)
