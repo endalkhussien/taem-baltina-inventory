@@ -59,6 +59,13 @@ DATABASE_URL="your-neon-connection-string" npm run drizzle:push
 DATABASE_URL="your-neon-connection-string" npm run seed
 ```
 
+**No tables in Neon?** Use the SQL Editor instead:
+
+1. Neon → your project → **SQL Editor**
+2. Open `scripts/neon-full-setup.sql` from this repo
+3. Copy the entire file, paste into SQL Editor, click **Run**
+4. Refresh **Tables** — you should see `products`, `ingredients`, `sales`, `admin_users`, and the rest
+
 What these commands do:
 
 - `npm run drizzle:push` creates/updates the database tables from `db/schema.ts`, including indexes, foreign keys, and the recipe unique constraint required by the seed script.
