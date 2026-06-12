@@ -66,7 +66,7 @@ export function useSales() {
   const qc = useQueryClient()
   const query = useQuery<Sale[]>({ queryKey: ['sales'], queryFn: () => apiRequest<Sale[]>('/api/sales', {}, 'Failed to load sales.') })
   const create = useMutation({ mutationFn: (data: any) => apiRequest<Sale>('/api/sales', { method: 'POST', body: JSON.stringify(data) }, 'Could not record sale.'), onSuccess: () => invalidateAll(qc, ['sales', 'products', 'customers']) })
-  return { ...query, createSale: (d: any) => create.mutateAsync(d), isCreatingSale: create.isPending, deleteSale: async (id: number) => { await apiRequest(`/api/sales/${id}`, { method: 'DELETE' }, 'Could not delete sale.'); invalidateAll(qc, ['sales', 'products', 'customers']) } }
+  return { ...query, createSale: (d: any) => create.mutateAsync(d), isCreatingSale: create.isPending, deleteSale: async (id: number) => { await apiRequest(`/api/sales/${id}`, { method: 'DELETE' }, 'Could not delete sale.'); invalidateAll(qc, ['sales', 'products', 'customers', 'repayments']) } }
 }
 
 export function useRepayments() {
@@ -97,7 +97,7 @@ export function useProduction() {
   return { ...query, createProduction: (d: any) => create.mutateAsync(d), isCreatingProduction: create.isPending }
 }
 
-export type Expense = { id: number; title: string; category: string; amount: number; notes?: string }
+export type Expense = { id: number; title: string; category: string; amount: number; expense_date?: string; notes?: string }
 
 export function useExpenses() {
   const qc = useQueryClient()

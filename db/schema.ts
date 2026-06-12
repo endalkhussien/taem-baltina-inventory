@@ -5,10 +5,11 @@ import {
   varchar,
   integer,
   numeric,
-  timestamp
+  timestamp,
+  unique,
+  index
 } from 'drizzle-orm/pg-core'
 
-// Products (finished goods)
 export const products = pgTable('products', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 255 }).notNull(),
@@ -17,9 +18,10 @@ export const products = pgTable('products', {
   alert_threshold: integer('alert_threshold').notNull().default(0),
   created_at: timestamp('created_at').defaultNow().notNull(),
   updated_at: timestamp('updated_at').defaultNow().notNull()
-})
+}, (table) => ({
+  nameIdx: index('idx_products_name').on(table.name)
+}))
 
-// Ingredients (raw materials)
 export const ingredients = pgTable('ingredients', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 255 }).notNull(),
@@ -30,21 +32,24 @@ export const ingredients = pgTable('ingredients', {
   alert_threshold: numeric('alert_threshold', { precision: 12, scale: 3, mode: 'number' }).notNull().default(0),
   created_at: timestamp('created_at').defaultNow().notNull(),
   updated_at: timestamp('updated_at').defaultNow().notNull()
-})
+}, (table) => ({
+  nameIdx: index('idx_ingredients_name').on(table.name),
+  categoryIdx: index('idx_ingredients_category').on(table.category)
+}))
 
-// Bill of Materials: relates products to ingredients and how much of an ingredient is used per unit of product
 export const product_ingredients = pgTable('product_ingredients', {
   id: serial('id').primaryKey(),
-  product_id: integer('product_id').notNull().references(() => products.id),
-  ingredient_id: integer('ingredient_id').notNull().references(() => ingredients.id),
+  product_id: integer('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+  ingredient_id: integer('ingredient_id').notNull().references(() => ingredients.id, { onDelete: 'cascade' }),
   quantity_per_unit: numeric('quantity_per_unit', { precision: 12, scale: 3, mode: 'number' }).notNull(),
   created_at: timestamp('created_at').defaultNow().notNull()
-})
+}, (table) => ({
+  productIngredientUnq: unique().on(table.product_id, table.ingredient_id)
+}))
 
-// Ingredient purchases (for adding inventory cost)
 export const purchases = pgTable('purchases', {
   id: serial('id').primaryKey(),
-  ingredient_id: integer('ingredient_id').notNull().references(() => ingredients.id),
+  ingredient_id: integer('ingredient_id').notNull().references(() => ingredients.id, { onDelete: 'restrict' }),
   quantity: numeric('quantity', { precision: 12, scale: 3, mode: 'number' }).notNull(),
   cost_total: numeric('cost_total', { precision: 14, scale: 2, mode: 'number' }).notNull(),
   supplier: varchar('supplier', { length: 255 }),
@@ -52,7 +57,6 @@ export const purchases = pgTable('purchases', {
   created_at: timestamp('created_at').defaultNow().notNull()
 })
 
-// Customers that buy products directly or on credit
 export const customers = pgTable('customers', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 255 }).notNull(),
@@ -60,13 +64,14 @@ export const customers = pgTable('customers', {
   notes: text('notes'),
   created_at: timestamp('created_at').defaultNow().notNull(),
   updated_at: timestamp('updated_at').defaultNow().notNull()
-})
+}, (table) => ({
+  nameIdx: index('idx_customers_name').on(table.name)
+}))
 
-// Sales (finished-goods sold to customers)
 export const sales = pgTable('sales', {
   id: serial('id').primaryKey(),
   sale_code: varchar('sale_code', { length: 50 }).notNull(),
-  product_id: integer('product_id').notNull().references(() => products.id),
+  product_id: integer('product_id').notNull().references(() => products.id, { onDelete: 'restrict' }),
   customer_id: integer('customer_id').references(() => customers.id, { onDelete: 'set null' }),
   quantity: integer('quantity').notNull(),
   unit_price: numeric('unit_price', { precision: 12, scale: 2, mode: 'number' }).notNull(),
@@ -76,28 +81,31 @@ export const sales = pgTable('sales', {
   payment_status: varchar('payment_status', { length: 20 }).notNull().default('Credit'),
   sale_date: timestamp('sale_date').defaultNow().notNull(),
   created_at: timestamp('created_at').defaultNow().notNull()
-})
+}, (table) => ({
+  saleCodeIdx: index('idx_sales_sale_code').on(table.sale_code),
+  customerIdx: index('idx_sales_customer_id').on(table.customer_id)
+}))
 
-// Production batches consume raw ingredients through product recipes and increase product stock
 export const production_batches = pgTable('production_batches', {
   id: serial('id').primaryKey(),
-  product_id: integer('product_id').notNull().references(() => products.id),
+  product_id: integer('product_id').notNull().references(() => products.id, { onDelete: 'restrict' }),
   quantity_produced: integer('quantity_produced').notNull(),
   produced_at: timestamp('produced_at').defaultNow().notNull(),
   notes: text('notes'),
   created_at: timestamp('created_at').defaultNow().notNull()
-})
+}, (table) => ({
+  productIdx: index('idx_production_batches_product_id').on(table.product_id),
+  producedAtIdx: index('idx_production_batches_produced_at').on(table.produced_at)
+}))
 
-// Repayments for credit sales
 export const repayments = pgTable('repayments', {
   id: serial('id').primaryKey(),
-  sale_id: integer('sale_id').notNull().references(() => sales.id),
+  sale_id: integer('sale_id').notNull().references(() => sales.id, { onDelete: 'cascade' }),
   amount: numeric('amount', { precision: 14, scale: 2, mode: 'number' }).notNull(),
   payment_date: timestamp('payment_date').defaultNow().notNull(),
   created_at: timestamp('created_at').defaultNow().notNull()
 })
 
-// Expenses
 export const expenses = pgTable('expenses', {
   id: serial('id').primaryKey(),
   title: varchar('title', { length: 255 }).notNull(),
@@ -107,5 +115,3 @@ export const expenses = pgTable('expenses', {
   notes: text('notes'),
   created_at: timestamp('created_at').defaultNow().notNull()
 })
-
-// Indexes, constraints and triggers can be added in migrations where supported by drizzle-kit

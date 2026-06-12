@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { db, schema } from '../../../../lib/db'
 import { eq } from 'drizzle-orm'
 import { ingredientPatchSchema } from '../../../../lib/validators/ingredient'
-import { databaseErrorResponse } from '../../../../lib/apiErrors'
+import { databaseErrorResponse, parseJsonBody } from '../../../../lib/apiErrors'
 
 export async function GET(_request: Request, { params }: { params: { id: string } }) {
   try {
@@ -17,22 +17,24 @@ export async function GET(_request: Request, { params }: { params: { id: string 
 }
 
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
-  const id = Number(params.id)
-  if (!Number.isInteger(id)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
-
-  const body = await request.json()
-  const parsed = ingredientPatchSchema.safeParse(body)
-  if (!parsed.success) return NextResponse.json({ error: parsed.error.format() }, { status: 422 })
-
-  const updateData: any = {}
-  if (parsed.data.name !== undefined) updateData.name = parsed.data.name
-  if (parsed.data.category !== undefined) updateData.category = parsed.data.category
-  if (parsed.data.quantity !== undefined) updateData.quantity = parsed.data.quantity
-  if (parsed.data.unit !== undefined) updateData.unit = parsed.data.unit
-  if (parsed.data.costPerUnit !== undefined) updateData.cost_per_unit = parsed.data.costPerUnit
-  if (parsed.data.alertThreshold !== undefined) updateData.alert_threshold = parsed.data.alertThreshold
-
   try {
+    const id = Number(params.id)
+    if (!Number.isInteger(id)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
+
+    const body = await parseJsonBody(request)
+    if (!body.ok) return body.response
+
+    const parsed = ingredientPatchSchema.safeParse(body.data)
+    if (!parsed.success) return NextResponse.json({ error: parsed.error.format() }, { status: 422 })
+
+    const updateData: any = {}
+    if (parsed.data.name !== undefined) updateData.name = parsed.data.name
+    if (parsed.data.category !== undefined) updateData.category = parsed.data.category
+    if (parsed.data.quantity !== undefined) updateData.quantity = parsed.data.quantity
+    if (parsed.data.unit !== undefined) updateData.unit = parsed.data.unit
+    if (parsed.data.costPerUnit !== undefined) updateData.cost_per_unit = parsed.data.costPerUnit
+    if (parsed.data.alertThreshold !== undefined) updateData.alert_threshold = parsed.data.alertThreshold
+
     const [updated] = await db.update(schema.ingredients).set(updateData).where(eq(schema.ingredients.id, id)).returning()
     if (!updated) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     return NextResponse.json(updated)

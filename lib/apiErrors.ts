@@ -26,6 +26,17 @@ function getNestedMessage(error: unknown): string | null {
   return `${message}${code}`
 }
 
+export async function parseJsonBody(request: Request) {
+  try {
+    return { ok: true as const, data: await request.json() }
+  } catch {
+    return {
+      ok: false as const,
+      response: NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 })
+    }
+  }
+}
+
 export function databaseErrorResponse(error: unknown, action: string) {
   console.error(action, error)
 

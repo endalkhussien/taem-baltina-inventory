@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { db, schema } from '../../../../lib/db'
 import { customerPatchSchema } from '../../../../lib/validators/customer'
 import { eq, sql } from 'drizzle-orm'
-import { databaseErrorResponse } from '../../../../lib/apiErrors'
+import { databaseErrorResponse, parseJsonBody } from '../../../../lib/apiErrors'
 
 export async function GET(_request: Request, { params }: { params: { id: string } }) {
   try {
@@ -19,14 +19,16 @@ export async function GET(_request: Request, { params }: { params: { id: string 
 }
 
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
-  const id = Number(params.id)
-  if (!Number.isInteger(id)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
-
-  const body = await request.json()
-  const parsed = customerPatchSchema.safeParse(body)
-  if (!parsed.success) return NextResponse.json({ error: parsed.error.format() }, { status: 422 })
-
   try {
+    const id = Number(params.id)
+    if (!Number.isInteger(id)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
+
+    const body = await parseJsonBody(request)
+    if (!body.ok) return body.response
+
+    const parsed = customerPatchSchema.safeParse(body.data)
+    if (!parsed.success) return NextResponse.json({ error: parsed.error.format() }, { status: 422 })
+
     const [updated] = await db
       .update(schema.customers)
       .set(parsed.data)
