@@ -60,10 +60,20 @@ DATABASE_URL="your-neon-connection-string" npm run seed
 
 What these commands do:
 
-- `npm run drizzle:push` creates/updates the database tables.
-- `npm run seed` adds starter products, raw materials, recipes, and sample customers.
+- `npm run drizzle:push` creates/updates the database tables from `db/schema.ts`, including indexes, foreign keys, and the recipe unique constraint required by the seed script.
+- `npm run seed` adds starter products, raw materials, recipes, and sample customers. It automatically uses SSL when connecting to Neon.
 
 Run `npm run seed` only once unless you intentionally want to re-check/update starter data.
+
+Required Vercel environment variables:
+
+| Name | Required | Notes |
+| --- | --- | --- |
+| `DATABASE_URL` | Yes | Neon pooled connection string with `sslmode=require` |
+| `JWT_SECRET` | Yes | Long random secret for session cookies |
+| `ADMIN_USER` | Yes | Admin login username |
+| `ADMIN_PASS` | Yes | Admin login password |
+| `PG_POOL_MAX` | No | Optional Postgres pool size (default `3`) |
 
 ## 4. Log in
 

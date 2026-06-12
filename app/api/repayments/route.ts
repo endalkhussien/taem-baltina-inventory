@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db, schema } from '../../../lib/db'
 import { repaymentSchema } from '../../../lib/validators/sale'
 import { desc, eq } from 'drizzle-orm'
+import { databaseErrorResponse, parseJsonBody } from '../../../lib/apiErrors'
 
 function parseDate(value?: string) {
   if (!value) return new Date()
@@ -10,26 +11,32 @@ function parseDate(value?: string) {
 }
 
 export async function GET() {
-  const repayments = await db
-    .select({
-      id: schema.repayments.id,
-      sale_id: schema.repayments.sale_id,
-      sale_code: schema.sales.sale_code,
-      amount: schema.repayments.amount,
-      payment_date: schema.repayments.payment_date,
-      created_at: schema.repayments.created_at
-    })
-    .from(schema.repayments)
-    .leftJoin(schema.sales, eq(schema.repayments.sale_id, schema.sales.id))
-    .orderBy(desc(schema.repayments.payment_date))
+  try {
+    const repayments = await db
+      .select({
+        id: schema.repayments.id,
+        sale_id: schema.repayments.sale_id,
+        sale_code: schema.sales.sale_code,
+        amount: schema.repayments.amount,
+        payment_date: schema.repayments.payment_date,
+        created_at: schema.repayments.created_at
+      })
+      .from(schema.repayments)
+      .leftJoin(schema.sales, eq(schema.repayments.sale_id, schema.sales.id))
+      .orderBy(desc(schema.repayments.payment_date))
 
-  return NextResponse.json(repayments)
+    return NextResponse.json(repayments)
+  } catch (err) {
+    return databaseErrorResponse(err, 'Could not load repayments')
+  }
 }
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json()
-    const parsed = repaymentSchema.safeParse(body)
+    const body = await parseJsonBody(request)
+    if (!body.ok) return body.response
+
+    const parsed = repaymentSchema.safeParse(body.data)
     if (!parsed.success) return NextResponse.json({ error: parsed.error.format() }, { status: 422 })
 
     const { saleId, amount, paymentDate } = parsed.data
@@ -65,6 +72,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json(result.created, { status: 201 })
   } catch (err) {
-    return NextResponse.json({ error: String(err) }, { status: 500 })
+    return databaseErrorResponse(err, 'Could not record payment')
   }
 }

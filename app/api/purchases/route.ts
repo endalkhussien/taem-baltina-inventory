@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { db, schema } from '../../../lib/db'
 import { purchaseCreateSchema } from '../../../lib/validators/purchase'
 import { desc, eq, sql } from 'drizzle-orm'
+import { databaseErrorResponse, parseJsonBody } from '../../../lib/apiErrors'
 
 function parseDate(value?: string) {
   if (!value) return new Date()
@@ -10,28 +11,34 @@ function parseDate(value?: string) {
 }
 
 export async function GET() {
-  const purchases = await db
-    .select({
-      id: schema.purchases.id,
-      ingredient_id: schema.purchases.ingredient_id,
-      ingredient_name: schema.ingredients.name,
-      quantity: schema.purchases.quantity,
-      cost_total: schema.purchases.cost_total,
-      supplier: schema.purchases.supplier,
-      purchase_date: schema.purchases.purchase_date,
-      created_at: schema.purchases.created_at
-    })
-    .from(schema.purchases)
-    .leftJoin(schema.ingredients, eq(schema.purchases.ingredient_id, schema.ingredients.id))
-    .orderBy(desc(schema.purchases.purchase_date))
+  try {
+    const purchases = await db
+      .select({
+        id: schema.purchases.id,
+        ingredient_id: schema.purchases.ingredient_id,
+        ingredient_name: schema.ingredients.name,
+        quantity: schema.purchases.quantity,
+        cost_total: schema.purchases.cost_total,
+        supplier: schema.purchases.supplier,
+        purchase_date: schema.purchases.purchase_date,
+        created_at: schema.purchases.created_at
+      })
+      .from(schema.purchases)
+      .leftJoin(schema.ingredients, eq(schema.purchases.ingredient_id, schema.ingredients.id))
+      .orderBy(desc(schema.purchases.purchase_date))
 
-  return NextResponse.json(purchases)
+    return NextResponse.json(purchases)
+  } catch (err) {
+    return databaseErrorResponse(err, 'Could not load raw-material purchases')
+  }
 }
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json()
-    const parsed = purchaseCreateSchema.safeParse(body)
+    const body = await parseJsonBody(request)
+    if (!body.ok) return body.response
+
+    const parsed = purchaseCreateSchema.safeParse(body.data)
     if (!parsed.success) return NextResponse.json({ error: parsed.error.format() }, { status: 422 })
 
     const { ingredientId, quantity, costTotal, supplier, purchaseDate } = parsed.data
@@ -78,6 +85,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json(result.created, { status: 201 })
   } catch (err) {
-    return NextResponse.json({ error: String(err) }, { status: 500 })
+    return databaseErrorResponse(err, 'Could not record purchase')
   }
 }

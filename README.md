@@ -33,16 +33,25 @@ See [`DEPLOYMENT.md`](./DEPLOYMENT.md) for step-by-step instructions to put the 
 Migrations and seed
 -------------------
 
-After starting the local Postgres (`docker compose up -d`), apply the migrations and seed sample products, raw ingredients, product recipes, and credit customers:
+After starting the local Postgres (`docker compose up -d`), create tables and seed sample products, raw ingredients, product recipes, and credit customers:
 
 ```bash
 npm ci
-# Push schema using drizzle-kit (configured in `drizzle.config.ts`)
+# Create or update tables from db/schema.ts (recommended for local and Vercel/Neon)
 npm run drizzle:push
 # Seed initial products (Berbere, Shiro, Mitmita), ingredients, recipes, and customers
 npm run seed
 ```
 
-If you prefer to run the raw SQL migration instead of `drizzle:push`, you can execute the file `drizzle/migrations/0001_init.sql` against your database.
-Then apply `drizzle/migrations/0002_customers_production.sql` for customers, customer-linked sales, and production batches.
-Apply `drizzle/migrations/0003_ingredient_categories.sql` to add raw-material categories for filtered stock views.
+`db/schema.ts` is the source of truth for the database. Use `npm run drizzle:push` for both local development and production (Neon).
+
+The SQL files in `drizzle/migrations/` are kept for reference. If you prefer raw SQL instead of `drizzle:push`, apply them in order: `0001_init.sql`, `0002_customers_production.sql`, and `0003_ingredient_categories.sql`.
+
+Quality checks
+--------------
+
+```bash
+npm run typecheck
+npm run lint
+npm run build
+```

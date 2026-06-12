@@ -1,7 +1,33 @@
 const { Pool } = require('pg')
 
-const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/taem_baltina_dev'
-const pool = new Pool({ connectionString })
+function resolveDatabaseUrl() {
+  const url = process.env.DATABASE_URL
+
+  if (!url) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('DATABASE_URL environment variable is required in production.')
+    }
+
+    return 'postgresql://postgres:postgres@localhost:5432/taem_baltina_dev'
+  }
+
+  return url
+}
+
+function createPgPoolOptions(connectionString) {
+  const requiresSsl = /sslmode=require|neon\.tech|supabase\.co/i.test(connectionString)
+
+  return {
+    connectionString,
+    max: Number(process.env.PG_POOL_MAX || 3),
+    idleTimeoutMillis: 10_000,
+    connectionTimeoutMillis: 10_000,
+    ssl: requiresSsl ? { rejectUnauthorized: false } : undefined
+  }
+}
+
+const connectionString = resolveDatabaseUrl()
+const pool = new Pool(createPgPoolOptions(connectionString))
 
 const products = [
   { name: 'Berbere', selling_price: 150.0, stock_quantity: 100, alert_threshold: 10 },
