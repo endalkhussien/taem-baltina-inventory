@@ -3,6 +3,7 @@ import { positiveInt, nonNegativeNumber } from './numeric'
 
 export const productionCreateSchema = z.object({
   productId: positiveInt,
+  batchCount: positiveInt.optional().default(1),
   quantityProduced: positiveInt,
   producedAt: z.string().optional(),
   notes: z.string().optional(),

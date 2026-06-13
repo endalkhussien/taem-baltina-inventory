@@ -8,6 +8,7 @@ export type ProductionBatch = {
   id: number
   product_id: number
   product_name: string | null
+  batch_count: number
   quantity_produced: number
   material_cost: number
   labor_cost: number

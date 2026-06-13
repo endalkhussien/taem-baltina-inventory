@@ -22,6 +22,7 @@ export async function GET() {
         id: schema.production_batches.id,
         product_id: schema.production_batches.product_id,
         product_name: schema.products.name,
+        batch_count: schema.production_batches.batch_count,
         quantity_produced: schema.production_batches.quantity_produced,
         material_cost: schema.production_batches.material_cost,
         labor_cost: schema.production_batches.labor_cost,
@@ -51,6 +52,7 @@ export async function POST(request: Request) {
 
     const {
       productId,
+      batchCount = 1,
       quantityProduced,
       producedAt,
       notes,
@@ -92,7 +94,7 @@ export async function POST(request: Request) {
 
       const shortages = recipe
         .map((line) => {
-          const required = Number(line.quantity_per_unit) * quantityProduced
+          const required = Number(line.quantity_per_unit) * batchCount
           const available = Number(line.available_quantity)
           return available < required
             ? `${line.ingredient_name ?? 'Ingredient'} needs ${required.toFixed(3)} but has ${available.toFixed(3)}`
@@ -104,12 +106,12 @@ export async function POST(request: Request) {
         return { error: `Insufficient raw materials: ${shortages.join('; ')}`, status: 409 as const }
       }
 
-      const materialCost = computeBatchMaterialCost(recipe, quantityProduced)
+      const materialCost = computeBatchMaterialCost(recipe, batchCount)
       const totalCost = computeBatchTotalCost(materialCost, laborCost, equipmentCost, otherOverhead)
       const costPerUnit = computeCostPerUnit(totalCost, quantityProduced)
 
       for (const line of recipe) {
-        const required = Number(line.quantity_per_unit) * quantityProduced
+        const required = Number(line.quantity_per_unit) * batchCount
         await tx
           .update(schema.ingredients)
           .set({ quantity: sql`${schema.ingredients.quantity} - ${required}` })
@@ -129,6 +131,7 @@ export async function POST(request: Request) {
         .insert(schema.production_batches)
         .values({
           product_id: productId,
+          batch_count: batchCount,
           quantity_produced: quantityProduced,
           material_cost: materialCost,
           labor_cost: laborCost,
@@ -146,13 +149,14 @@ export async function POST(request: Request) {
         stock_kg_before: stockKgBefore,
         stock_kg_after: stockKgAfter,
         quantity_added_kg: quantityProduced,
+        batch_count: batchCount,
         product_name: product.name
       }
     })
 
     if ('error' in result) return NextResponse.json({ error: result.error }, { status: result.status })
 
-    const { created, stock_kg_before, stock_kg_after, quantity_added_kg, product_name } = result
+    const { created, stock_kg_before, stock_kg_after, quantity_added_kg, batch_count, product_name } = result
 
     return NextResponse.json(
       {
@@ -160,6 +164,7 @@ export async function POST(request: Request) {
         stock_kg_before,
         stock_kg_after,
         quantity_added_kg,
+        batch_count,
         product_name
       },
       { status: 201 }

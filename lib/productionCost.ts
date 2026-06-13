@@ -7,12 +7,12 @@ export function roundMoney(value: number) {
   return Math.round(value * 100) / 100
 }
 
-export function computeBatchMaterialCost(lines: RecipeCostLine[], quantityProduced: number) {
+export function computeBatchMaterialCost(lines: RecipeCostLine[], batchCount: number) {
   return roundMoney(
     lines.reduce((sum, line) => {
-      const perUnit = Number(line.quantity_per_unit)
+      const perBatch = Number(line.quantity_per_unit)
       const unitCost = Number(line.ingredient_cost_per_unit ?? 0)
-      return sum + perUnit * quantityProduced * unitCost
+      return sum + perBatch * batchCount * unitCost
     }, 0)
   )
 }
@@ -26,10 +26,13 @@ export function computeBatchTotalCost(
   return roundMoney(materialCost + laborCost + equipmentCost + otherOverhead)
 }
 
-export function computeCostPerUnit(totalCost: number, quantityProduced: number) {
-  if (quantityProduced <= 0) return 0
-  return roundMoney(totalCost / quantityProduced)
+export function computeCostPerKg(totalCost: number, kgProduced: number) {
+  if (kgProduced <= 0) return 0
+  return roundMoney(totalCost / kgProduced)
 }
+
+/** @deprecated Use computeCostPerKg — kept for callers using the old name */
+export const computeCostPerUnit = computeCostPerKg
 
 export function averageCostPerProduct(
   batches: Array<{ product_id: number; quantity_produced: number; total_cost?: number | null }>

@@ -89,6 +89,7 @@ export const sales = pgTable('sales', {
 export const production_batches = pgTable('production_batches', {
   id: serial('id').primaryKey(),
   product_id: integer('product_id').notNull().references(() => products.id, { onDelete: 'restrict' }),
+  batch_count: integer('batch_count').notNull().default(1),
   quantity_produced: integer('quantity_produced').notNull(),
   material_cost: numeric('material_cost', { precision: 14, scale: 2, mode: 'number' }).notNull().default(0),
   labor_cost: numeric('labor_cost', { precision: 14, scale: 2, mode: 'number' }).notNull().default(0),

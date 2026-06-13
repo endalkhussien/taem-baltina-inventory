@@ -338,7 +338,7 @@ export default function ProductRecipeEditor({ productId, productName, onProductS
                             next[index] = { ...line, quantityPerUnit: Number(event.target.value) }
                             setLines(next)
                           }}
-                          placeholder="Qty per unit"
+                          placeholder="Qty per batch"
                         />
                         <button
                           className="btn-secondary !px-3"
@@ -349,7 +349,7 @@ export default function ProductRecipeEditor({ productId, productName, onProductS
                         </button>
                         {ingredient && (
                           <div className="sm:col-span-3 text-xs text-earth-500">
-                            Uses {line.quantityPerUnit || 0} {ingredient.unit} per unit at {Number(ingredient.cost_per_unit).toFixed(2)} ETB/{ingredient.unit}
+                            Uses {line.quantityPerUnit || 0} {ingredient.unit} per batch at {Number(ingredient.cost_per_unit).toFixed(2)} ETB/{ingredient.unit}
                           </div>
                         )}
                       </div>
