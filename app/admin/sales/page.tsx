@@ -6,6 +6,7 @@ import { useProducts } from '../../../hooks/useProducts'
 import { useCustomers, useRepayments, useSales } from '../../../hooks/useModules'
 import AdminNav from '../../../components/AdminNav'
 import { computeSaleTotals, toLocalDateKey } from '../../../lib/sales'
+import { formatStockKg } from '../../../lib/productStock'
 
 const today = new Date().toISOString().slice(0, 10)
 
@@ -74,10 +75,11 @@ export default function SalesPage() {
   const selectedRepaySale = salesList.find((sale) => sale.id === repaySaleId) ?? null
   const stockError =
     selectedProduct && quantity > 0 && quantity > availableStock
-      ? `Only ${availableStock} unit${availableStock === 1 ? '' : 's'} of ${selectedProduct.name} in stock.`
+      ? `Only ${formatStockKg(availableStock)} of ${selectedProduct.name} available.`
       : selectedProduct && availableStock <= 0
         ? `${selectedProduct.name} is out of stock.`
         : ''
+  const projectedStockKg = Math.max(availableStock - quantity, 0)
 
   useEffect(() => {
     if (!selectedProduct) return
@@ -123,7 +125,7 @@ export default function SalesPage() {
     if (values.quantity > Number(product.stock_quantity)) {
       setMessage({
         type: 'error',
-        text: `Not enough stock. Only ${product.stock_quantity} unit${product.stock_quantity === 1 ? '' : 's'} available.`
+        text: `Not enough stock. Only ${formatStockKg(product.stock_quantity)} available.`
       })
       return
     }
@@ -146,7 +148,7 @@ export default function SalesPage() {
     }
 
     try {
-      await createSale({
+      const result = await createSale({
         productId: values.productId,
         customerId: values.customerId,
         quantity: values.quantity,
@@ -155,7 +157,12 @@ export default function SalesPage() {
       })
       reset({ productId: 0, customerId: 0, quantity: 1, amountPaid: 0, saleDate: today })
       previousCustomerId.current = 0
-      setMessage({ type: 'success', text: 'Sale recorded and stock updated.' })
+      const afterKg = Number(result.stock_kg_after ?? 0)
+      const soldKg = Number(result.quantity_sold_kg ?? values.quantity)
+      setMessage({
+        type: 'success',
+        text: `Sale recorded: −${soldKg} kg sold. Remaining stock: ${afterKg} kg.`
+      })
     } catch (err) {
       setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not record sale.' })
     }
@@ -237,7 +244,7 @@ export default function SalesPage() {
                       const inStock = Number(product.stock_quantity) > 0
                       return (
                         <option key={product.id} value={product.id} disabled={!inStock}>
-                          {product.name} ({product.stock_quantity} in stock){inStock ? '' : ' — OUT OF STOCK'}
+                          {product.name} ({formatStockKg(product.stock_quantity)}){inStock ? '' : ' — OUT OF STOCK'}
                         </option>
                       )
                     })}
@@ -260,7 +267,7 @@ export default function SalesPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-bold text-earth-700 mb-1.5">Quantity</label>
+                    <label className="block text-sm font-bold text-earth-700 mb-1.5">Quantity (kg)</label>
                     <input
                       type="number"
                       min={availableStock > 0 ? 1 : 0}
@@ -269,9 +276,14 @@ export default function SalesPage() {
                       {...register('quantity', { valueAsNumber: true })}
                       disabled={!selectedProduct || availableStock <= 0}
                     />
+                    {selectedProduct && availableStock > 0 && quantity > 0 && (
+                      <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                        Stock: {formatStockKg(availableStock)} → <span className="font-bold">{formatStockKg(projectedStockKg)}</span> after sale
+                      </div>
+                    )}
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-earth-700 mb-1.5">Unit price (auto)</label>
+                    <label className="block text-sm font-bold text-earth-700 mb-1.5">Price per kg (auto)</label>
                     <div className="input-field bg-earth-50 text-earth-800 font-semibold">
                       {unitPrice > 0 ? `${unitPrice.toFixed(2)} ETB` : '—'}
                     </div>

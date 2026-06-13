@@ -198,7 +198,7 @@ export default function DashboardPage() {
         </div>
         <div className="metric-card">
           <div className="metric-label">Today&apos;s production</div>
-          <div className="metric-value text-amber-700">{todayProduced} units</div>
+          <div className="metric-value text-amber-700">{todayProduced} kg</div>
           <div className="mt-2 text-xs font-semibold text-earth-500">{todayProduction.length} batch{todayProduction.length === 1 ? '' : 'es'} completed today.</div>
         </div>
         <Link href="/admin/customers" className="metric-card block">
@@ -234,11 +234,11 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="metric-card">
           <div className="metric-label">Sold this period</div>
-          <div className="metric-value text-blue-700">{periodSoldUnits} units</div>
+          <div className="metric-value text-blue-700">{periodSoldUnits} kg</div>
         </div>
         <div className="metric-card">
           <div className="metric-label">Produced this period</div>
-          <div className="metric-value text-amber-700">{periodProduced} units</div>
+          <div className="metric-value text-amber-700">{periodProduced} kg</div>
         </div>
         <div className="metric-card">
           <div className="metric-label">Credit created</div>
@@ -303,7 +303,7 @@ export default function DashboardPage() {
       {lowStockProducts.length > 0 && (
         <div className="rounded-3xl bg-amber-50 border border-amber-200 p-5 shadow-sm">
           <h2 className="text-lg font-black text-amber-900 mb-2">Finished goods need attention</h2>
-          <Link href="/admin/products?filter=low" className="text-sm font-semibold text-amber-700 hover:text-amber-900">{lowStockProducts.map((p: any) => `${p.name}: ${p.stock_quantity} units`).join(', ')}</Link>
+          <Link href="/admin/products?filter=low" className="text-sm font-semibold text-amber-700 hover:text-amber-900">{lowStockProducts.map((p: any) => `${p.name}: ${p.stock_quantity} kg`).join(', ')}</Link>
         </div>
       )}
 

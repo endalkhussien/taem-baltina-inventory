@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useProducts } from '../hooks/useProducts'
 import { isLowStock } from '../lib/stock'
+import { formatStockKg } from '../lib/productStock'
 
 export default function ProductList({ onEdit, onRecipe }: { onEdit: (id: number) => void; onRecipe: (id: number) => void }) {
   const searchParams = useSearchParams()
@@ -67,6 +68,8 @@ export default function ProductList({ onEdit, onRecipe }: { onEdit: (id: number)
                 <th className="px-6 py-3">Finished Good</th>
                 <th className="px-6 py-3">Selling Price</th>
                 <th className="px-6 py-3">Available Stock</th>
+                <th className="px-6 py-3">Produced</th>
+                <th className="px-6 py-3">Sold</th>
                 <th className="px-6 py-3">Recipe</th>
                 <th className="px-6 py-3">Workflow</th>
               </tr>
@@ -82,10 +85,12 @@ export default function ProductList({ onEdit, onRecipe }: { onEdit: (id: number)
                     <td className="px-6 py-4 text-earth-700">{Number(product.selling_price).toFixed(2)} ETB</td>
                     <td className="px-6 py-3">
                       <span className={`status-pill ${low ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                        {product.stock_quantity} units
+                        {formatStockKg(product.stock_quantity)}
                       </span>
-                      {low && <div className="mt-1 text-xs font-bold text-red-600">Below {product.alert_threshold}</div>}
+                      {low && <div className="mt-1 text-xs font-bold text-red-600">Below {product.alert_threshold} kg</div>}
                     </td>
+                    <td className="px-6 py-4 text-earth-700">{formatStockKg(product.total_produced ?? 0)}</td>
+                    <td className="px-6 py-4 text-earth-700">{formatStockKg(product.total_sold ?? 0)}</td>
                     <td className="px-6 py-4">
                       <span className={`status-pill ${recipeLines > 0 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-800'}`}>
                         {recipeLines > 0 ? `${recipeLines} lines` : 'Missing'}

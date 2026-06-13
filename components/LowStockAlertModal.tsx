@@ -40,7 +40,7 @@ export default function LowStockAlertModal() {
         name: product.name,
         stock: Number(product.stock_quantity),
         threshold: Number(product.alert_threshold),
-        unit: 'units',
+        unit: 'kg',
         kind: 'finished' as const
       }))
 

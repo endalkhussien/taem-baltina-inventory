@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { db, schema } from '../../../lib/db'
 import { productCreateSchema } from '../../../lib/validators/product'
 import { databaseErrorResponse } from '../../../lib/apiErrors'
-import { count, eq } from 'drizzle-orm'
+import { count, eq, sql } from 'drizzle-orm'
 
 export async function GET() {
   try {
@@ -15,12 +15,32 @@ export async function GET() {
       .from(schema.product_ingredients)
       .groupBy(schema.product_ingredients.product_id)
 
+    const producedTotals = await db
+      .select({
+        product_id: schema.production_batches.product_id,
+        total_produced: sql<number>`coalesce(sum(${schema.production_batches.quantity_produced}), 0)`.mapWith(Number)
+      })
+      .from(schema.production_batches)
+      .groupBy(schema.production_batches.product_id)
+
+    const soldTotals = await db
+      .select({
+        product_id: schema.sales.product_id,
+        total_sold: sql<number>`coalesce(sum(${schema.sales.quantity}), 0)`.mapWith(Number)
+      })
+      .from(schema.sales)
+      .groupBy(schema.sales.product_id)
+
     const countByProductId = new Map(recipeCounts.map((row) => [row.product_id, Number(row.recipe_line_count)]))
+    const producedByProductId = new Map(producedTotals.map((row) => [row.product_id, Number(row.total_produced)]))
+    const soldByProductId = new Map(soldTotals.map((row) => [row.product_id, Number(row.total_sold)]))
 
     return NextResponse.json(
       products.map((product) => ({
         ...product,
-        recipe_line_count: countByProductId.get(product.id) ?? 0
+        recipe_line_count: countByProductId.get(product.id) ?? 0,
+        total_produced: producedByProductId.get(product.id) ?? 0,
+        total_sold: soldByProductId.get(product.id) ?? 0
       }))
     )
   } catch (err) {
