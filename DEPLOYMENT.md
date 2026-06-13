@@ -141,6 +141,28 @@ npm run build
 4. If the log shows an **ESLint** error, run `npm run lint` locally and fix the reported file.
 5. If the log shows **TypeScript** errors, run `npm run typecheck` locally.
 
+### Production fails: `column "batch_count" does not exist`
+
+The app was deployed before the database schema was updated. Run:
+
+**PowerShell (Windows):**
+
+```powershell
+git pull origin main
+npm install
+$env:DATABASE_URL = "postgresql://YOUR_NEON_URL?sslmode=require"
+npm run drizzle:push
+```
+
+**Or run this SQL once in the Neon SQL Editor:**
+
+```sql
+ALTER TABLE production_batches
+  ADD COLUMN IF NOT EXISTS batch_count INTEGER NOT NULL DEFAULT 1;
+```
+
+Then try posting production again.
+
 ### Vercel deploys, but pages error
 
 Most likely the database tables were not created yet.

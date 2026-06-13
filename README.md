@@ -45,7 +45,9 @@ npm run seed
 
 `db/schema.ts` is the source of truth for the database. Use `npm run drizzle:push` for both local development and production (Neon).
 
-The SQL files in `drizzle/migrations/` are kept for reference. If you prefer raw SQL instead of `drizzle:push`, apply them in order through `0006_production_costs.sql`.
+The SQL files in `drizzle/migrations/` are kept for reference. If you prefer raw SQL instead of `drizzle:push`, apply them in order through `0007_production_batch_count.sql`.
+
+**After pulling a new version that changes `db/schema.ts`, always run `npm run drizzle:push` again** so hosted databases (Neon) get new columns such as `production_batches.batch_count`.
 
 The **Finance** page (`/admin/finance`) lets you record manual cash-on-hand counts, debts you owe (bank, family, supplier), payments against those debts, and see your net position (cash + customer credit − debts owed).
 
