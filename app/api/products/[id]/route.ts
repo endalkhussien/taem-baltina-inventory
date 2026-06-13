@@ -24,7 +24,6 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     const patchSchema = z.object({
       name: z.string().min(1).optional(),
       sellingPrice: z.union([z.string(), z.number()]).transform((v) => Number(v)).optional(),
-      stockQuantity: z.number().int().nonnegative().optional(),
       alertThreshold: z.number().int().nonnegative().optional()
     })
 
@@ -37,7 +36,6 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     const updateData: any = {}
     if (parsed.data.name !== undefined) updateData.name = parsed.data.name
     if (parsed.data.sellingPrice !== undefined) updateData.selling_price = parsed.data.sellingPrice
-    if (parsed.data.stockQuantity !== undefined) updateData.stock_quantity = parsed.data.stockQuantity
     if (parsed.data.alertThreshold !== undefined) updateData.alert_threshold = parsed.data.alertThreshold
 
     const [updated] = await db.update(schema.products).set(updateData).where(eq(schema.products.id, id)).returning()

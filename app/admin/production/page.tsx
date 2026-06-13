@@ -7,6 +7,7 @@ import AdminNav from '../../../components/AdminNav'
 import { useProduction } from '../../../hooks/useModules'
 import { useProducts } from '../../../hooks/useProducts'
 import { computeBatchMaterialCost, computeBatchTotalCost, computeCostPerUnit } from '../../../lib/productionCost'
+import { formatStockKg } from '../../../lib/productStock'
 
 const today = new Date().toISOString().slice(0, 10)
 
@@ -61,11 +62,14 @@ export default function ProductionPage() {
   const overheadCost = laborCost + equipmentCost + otherOverhead
   const totalBatchCost = computeBatchTotalCost(materialCost, laborCost, equipmentCost, otherOverhead)
   const costPerUnit = computeCostPerUnit(totalBatchCost, quantityProduced)
+  const selectedProduct = productList.find((product) => product.id === selectedProductId) ?? null
+  const currentStockKg = selectedProduct ? Number(selectedProduct.stock_quantity) : 0
+  const projectedStockKg = currentStockKg + quantityProduced
 
   const onSubmit = async (values: any) => {
     setMessage(null)
     try {
-      await createProduction(values)
+      const result = await createProduction(values)
       reset({
         productId: 0,
         quantityProduced: 1,
@@ -75,7 +79,13 @@ export default function ProductionPage() {
         equipmentCost: 0,
         otherOverhead: 0
       })
-      setMessage({ type: 'success', text: 'Production batch recorded with full cost breakdown.' })
+      const addedKg = Number(result.quantity_added_kg ?? values.quantityProduced)
+      const afterKg = Number(result.stock_kg_after ?? 0)
+      const productName = result.product_name ?? selectedProduct?.name ?? 'Product'
+      setMessage({
+        type: 'success',
+        text: `Production recorded: +${addedKg} kg for ${productName}. Stock is now ${afterKg} kg.`
+      })
     } catch (err) {
       setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not record production batch.' })
     }
@@ -110,15 +120,20 @@ export default function ProductionPage() {
                       const recipeLabel = recipeLines > 0 ? `${recipeLines} recipe lines` : 'no recipe yet'
                       return (
                         <option key={product.id} value={product.id}>
-                          {product.name} ({product.stock_quantity} in stock • {recipeLabel})
+                          {product.name} ({formatStockKg(product.stock_quantity)} • {recipeLabel})
                         </option>
                       )
                     })}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-earth-700 mb-1.5">Batch Output Quantity</label>
+                  <label className="block text-sm font-bold text-earth-700 mb-1.5">Batch Output (kg)</label>
                   <input type="number" min="1" className="input-field" {...register('quantityProduced', { valueAsNumber: true })} />
+                  {selectedProductId > 0 && quantityProduced > 0 && (
+                    <div className="mt-2 rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
+                      Stock: {formatStockKg(currentStockKg)} → <span className="font-bold">{formatStockKg(projectedStockKg)}</span> after this batch
+                    </div>
+                  )}
                 </div>
                 <div className="rounded-2xl border border-earth-100 bg-earth-50 p-4 space-y-3">
                   <div className="text-xs font-bold uppercase tracking-wide text-earth-500">Production overhead (ETB)</div>
@@ -148,7 +163,7 @@ export default function ProductionPage() {
                   <div className="flex justify-between mt-1"><span>Overhead</span><span className="font-bold">{overheadCost.toFixed(2)} ETB</span></div>
                   <div className="flex justify-between mt-2 pt-2 border-t border-spice-200 text-base"><span className="font-black">Total batch cost</span><span className="font-black text-spice-800">{totalBatchCost.toFixed(2)} ETB</span></div>
                   {quantityProduced > 0 && (
-                    <div className="mt-1 text-xs text-earth-600">{costPerUnit.toFixed(2)} ETB cost per unit produced</div>
+                    <div className="mt-1 text-xs text-earth-600">{costPerUnit.toFixed(2)} ETB cost per kg produced</div>
                   )}
                 </div>
                 <button className="btn-primary w-full" type="submit" disabled={isCreatingProduction || selectedProductId === 0}>
@@ -200,13 +215,13 @@ export default function ProductionPage() {
                   <tr className="text-left text-xs uppercase tracking-wide text-earth-500">
                     <th className="pb-3">Date</th>
                     <th className="pb-3">Product</th>
-                    <th className="pb-3">Qty</th>
+                    <th className="pb-3">Kg</th>
                     <th className="pb-3">Materials</th>
                     <th className="pb-3">Labour</th>
                     <th className="pb-3">Machine</th>
                     <th className="pb-3">Other</th>
                     <th className="pb-3">Total</th>
-                    <th className="pb-3">Per unit</th>
+                    <th className="pb-3">Per kg</th>
                   </tr>
                 </thead>
                 <tbody>

@@ -17,6 +17,9 @@ export type ProductionBatch = {
   cost_per_unit: number
   produced_at: string
   notes?: string | null
+  stock_kg_before?: number
+  stock_kg_after?: number
+  quantity_added_kg?: number
 }
 export type Repayment = { id: number; sale_id: number; sale_code: string | null; amount: number; payment_date: string }
 
@@ -73,7 +76,7 @@ export function usePurchases() {
   return { ...query, createPurchase: (d: any) => create.mutateAsync(d), isCreatingPurchase: create.isPending }
 }
 
-export type Sale = { id: number; sale_code: string; product_id: number; product_name?: string | null; customer_id?: number | null; customer_name?: string | null; quantity: number; unit_price: number; total_amount: number; amount_paid: number; balance: number; payment_status: string; sale_date: string }
+export type Sale = { id: number; sale_code: string; product_id: number; product_name?: string | null; customer_id?: number | null; customer_name?: string | null; quantity: number; unit_price: number; total_amount: number; amount_paid: number; balance: number; payment_status: string; sale_date: string; stock_kg_before?: number; stock_kg_after?: number; quantity_sold_kg?: number }
 
 export function useSales() {
   const qc = useQueryClient()

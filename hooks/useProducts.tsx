@@ -9,6 +9,8 @@ export type Product = {
   stock_quantity: number
   alert_threshold: number
   recipe_line_count?: number
+  total_produced?: number
+  total_sold?: number
 }
 
 async function getErrorMessage(res: Response, fallback: string) {

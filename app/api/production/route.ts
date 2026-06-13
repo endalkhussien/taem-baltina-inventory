@@ -63,7 +63,11 @@ export async function POST(request: Request) {
 
     const result = await db.transaction(async (tx) => {
       const [product] = await tx
-        .select({ id: schema.products.id })
+        .select({
+          id: schema.products.id,
+          name: schema.products.name,
+          stock_quantity: schema.products.stock_quantity
+        })
         .from(schema.products)
         .where(eq(schema.products.id, productId))
         .limit(1)
@@ -112,10 +116,14 @@ export async function POST(request: Request) {
           .where(eq(schema.ingredients.id, line.ingredient_id))
       }
 
+      const stockKgBefore = Number(product.stock_quantity)
+
       await tx
         .update(schema.products)
         .set({ stock_quantity: sql`${schema.products.stock_quantity} + ${quantityProduced}` })
         .where(eq(schema.products.id, productId))
+
+      const stockKgAfter = stockKgBefore + quantityProduced
 
       const [created] = await tx
         .insert(schema.production_batches)
@@ -133,12 +141,29 @@ export async function POST(request: Request) {
         })
         .returning()
 
-      return { created }
+      return {
+        created,
+        stock_kg_before: stockKgBefore,
+        stock_kg_after: stockKgAfter,
+        quantity_added_kg: quantityProduced,
+        product_name: product.name
+      }
     })
 
     if ('error' in result) return NextResponse.json({ error: result.error }, { status: result.status })
 
-    return NextResponse.json(result.created, { status: 201 })
+    const { created, stock_kg_before, stock_kg_after, quantity_added_kg, product_name } = result
+
+    return NextResponse.json(
+      {
+        ...created,
+        stock_kg_before,
+        stock_kg_after,
+        quantity_added_kg,
+        product_name
+      },
+      { status: 201 }
+    )
   } catch (err) {
     return databaseErrorResponse(err, 'Could not post production batch')
   }

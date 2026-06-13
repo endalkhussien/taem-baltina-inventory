@@ -67,7 +67,7 @@ export async function POST(request: Request) {
 
       if (product.stock_quantity < quantity) {
         return {
-          error: `Not enough stock for ${product.name}. Only ${product.stock_quantity} unit${product.stock_quantity === 1 ? '' : 's'} available.`,
+          error: `Not enough stock for ${product.name}. Only ${product.stock_quantity} kg available.`,
           status: 409 as const
         }
       }
@@ -112,11 +112,14 @@ export async function POST(request: Request) {
         .update(schema.products)
         .set({ stock_quantity: sql`${schema.products.stock_quantity} - ${quantity}` })
         .where(and(eq(schema.products.id, productId), gte(schema.products.stock_quantity, quantity)))
-        .returning({ id: schema.products.id })
+        .returning({
+          id: schema.products.id,
+          stock_quantity: schema.products.stock_quantity
+        })
 
       if (!updatedProduct) {
         return {
-          error: `Not enough stock for ${product.name}. Another sale may have used the remaining units.`,
+          error: `Not enough stock for ${product.name}. Another sale may have used the remaining kg.`,
           status: 409 as const
         }
       }
@@ -139,12 +142,27 @@ export async function POST(request: Request) {
         })
         .returning()
 
-      return { created }
+      return {
+        created,
+        stock_kg_before: Number(product.stock_quantity),
+        stock_kg_after: Number(updatedProduct.stock_quantity),
+        quantity_sold_kg: quantity
+      }
     })
 
     if ('error' in result) return NextResponse.json({ error: result.error }, { status: result.status })
 
-    return NextResponse.json(result.created, { status: 201 })
+    const { created, stock_kg_before, stock_kg_after, quantity_sold_kg } = result
+
+    return NextResponse.json(
+      {
+        ...created,
+        stock_kg_before,
+        stock_kg_after,
+        quantity_sold_kg
+      },
+      { status: 201 }
+    )
   } catch (err) {
     return databaseErrorResponse(err, 'Could not record sale')
   }
