@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import { useProducts } from '../../../hooks/useProducts'
 import { useCustomers, useIngredients, useProduction, useSales, useExpenses, usePurchases, useRepayments } from '../../../hooks/useModules'
 import AdminNav from '../../../components/AdminNav'
+import { isLowStock } from '../../../lib/stock'
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 type Period = 'week' | 'month' | 'all'
@@ -78,8 +79,8 @@ export default function DashboardPage() {
   const netProfit = totalRevenue - totalExpenses - totalPurchaseCosts
   const profitMargin = totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : '0'
 
-  const lowStockProducts = productList.filter((p: any) => p.stock_quantity <= p.alert_threshold)
-  const lowStockIngredients = ingredientList.filter((i: any) => Number(i.quantity) <= Number(i.alert_threshold))
+  const lowStockProducts = productList.filter((product: any) => isLowStock(product))
+  const lowStockIngredients = ingredientList.filter((ingredient: any) => isLowStock(ingredient))
   const rawMaterialValue = ingredientList.reduce((acc: number, i: any) => acc + Number(i.quantity) * Number(i.cost_per_unit), 0)
   const finishedStockValue = productList.reduce((acc: number, p: any) => acc + Number(p.stock_quantity) * Number(p.selling_price), 0)
   const ingredientCategories = Object.values(ingredientList.reduce((acc: any, ingredient: any) => {
@@ -87,7 +88,7 @@ export default function DashboardPage() {
     if (!acc[category]) acc[category] = { name: category, count: 0, value: 0, low: 0 }
     acc[category].count += 1
     acc[category].value += Number(ingredient.quantity) * Number(ingredient.cost_per_unit)
-    if (Number(ingredient.quantity) <= Number(ingredient.alert_threshold)) acc[category].low += 1
+    if (isLowStock(ingredient)) acc[category].low += 1
     return acc
   }, {}))
   const recentTransactions = [
@@ -193,10 +194,10 @@ export default function DashboardPage() {
           <div className="metric-value text-green-700">{rawMaterialValue.toFixed(2)} ETB</div>
           <div className="mt-2 text-xs font-semibold text-earth-500">{ingredientList.length} materials. Click to view stock.</div>
         </Link>
-        <Link href="/admin/products" className="metric-card block">
-          <div className="metric-label">Finished stock value</div>
-          <div className="metric-value text-spice-700">{finishedStockValue.toFixed(2)} ETB</div>
-          <div className="mt-2 text-xs font-semibold text-earth-500">{productList.length} products in stock.</div>
+        <Link href="/admin/products?filter=low" className="metric-card block">
+          <div className="metric-label">Low finished goods</div>
+          <div className="metric-value text-red-700">{lowStockProducts.length}</div>
+          <div className="mt-2 text-xs font-semibold text-earth-500">Click to open reorder list.</div>
         </Link>
         <Link href="/admin/ingredients?filter=low" className="metric-card block">
           <div className="metric-label">Low raw materials</div>
@@ -261,7 +262,7 @@ export default function DashboardPage() {
       {lowStockProducts.length > 0 && (
         <div className="rounded-3xl bg-amber-50 border border-amber-200 p-5 shadow-sm">
           <h2 className="text-lg font-black text-amber-900 mb-2">Finished goods need attention</h2>
-          <Link href="/admin/products" className="text-sm font-semibold text-amber-700 hover:text-amber-900">{lowStockProducts.map((p: any) => `${p.name}: ${p.stock_quantity} units`).join(', ')}</Link>
+          <Link href="/admin/products?filter=low" className="text-sm font-semibold text-amber-700 hover:text-amber-900">{lowStockProducts.map((p: any) => `${p.name}: ${p.stock_quantity} units`).join(', ')}</Link>
         </div>
       )}
 

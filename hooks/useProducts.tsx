@@ -8,6 +8,7 @@ export type Product = {
   selling_price: number
   stock_quantity: number
   alert_threshold: number
+  recipe_line_count?: number
 }
 
 async function getErrorMessage(res: Response, fallback: string) {

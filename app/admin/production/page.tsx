@@ -17,7 +17,7 @@ export default function ProductionPage() {
     defaultValues: { productId: 0, quantityProduced: 1, producedAt: today, notes: '' }
   })
 
-  const productList = Array.isArray(products) ? products : []
+  const productList = useMemo(() => (Array.isArray(products) ? products : []), [products])
   const batchList = Array.isArray(batches) ? batches : []
   const selectedProductId = Number(watch('productId'))
   const quantityProduced = Number(watch('quantityProduced') || 0)
@@ -26,7 +26,7 @@ export default function ProductionPage() {
     queryKey: ['recipe', selectedProductId],
     enabled: selectedProductId > 0,
     queryFn: async () => {
-      const res = await fetch(`/api/products/${selectedProductId}/recipe`)
+      const res = await fetch(`/api/products/${selectedProductId}/recipe`, { credentials: 'same-origin' })
       if (!res.ok) throw new Error('Failed to load recipe')
       return res.json()
     }
@@ -79,9 +79,15 @@ export default function ProductionPage() {
                   <label className="block text-sm font-bold text-earth-700 mb-1.5">Finished Good Produced</label>
                   <select className="input-field" {...register('productId', { valueAsNumber: true })}>
                     <option value={0}>Select product</option>
-                    {productList.map((product) => (
-                      <option key={product.id} value={product.id}>{product.name} ({product.stock_quantity} in stock)</option>
-                    ))}
+                    {productList.map((product) => {
+                      const recipeLines = Number(product.recipe_line_count ?? 0)
+                      const recipeLabel = recipeLines > 0 ? `${recipeLines} recipe lines` : 'no recipe yet'
+                      return (
+                        <option key={product.id} value={product.id}>
+                          {product.name} ({product.stock_quantity} in stock • {recipeLabel})
+                        </option>
+                      )
+                    })}
                   </select>
                 </div>
                 <div>
@@ -117,9 +123,13 @@ export default function ProductionPage() {
                 {selectedProductId === 0 ? (
                   <div className="rounded-xl border border-dashed border-earth-200 p-4 text-sm text-earth-500 sm:col-span-2">Choose a product to preview material usage.</div>
                 ) : requiredMaterials.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-earth-200 p-4 text-sm text-earth-500 sm:col-span-2">No recipe found. Add recipe lines from the Finished Goods workspace.</div>
-                ) : requiredMaterials.map((line: any) => (
-                  <div key={line.name} className="rounded-xl bg-earth-50 border border-earth-100 p-4">
+                  <div className="rounded-xl border border-dashed border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 sm:col-span-2">
+                    No recipe found for this product. Open the{' '}
+                    <a href="/admin/products" className="font-bold underline">Finished Goods workspace</a>{' '}
+                    and save a production recipe first.
+                  </div>
+                ) : requiredMaterials.map((line: any, index: number) => (
+                  <div key={`${line.name}-${index}`} className="rounded-xl bg-earth-50 border border-earth-100 p-4">
                     <div className="font-medium text-earth-900">{line.name}</div>
                     <div className="text-sm text-earth-500">{line.quantity.toFixed(3)} {line.unit} required</div>
                     <div className="text-xs text-earth-400 mt-1">{(line.quantity * line.costPerUnit).toFixed(2)} ETB estimated cost</div>

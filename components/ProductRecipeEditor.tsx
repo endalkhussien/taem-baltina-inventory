@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useIngredients } from '../hooks/useModules'
-import { useProducts } from '../hooks/useProducts'
+import { useProducts, type Product } from '../hooks/useProducts'
 
 type RecipeLineForm = {
   ingredientId: number
@@ -13,14 +13,24 @@ type RecipeLineForm = {
 type Props = {
   productId: number | null
   productName?: string
+  onProductSelect?: (id: number) => void
 }
 
-export default function ProductRecipeEditor({ productId, productName }: Props) {
+function dedupeLines(lines: RecipeLineForm[]): RecipeLineForm[] {
+  const byIngredient = new Map<number, RecipeLineForm>()
+  for (const line of lines) {
+    if (!line.ingredientId || Number(line.quantityPerUnit) <= 0) continue
+    byIngredient.set(line.ingredientId, line)
+  }
+  return Array.from(byIngredient.values())
+}
+
+export default function ProductRecipeEditor({ productId, productName, onProductSelect }: Props) {
   const qc = useQueryClient()
   const { data: ingredients } = useIngredients()
   const { data: products } = useProducts()
-  const ingredientList = Array.isArray(ingredients) ? ingredients : []
-  const productList = Array.isArray(products) ? products : []
+  const ingredientList = useMemo(() => (Array.isArray(ingredients) ? ingredients : []), [ingredients])
+  const productList = useMemo(() => (Array.isArray(products) ? products : []), [products])
   const [lines, setLines] = useState<RecipeLineForm[]>([])
   const [copyFromId, setCopyFromId] = useState<number | ''>('')
   const [quickIngredientId, setQuickIngredientId] = useState<number | ''>('')
@@ -28,10 +38,9 @@ export default function ProductRecipeEditor({ productId, productName }: Props) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [copyMessage, setCopyMessage] = useState('')
-  const hasInvalidLines = lines.some((line) => !line.ingredientId || Number(line.quantityPerUnit) <= 0)
 
-  const otherProducts = useMemo(
-    () => productList.filter((product) => product.id !== productId),
+  const copyableProducts = useMemo(
+    () => productList.filter((product) => product.id !== productId && Number(product.recipe_line_count ?? 0) > 0),
     [productList, productId]
   )
 
@@ -58,20 +67,25 @@ export default function ProductRecipeEditor({ productId, productName }: Props) {
   })
 
   useEffect(() => {
-    if (!productId) {
-      setLines([])
-      return
-    }
+    setLines([])
+    setError('')
+    setCopyMessage('')
+    setCopyFromId('')
+  }, [productId])
 
-    if (recipe.data?.lines) {
-      setLines(
-        recipe.data.lines.map((line: any) => ({
-          ingredientId: line.ingredient_id,
-          quantityPerUnit: Number(line.quantity_per_unit)
-        }))
-      )
-    }
-  }, [productId, recipe.data])
+  useEffect(() => {
+    if (!productId || recipe.isFetching) return
+
+    const recipeLines = Array.isArray(recipe.data?.lines) ? recipe.data.lines : []
+    setLines(
+      recipeLines.map((line: any) => ({
+        ingredientId: line.ingredient_id,
+        quantityPerUnit: Number(line.quantity_per_unit)
+      }))
+    )
+  }, [productId, recipe.data, recipe.isFetching])
+
+  const hasInvalidLines = lines.some((line) => !line.ingredientId || Number(line.quantityPerUnit) <= 0)
 
   const materialCost = lines.reduce((sum, line) => {
     const ingredient = ingredientList.find((item) => item.id === line.ingredientId)
@@ -111,14 +125,7 @@ export default function ProductRecipeEditor({ productId, productName }: Props) {
       setError('Enter a valid quantity for quick add.')
       return
     }
-    const existingIndex = lines.findIndex((line) => line.ingredientId === quickIngredientId)
-    if (existingIndex >= 0) {
-      const next = [...lines]
-      next[existingIndex] = { ...next[existingIndex], quantityPerUnit: qty }
-      setLines(next)
-    } else {
-      setLines([...lines, { ingredientId: Number(quickIngredientId), quantityPerUnit: qty }])
-    }
+    setLines(dedupeLines([...lines, { ingredientId: Number(quickIngredientId), quantityPerUnit: qty }]))
     setQuickIngredientId('')
     setQuickQty('1')
     setError('')
@@ -127,7 +134,14 @@ export default function ProductRecipeEditor({ productId, productName }: Props) {
 
   const saveRecipe = async () => {
     if (!productId) return
-    if (hasInvalidLines) {
+
+    const normalizedLines = dedupeLines(lines)
+    if (normalizedLines.length === 0 && lines.length > 0) {
+      setError('Every recipe line needs a raw material and a quantity greater than zero.')
+      return
+    }
+
+    if (normalizedLines.some((line) => !line.ingredientId || Number(line.quantityPerUnit) <= 0)) {
       setError('Every recipe line needs a raw material and a quantity greater than zero.')
       return
     }
@@ -140,10 +154,14 @@ export default function ProductRecipeEditor({ productId, productName }: Props) {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ lines })
+        body: JSON.stringify({ lines: normalizedLines })
       })
       if (!res.ok) throw new Error(await getErrorMessage(res, 'Could not save production recipe.'))
-      await qc.invalidateQueries({ queryKey: ['recipe', productId] })
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['recipe', productId] }),
+        qc.invalidateQueries({ queryKey: ['products'] })
+      ])
+      setLines(normalizedLines)
       setCopyMessage('Recipe saved.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save recipe')
@@ -152,148 +170,226 @@ export default function ProductRecipeEditor({ productId, productName }: Props) {
     }
   }
 
-  if (!productId) {
-    return (
-      <div className="card border-dashed">
-        <h2 className="font-display text-xl font-black text-earth-950">Production Recipe</h2>
-        <p className="text-sm text-earth-500 mt-2">Select a finished good to define the raw materials consumed for each unit produced.</p>
-      </div>
-    )
+  function recipeStatus(product: Product) {
+    const lineCount = Number(product.recipe_line_count ?? 0)
+    if (lineCount > 0) return `${lineCount} ingredient${lineCount === 1 ? '' : 's'}`
+    return 'No recipe yet'
   }
 
   return (
     <div className="card">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-4">
-        <div>
-          <h2 className="font-display text-xl font-black text-earth-950">Production Recipe</h2>
-          <p className="text-sm text-earth-500">Raw materials used to produce one unit of {productName ?? 'this product'}.</p>
-        </div>
-        <div className="rounded-xl bg-spice-50 px-3 py-2 text-sm text-spice-800">
-          Material cost: <span className="font-semibold">{materialCost.toFixed(2)} ETB</span>
-        </div>
+      <div className="mb-4">
+        <h2 className="font-display text-xl font-black text-earth-950">Production Recipes</h2>
+        <p className="text-sm text-earth-500 mt-1">
+          All finished goods are listed below. Select any product to view or edit its recipe.
+        </p>
       </div>
 
-      {otherProducts.length > 0 && (
-        <div className="mb-4 flex flex-col gap-2 rounded-xl border border-spice-200 bg-spice-50/60 p-3 sm:flex-row sm:items-end">
-          <div className="flex-1">
-            <label className="block text-xs font-bold uppercase tracking-wide text-earth-600 mb-1">One-click: copy recipe from</label>
-            <select
-              className="input-field"
-              value={copyFromId}
-              onChange={(event) => setCopyFromId(event.target.value ? Number(event.target.value) : '')}
-            >
-              <option value="">Select product…</option>
-              {otherProducts.map((product) => (
-                <option key={product.id} value={product.id}>{product.name}</option>
-              ))}
-            </select>
-          </div>
-          <button
-            className="btn-primary"
-            type="button"
-            disabled={!copyFromId}
-            onClick={() => copyFromId && copyRecipeFrom(copyFromId)}
-          >
-            Copy recipe
-          </button>
+      {productList.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-earth-200 p-6 text-sm text-earth-500">
+          No finished goods yet. Create a product first, then define its recipe here.
+        </div>
+      ) : (
+        <div className="mb-5 flex flex-wrap gap-2">
+          {productList.map((product) => {
+            const active = product.id === productId
+            const hasRecipe = Number(product.recipe_line_count ?? 0) > 0
+
+            return (
+              <button
+                key={product.id}
+                type="button"
+                onClick={() => onProductSelect?.(product.id)}
+                className={`rounded-2xl border px-4 py-3 text-left transition-all ${
+                  active
+                    ? 'border-spice-500 bg-spice-50 shadow-sm ring-2 ring-spice-200'
+                    : 'border-earth-200 bg-white hover:border-spice-300 hover:bg-spice-50/40'
+                }`}
+              >
+                <div className="font-bold text-earth-950">{product.name}</div>
+                <div className={`text-xs mt-0.5 ${hasRecipe ? 'text-green-700' : 'text-amber-700'}`}>
+                  {recipeStatus(product)}
+                </div>
+              </button>
+            )
+          })}
         </div>
       )}
 
-      <div className="mb-4 flex flex-col gap-2 rounded-xl border border-earth-100 bg-earth-50/60 p-3 sm:flex-row sm:items-end">
-        <div className="flex-1">
-          <label className="block text-xs font-bold uppercase tracking-wide text-earth-600 mb-1">Quick add ingredient</label>
-          <select
-            className="input-field"
-            value={quickIngredientId}
-            onChange={(event) => setQuickIngredientId(event.target.value ? Number(event.target.value) : '')}
-          >
-            <option value="">Choose raw material…</option>
-            {ingredientList.map((item) => (
-              <option key={item.id} value={item.id}>{item.name} ({item.unit})</option>
-            ))}
-          </select>
+      {!productId ? (
+        <div className="rounded-xl border border-dashed border-earth-200 p-6 text-sm text-earth-500">
+          Select a finished good above to edit its production recipe.
         </div>
-        <div className="w-28">
-          <label className="block text-xs font-bold uppercase tracking-wide text-earth-600 mb-1">Qty / unit</label>
-          <input
-            className="input-field"
-            type="number"
-            step="0.001"
-            min="0"
-            value={quickQty}
-            onChange={(event) => setQuickQty(event.target.value)}
-          />
-        </div>
-        <button className="btn-secondary" type="button" onClick={quickAddIngredient}>
-          + Add
-        </button>
-      </div>
+      ) : (
+        <>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-4 border-t border-earth-100 pt-4">
+            <div>
+              <h3 className="font-display text-lg font-black text-earth-950">Recipe for {productName ?? 'selected product'}</h3>
+              <p className="text-sm text-earth-500">Raw materials used to produce one unit.</p>
+            </div>
+            <div className="rounded-xl bg-spice-50 px-3 py-2 text-sm text-spice-800">
+              Material cost: <span className="font-semibold">{materialCost.toFixed(2)} ETB</span>
+            </div>
+          </div>
 
-      <div className="space-y-3">
-        {lines.map((line, index) => {
-          const ingredient = ingredientList.find((item) => item.id === line.ingredientId)
-
-          return (
-            <div key={index} className="grid grid-cols-1 gap-2 rounded-xl border border-earth-100 bg-earth-50/60 p-3 sm:grid-cols-[1fr_140px_80px]">
-              <select
-                className="input-field"
-                value={line.ingredientId || ''}
-                onChange={(event) => {
-                  const next = [...lines]
-                  next[index] = { ...line, ingredientId: Number(event.target.value) }
-                  setLines(next)
-                }}
-              >
-                <option value="">Choose raw material</option>
-                {ingredientList.map((item) => (
-                  <option key={item.id} value={item.id}>{item.name} ({item.unit})</option>
-                ))}
-              </select>
-              <input
-                className="input-field"
-                type="number"
-                step="0.001"
-                min="0"
-                value={line.quantityPerUnit}
-                onChange={(event) => {
-                  const next = [...lines]
-                  next[index] = { ...line, quantityPerUnit: Number(event.target.value) }
-                  setLines(next)
-                }}
-                placeholder="Qty per unit"
-              />
-              <button
-                className="btn-secondary !px-3"
-                type="button"
-                onClick={() => setLines(lines.filter((_, lineIndex) => lineIndex !== index))}
-              >
-                Remove
-              </button>
-              {ingredient && (
-                <div className="sm:col-span-3 text-xs text-earth-500">
-                  Uses {line.quantityPerUnit || 0} {ingredient.unit} per unit at {Number(ingredient.cost_per_unit).toFixed(2)} ETB/{ingredient.unit}
+          {recipe.isFetching ? (
+            <div className="rounded-xl border border-earth-100 bg-earth-50 p-6 text-sm text-earth-500">Loading recipe…</div>
+          ) : (
+            <>
+              {copyableProducts.length > 0 && (
+                <div className="mb-4 flex flex-col gap-2 rounded-xl border border-spice-200 bg-spice-50/60 p-3 sm:flex-row sm:items-end">
+                  <div className="flex-1">
+                    <label className="block text-xs font-bold uppercase tracking-wide text-earth-600 mb-1">
+                      Copy recipe from another product
+                    </label>
+                    <select
+                      className="input-field"
+                      value={copyFromId}
+                      onChange={(event) => setCopyFromId(event.target.value ? Number(event.target.value) : '')}
+                    >
+                      <option value="">Select product with recipe…</option>
+                      {copyableProducts.map((product) => (
+                        <option key={product.id} value={product.id}>
+                          {product.name} ({product.recipe_line_count} lines)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <button
+                    className="btn-primary"
+                    type="button"
+                    disabled={!copyFromId}
+                    onClick={() => copyFromId && copyRecipeFrom(copyFromId)}
+                  >
+                    Copy recipe
+                  </button>
                 </div>
               )}
-            </div>
-          )
-        })}
-      </div>
 
-      {error && <div className="mt-3 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">{error}</div>}
-      {copyMessage && <div className="mt-3 rounded-lg bg-green-50 border border-green-200 px-3 py-2 text-sm text-green-700">{copyMessage}</div>}
+              {copyableProducts.length === 0 && productList.length > 1 && (
+                <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  No other products have a saved recipe yet. Save a recipe on one product first, then you can copy it to the others.
+                </div>
+              )}
 
-      <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-        <button
-          className="btn-secondary"
-          type="button"
-          onClick={() => setLines([...lines, { ingredientId: ingredientList[0]?.id ?? 0, quantityPerUnit: 0.001 }])}
-        >
-          Add recipe line
-        </button>
-        <button className="btn-primary" type="button" disabled={saving || recipe.isLoading || hasInvalidLines} onClick={saveRecipe}>
-          {saving ? 'Saving...' : 'Save production recipe'}
-        </button>
-      </div>
+              <div className="mb-4 flex flex-col gap-2 rounded-xl border border-earth-100 bg-earth-50/60 p-3 sm:flex-row sm:items-end">
+                <div className="flex-1">
+                  <label className="block text-xs font-bold uppercase tracking-wide text-earth-600 mb-1">Quick add ingredient</label>
+                  <select
+                    className="input-field"
+                    value={quickIngredientId}
+                    onChange={(event) => setQuickIngredientId(event.target.value ? Number(event.target.value) : '')}
+                  >
+                    <option value="">Choose raw material…</option>
+                    {ingredientList.map((item) => (
+                      <option key={item.id} value={item.id}>{item.name} ({item.unit})</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="w-28">
+                  <label className="block text-xs font-bold uppercase tracking-wide text-earth-600 mb-1">Qty / unit</label>
+                  <input
+                    className="input-field"
+                    type="number"
+                    step="0.001"
+                    min="0"
+                    value={quickQty}
+                    onChange={(event) => setQuickQty(event.target.value)}
+                  />
+                </div>
+                <button type="button" className="btn-secondary" onClick={quickAddIngredient} disabled={ingredientList.length === 0}>
+                  + Add
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {lines.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-earth-200 p-4 text-sm text-earth-500">
+                    No ingredients in this recipe yet. Use quick add or add a recipe line below.
+                  </div>
+                ) : (
+                  lines.map((line, index) => {
+                    const ingredient = ingredientList.find((item) => item.id === line.ingredientId)
+
+                    return (
+                      <div key={`${line.ingredientId}-${index}`} className="grid grid-cols-1 gap-2 rounded-xl border border-earth-100 bg-earth-50/60 p-3 sm:grid-cols-[1fr_140px_80px]">
+                        <select
+                          className="input-field"
+                          value={line.ingredientId || ''}
+                          onChange={(event) => {
+                            const next = [...lines]
+                            next[index] = { ...line, ingredientId: Number(event.target.value) }
+                            setLines(dedupeLines(next))
+                          }}
+                        >
+                          <option value="">Choose raw material</option>
+                          {ingredientList.map((item) => (
+                            <option key={item.id} value={item.id}>{item.name} ({item.unit})</option>
+                          ))}
+                        </select>
+                        <input
+                          className="input-field"
+                          type="number"
+                          step="0.001"
+                          min="0"
+                          value={line.quantityPerUnit}
+                          onChange={(event) => {
+                            const next = [...lines]
+                            next[index] = { ...line, quantityPerUnit: Number(event.target.value) }
+                            setLines(next)
+                          }}
+                          placeholder="Qty per unit"
+                        />
+                        <button
+                          className="btn-secondary !px-3"
+                          type="button"
+                          onClick={() => setLines(lines.filter((_, lineIndex) => lineIndex !== index))}
+                        >
+                          Remove
+                        </button>
+                        {ingredient && (
+                          <div className="sm:col-span-3 text-xs text-earth-500">
+                            Uses {line.quantityPerUnit || 0} {ingredient.unit} per unit at {Number(ingredient.cost_per_unit).toFixed(2)} ETB/{ingredient.unit}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+
+              {error && <div className="mt-3 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">{error}</div>}
+              {copyMessage && <div className="mt-3 rounded-lg bg-green-50 border border-green-200 px-3 py-2 text-sm text-green-700">{copyMessage}</div>}
+
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                <button
+                  className="btn-secondary"
+                  type="button"
+                  disabled={ingredientList.length === 0}
+                  onClick={() => {
+                    const firstId = ingredientList[0]?.id
+                    if (!firstId) {
+                      setError('Add raw materials first before building a recipe.')
+                      return
+                    }
+                    setLines([...lines, { ingredientId: firstId, quantityPerUnit: 0.001 }])
+                  }}
+                >
+                  Add recipe line
+                </button>
+                <button
+                  className="btn-primary"
+                  type="button"
+                  disabled={saving || recipe.isFetching || hasInvalidLines}
+                  onClick={saveRecipe}
+                >
+                  {saving ? 'Saving...' : 'Save production recipe'}
+                </button>
+              </div>
+            </>
+          )}
+        </>
+      )}
     </div>
   )
 }
