@@ -106,3 +106,45 @@ export function useExpenses() {
   const update = useMutation({ mutationFn: ({ id, data }: any) => apiRequest<Expense>(`/api/expenses/${id}`, { method: 'PATCH', body: JSON.stringify(data) }, 'Could not update operating cost.'), onSuccess: () => qc.invalidateQueries({ queryKey: ['expenses'] }) })
   return { ...query, createExpense: (d: any) => create.mutateAsync(d), updateExpense: (id: number, d: any) => update.mutateAsync({ id, data: d }), isCreatingExpense: create.isPending, isUpdatingExpense: update.isPending, deleteExpense: async (id: number) => { await apiRequest(`/api/expenses/${id}`, { method: 'DELETE' }, 'Could not delete operating cost.'); qc.invalidateQueries({ queryKey: ['expenses'] }) } }
 }
+
+export type CashEntry = { id: number; amount: number; notes?: string | null; entry_date: string; created_at: string }
+export type Liability = { id: number; creditor_name: string; category: string; title: string; total_amount: number; amount_paid: number; balance: number; liability_date: string; notes?: string | null }
+export type LiabilityPayment = { id: number; liability_id: number; creditor_name?: string | null; title?: string | null; amount: number; payment_date: string; notes?: string | null }
+
+export function useCashEntries() {
+  const qc = useQueryClient()
+  const query = useQuery<CashEntry[]>({ queryKey: ['cashEntries'], queryFn: () => apiRequest<CashEntry[]>('/api/cash-entries', {}, 'Failed to load cash entries.') })
+  const create = useMutation({
+    mutationFn: (data: any) => apiRequest<CashEntry>('/api/cash-entries', { method: 'POST', body: JSON.stringify(data) }, 'Could not record cash on hand.'),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['cashEntries'] })
+  })
+  return { ...query, createCashEntry: (d: any) => create.mutateAsync(d), isCreatingCashEntry: create.isPending }
+}
+
+export function useLiabilities() {
+  const qc = useQueryClient()
+  const query = useQuery<Liability[]>({ queryKey: ['liabilities'], queryFn: () => apiRequest<Liability[]>('/api/liabilities', {}, 'Failed to load liabilities.') })
+  const create = useMutation({
+    mutationFn: (data: any) => apiRequest<Liability>('/api/liabilities', { method: 'POST', body: JSON.stringify(data) }, 'Could not record liability.'),
+    onSuccess: () => invalidateAll(qc, ['liabilities', 'liabilityPayments'])
+  })
+  return {
+    ...query,
+    createLiability: (d: any) => create.mutateAsync(d),
+    isCreatingLiability: create.isPending,
+    deleteLiability: async (id: number) => {
+      await apiRequest(`/api/liabilities/${id}`, { method: 'DELETE' }, 'Could not delete liability.')
+      invalidateAll(qc, ['liabilities', 'liabilityPayments'])
+    }
+  }
+}
+
+export function useLiabilityPayments() {
+  const qc = useQueryClient()
+  const query = useQuery<LiabilityPayment[]>({ queryKey: ['liabilityPayments'], queryFn: () => apiRequest<LiabilityPayment[]>('/api/liability-payments', {}, 'Failed to load liability payments.') })
+  const create = useMutation({
+    mutationFn: (data: any) => apiRequest<LiabilityPayment>('/api/liability-payments', { method: 'POST', body: JSON.stringify(data) }, 'Could not record liability payment.'),
+    onSuccess: () => invalidateAll(qc, ['liabilityPayments', 'liabilities'])
+  })
+  return { ...query, createLiabilityPayment: (d: any) => create.mutateAsync(d), isCreatingLiabilityPayment: create.isPending }
+}

@@ -13,6 +13,7 @@ export default function SalesPage() {
   const { data: sales, isLoading: sLoading, createSale, isCreatingSale, deleteSale } = useSales()
   const { data: repayments, createRepayment, isCreatingRepayment } = useRepayments()
   const [filterDate, setFilterDate] = useState(today)
+  const [openCreditOnly, setOpenCreditOnly] = useState(false)
   const [repaySaleId, setRepaySaleId] = useState<number | null>(null)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const { register, handleSubmit, reset, watch, setValue } = useForm({ defaultValues: { productId: 0, customerId: 0, quantity: 1, unitPrice: 0, amountPaid: 0, saleDate: today } })
@@ -41,9 +42,14 @@ export default function SalesPage() {
   const salesList = useMemo(() => Array.isArray(sales) ? sales : [], [sales])
   const repaymentList = Array.isArray(repayments) ? repayments : []
   const filteredSales = useMemo(
-    () => salesList.filter((sale) => new Date(sale.sale_date).toISOString().slice(0, 10) === filterDate),
-    [filterDate, salesList]
+    () => salesList.filter((sale) => {
+      const matchesDate = openCreditOnly ? true : new Date(sale.sale_date).toISOString().slice(0, 10) === filterDate
+      const matchesCredit = openCreditOnly ? Number(sale.balance) > 0 : true
+      return matchesDate && matchesCredit
+    }),
+    [filterDate, openCreditOnly, salesList]
   )
+  const selectedRepaySale = salesList.find((sale) => sale.id === repaySaleId) ?? null
   const totalDailySales = filteredSales.reduce((sum, sale) => sum + Number(sale.total_amount), 0)
   const totalDailyCash = filteredSales.reduce((sum, sale) => sum + Number(sale.amount_paid), 0)
   const totalOutstanding = salesList.reduce((sum, sale) => sum + Number(sale.balance), 0)
@@ -165,9 +171,20 @@ export default function SalesPage() {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
                 <div>
                   <h2 className="font-display text-xl font-black text-earth-950">Daily Sales Register</h2>
-                  <p className="text-sm text-earth-500">Filter by date to review sold quantity, cash collected, and credit created.</p>
+                  <p className="text-sm text-earth-500">{openCreditOnly ? 'Showing all open credit sales.' : 'Filter by date to review sold quantity, cash collected, and credit created.'}</p>
                 </div>
-                <input type="date" className="input-field sm:max-w-[180px]" value={filterDate} onChange={(event) => setFilterDate(event.target.value)} />
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    className={`rounded-full px-3 py-1 text-xs font-bold ${openCreditOnly ? 'bg-red-600 text-white' : 'bg-earth-100 text-earth-700'}`}
+                    onClick={() => setOpenCreditOnly((value) => !value)}
+                  >
+                    {openCreditOnly ? 'Show all sales' : 'Open credit only'}
+                  </button>
+                  {!openCreditOnly && (
+                    <input type="date" className="input-field sm:max-w-[180px]" value={filterDate} onChange={(event) => setFilterDate(event.target.value)} />
+                  )}
+                </div>
               </div>
               {sLoading ? <div>Loading...</div> : (
                 <table className="w-full text-sm">
@@ -199,7 +216,15 @@ export default function SalesPage() {
                         </td>
                         <td className="py-3 whitespace-nowrap">
                           {Number(sale.balance) > 0 && (
-                            <button className="text-spice-700 font-bold mr-3" onClick={() => setRepaySaleId(sale.id)}>Record Payment</button>
+                            <button
+                              className="text-spice-700 font-bold mr-3"
+                              onClick={() => {
+                                setRepaySaleId(sale.id)
+                                resetRepayment({ amount: Number(sale.balance), paymentDate: today })
+                              }}
+                            >
+                              Record Payment
+                            </button>
                           )}
                           <button
                             className="text-red-600 font-bold"
@@ -225,10 +250,12 @@ export default function SalesPage() {
             </div>
           </div>
 
-          {repaySaleId && (
+          {repaySaleId && selectedRepaySale && (
             <div className="card max-w-xl">
               <h2 className="font-display text-xl font-black text-earth-950 mb-1">Record Customer Repayment</h2>
-              <p className="mb-4 text-sm text-earth-500">Apply a partial or full payment against the selected credit sale.</p>
+              <p className="mb-4 text-sm text-earth-500">
+                {selectedRepaySale.sale_code} • {selectedRepaySale.customer_name || 'Customer'} • {selectedRepaySale.product_name} • remaining {Number(selectedRepaySale.balance).toFixed(2)} ETB
+              </p>
               <form onSubmit={handleRepaymentSubmit(onRepaymentSubmit)} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3">
                 <input type="number" step="0.01" className="input-field" {...registerRepayment('amount', { valueAsNumber: true })} placeholder="Amount" />
                 <input type="date" className="input-field" {...registerRepayment('paymentDate')} />
@@ -236,7 +263,16 @@ export default function SalesPage() {
                   {isCreatingRepayment ? 'Saving...' : 'Save'}
                 </button>
               </form>
-              <button className="mt-3 text-sm text-earth-500 hover:text-earth-700" onClick={() => setRepaySaleId(null)}>Cancel payment</button>
+              <div className="mt-3 flex gap-3">
+                <button
+                  type="button"
+                  className="text-sm font-bold text-spice-700"
+                  onClick={() => resetRepayment({ amount: Number(selectedRepaySale.balance), paymentDate: today })}
+                >
+                  Pay full balance
+                </button>
+                <button className="text-sm text-earth-500 hover:text-earth-700" onClick={() => setRepaySaleId(null)}>Cancel payment</button>
+              </div>
             </div>
           )}
 

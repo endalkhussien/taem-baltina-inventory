@@ -81,6 +81,33 @@ erDiagram
       string notes
     }
 
+    CASH_ENTRIES {
+      int id
+      decimal amount
+      string notes
+      datetime entry_date
+    }
+
+    LIABILITIES {
+      int id
+      string creditor_name
+      string category
+      string title
+      decimal total_amount
+      decimal amount_paid
+      decimal balance
+      datetime liability_date
+      string notes
+    }
+
+    LIABILITY_PAYMENTS {
+      int id
+      int liability_id
+      decimal amount
+      datetime payment_date
+      string notes
+    }
+
     PRODUCTS ||--o{ PRODUCT_INGREDIENTS : has
     INGREDIENTS ||--o{ PRODUCT_INGREDIENTS : used_in
     INGREDIENTS ||--o{ PURCHASES : purchased_as
@@ -88,4 +115,5 @@ erDiagram
     CUSTOMERS ||--o{ SALES : buys_on_credit
     PRODUCTS ||--o{ PRODUCTION_BATCHES : produced_as
     SALES ||--o{ REPAYMENTS : has
+    LIABILITIES ||--o{ LIABILITY_PAYMENTS : has
 ```

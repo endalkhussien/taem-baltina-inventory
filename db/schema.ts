@@ -125,3 +125,36 @@ export const admin_users = pgTable('admin_users', {
 }, (table) => ({
   usernameIdx: index('idx_admin_users_username').on(table.username)
 }))
+
+export const cash_entries = pgTable('cash_entries', {
+  id: serial('id').primaryKey(),
+  amount: numeric('amount', { precision: 14, scale: 2, mode: 'number' }).notNull(),
+  notes: text('notes'),
+  entry_date: timestamp('entry_date').defaultNow().notNull(),
+  created_at: timestamp('created_at').defaultNow().notNull()
+})
+
+export const liabilities = pgTable('liabilities', {
+  id: serial('id').primaryKey(),
+  creditor_name: varchar('creditor_name', { length: 255 }).notNull(),
+  category: varchar('category', { length: 50 }).notNull().default('other'),
+  title: varchar('title', { length: 255 }).notNull(),
+  total_amount: numeric('total_amount', { precision: 14, scale: 2, mode: 'number' }).notNull(),
+  amount_paid: numeric('amount_paid', { precision: 14, scale: 2, mode: 'number' }).notNull().default(0),
+  balance: numeric('balance', { precision: 14, scale: 2, mode: 'number' }).notNull().default(0),
+  liability_date: timestamp('liability_date').defaultNow().notNull(),
+  notes: text('notes'),
+  created_at: timestamp('created_at').defaultNow().notNull()
+}, (table) => ({
+  creditorIdx: index('idx_liabilities_creditor').on(table.creditor_name),
+  categoryIdx: index('idx_liabilities_category').on(table.category)
+}))
+
+export const liability_payments = pgTable('liability_payments', {
+  id: serial('id').primaryKey(),
+  liability_id: integer('liability_id').notNull().references(() => liabilities.id, { onDelete: 'cascade' }),
+  amount: numeric('amount', { precision: 14, scale: 2, mode: 'number' }).notNull(),
+  payment_date: timestamp('payment_date').defaultNow().notNull(),
+  notes: text('notes'),
+  created_at: timestamp('created_at').defaultNow().notNull()
+})
