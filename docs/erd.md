@@ -61,6 +61,12 @@ erDiagram
       int id
       int product_id
       int quantity_produced
+      decimal material_cost
+      decimal labor_cost
+      decimal equipment_cost
+      decimal other_overhead
+      decimal total_cost
+      decimal cost_per_unit
       datetime produced_at
       string notes
     }

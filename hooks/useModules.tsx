@@ -4,7 +4,20 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 export type Ingredient = { id: number; name: string; category: string; quantity: number; unit: string; cost_per_unit: number; alert_threshold: number }
 export type Purchase = { id: number; ingredient_id: number; ingredient_name: string | null; quantity: number; cost_total: number; supplier?: string | null; purchase_date: string }
 export type Customer = { id: number; name: string; phone?: string | null; notes?: string | null; outstanding_balance: number }
-export type ProductionBatch = { id: number; product_id: number; product_name: string | null; quantity_produced: number; produced_at: string; notes?: string | null }
+export type ProductionBatch = {
+  id: number
+  product_id: number
+  product_name: string | null
+  quantity_produced: number
+  material_cost: number
+  labor_cost: number
+  equipment_cost: number
+  other_overhead: number
+  total_cost: number
+  cost_per_unit: number
+  produced_at: string
+  notes?: string | null
+}
 export type Repayment = { id: number; sale_id: number; sale_code: string | null; amount: number; payment_date: string }
 
 async function getErrorMessage(res: Response, fallback: string) {

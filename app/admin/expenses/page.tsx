@@ -32,7 +32,7 @@ export default function ExpensesPage() {
   }, [editing, expenses, reset])
 
   const list = Array.isArray(expenses) ? expenses : []
-  const categories = ['Transport', 'Packaging', 'Rent', 'Salary', 'Utilities', 'Other']
+  const categories = ['Transport', 'Packaging', 'Rent', 'Salary', 'Labor', 'Equipment', 'Utilities', 'Other']
   const isSaving = isCreatingExpense || isUpdatingExpense
 
   const onSubmit = async (vals: any) => {

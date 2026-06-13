@@ -90,6 +90,12 @@ export const production_batches = pgTable('production_batches', {
   id: serial('id').primaryKey(),
   product_id: integer('product_id').notNull().references(() => products.id, { onDelete: 'restrict' }),
   quantity_produced: integer('quantity_produced').notNull(),
+  material_cost: numeric('material_cost', { precision: 14, scale: 2, mode: 'number' }).notNull().default(0),
+  labor_cost: numeric('labor_cost', { precision: 14, scale: 2, mode: 'number' }).notNull().default(0),
+  equipment_cost: numeric('equipment_cost', { precision: 14, scale: 2, mode: 'number' }).notNull().default(0),
+  other_overhead: numeric('other_overhead', { precision: 14, scale: 2, mode: 'number' }).notNull().default(0),
+  total_cost: numeric('total_cost', { precision: 14, scale: 2, mode: 'number' }).notNull().default(0),
+  cost_per_unit: numeric('cost_per_unit', { precision: 14, scale: 2, mode: 'number' }).notNull().default(0),
   produced_at: timestamp('produced_at').defaultNow().notNull(),
   notes: text('notes'),
   created_at: timestamp('created_at').defaultNow().notNull()

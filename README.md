@@ -45,9 +45,11 @@ npm run seed
 
 `db/schema.ts` is the source of truth for the database. Use `npm run drizzle:push` for both local development and production (Neon).
 
-The SQL files in `drizzle/migrations/` are kept for reference. If you prefer raw SQL instead of `drizzle:push`, apply them in order through `0005_finance.sql`.
+The SQL files in `drizzle/migrations/` are kept for reference. If you prefer raw SQL instead of `drizzle:push`, apply them in order through `0006_production_costs.sql`.
 
 The **Finance** page (`/admin/finance`) lets you record manual cash-on-hand counts, debts you owe (bank, family, supplier), payments against those debts, and see your net position (cash + customer credit − debts owed).
+
+Production batches record **material cost** (from raw material prices × recipe), plus **labour**, **equipment** (e.g. grinding machine), and **other overhead**. The dashboard uses these costs to estimate profit on sales.
 
 Admin login is stored in the database. Use `/admin/forgot-password` with `PASSWORD_RESET_SECRET` to create or reset an account, and `/admin/account` to change your password after signing in.
 
