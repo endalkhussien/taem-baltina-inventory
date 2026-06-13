@@ -41,11 +41,15 @@ export function databaseErrorResponse(error: unknown, action: string) {
   console.error(action, error)
 
   const message = getNestedMessage(error) ?? 'Unknown database error.'
+  const missingColumn = /column "([^"]+)" of relation "([^"]+)" does not exist/.exec(message)
+  const hint = missingColumn
+    ? `Database is missing column ${missingColumn[1]} on table ${missingColumn[2]}. Run: npm run drizzle:push (with DATABASE_URL set to your Neon connection string).`
+    : 'Check that DATABASE_URL points to the correct database and run npm run drizzle:push to create or update tables.'
 
   return NextResponse.json(
     {
       error: `${action}: ${message}`,
-      hint: 'Check that DATABASE_URL points to the correct database and run npm run drizzle:push to create or update tables.'
+      hint
     },
     { status: 500 }
   )
