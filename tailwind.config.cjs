@@ -35,8 +35,8 @@ module.exports = {
         }
       },
       fontFamily: {
-        display: ['var(--font-playfair)', 'Georgia', 'serif'],
-        sans: ['var(--font-dm-sans)', 'system-ui', 'sans-serif']
+        display: ['"Playfair Display"', 'Georgia', 'serif'],
+        sans: ['"DM Sans"', 'system-ui', 'sans-serif']
       },
       backgroundImage: {
         'spice-gradient': 'linear-gradient(135deg, #3a160c 0%, #6b301b 40%, #c05e20 100%)',

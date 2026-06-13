@@ -126,6 +126,10 @@ After logging in:
 
 ## Troubleshooting
 
+### `next/font` or Google Fonts error during build
+
+If you see `Failed to compile` with a `next/font` error, the app now loads fonts via CSS instead of build-time Google fetches. Pull latest `main` and rebuild.
+
 ### `npm run build` fails on Vercel or locally
 
 1. Use **Node.js 18.18+** or **20.x** (see `.nvmrc`).
