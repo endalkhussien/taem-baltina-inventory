@@ -45,6 +45,11 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     const parsed = recipeUpdateSchema.safeParse(body.data)
     if (!parsed.success) return NextResponse.json({ error: parsed.error.format() }, { status: 422 })
 
+    const ingredientIds = parsed.data.lines.map((line) => line.ingredientId)
+    if (new Set(ingredientIds).size !== ingredientIds.length) {
+      return NextResponse.json({ error: 'Each raw material can only appear once in a recipe.' }, { status: 422 })
+    }
+
     const result = await db.transaction(async (tx) => {
       const [product] = await tx
         .select({ id: schema.products.id })

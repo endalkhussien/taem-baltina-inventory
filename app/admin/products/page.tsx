@@ -1,22 +1,26 @@
 "use client"
 
-import React, { useState } from 'react'
+import React, { Suspense, useEffect, useMemo, useState } from 'react'
 import ProductList from '../../../components/ProductList'
 import ProductForm from '../../../components/ProductForm'
 import ProductRecipeEditor from '../../../components/ProductRecipeEditor'
 import AdminNav from '../../../components/AdminNav'
 import { useProducts } from '../../../hooks/useProducts'
 
-export default function ProductsPage() {
+function ProductsContent() {
   const [editing, setEditing] = useState<number | null>(null)
   const [recipeProductId, setRecipeProductId] = useState<number | null>(null)
   const { data: products } = useProducts()
-  const recipeProduct = Array.isArray(products) ? products.find((product) => product.id === recipeProductId) : null
+  const productList = useMemo(() => (Array.isArray(products) ? products : []), [products])
+  const recipeProduct = productList.find((product) => product.id === recipeProductId) ?? null
+
+  useEffect(() => {
+    if (recipeProductId !== null) return
+    if (productList.length > 0) setRecipeProductId(productList[0].id)
+  }, [productList, recipeProductId])
 
   return (
-    <>
-      <AdminNav />
-      <div className="app-page">
+    <div className="app-page">
       <div className="app-container">
         <div className="page-hero-subtle">
           <div className="eyebrow">Stock</div>
@@ -34,10 +38,24 @@ export default function ProductsPage() {
           </div>
         </div>
         <div className="mt-6">
-          <ProductRecipeEditor productId={recipeProductId} productName={recipeProduct?.name} />
+          <ProductRecipeEditor
+            productId={recipeProductId}
+            productName={recipeProduct?.name}
+            onProductSelect={setRecipeProductId}
+          />
         </div>
       </div>
     </div>
+  )
+}
+
+export default function ProductsPage() {
+  return (
+    <>
+      <AdminNav />
+      <Suspense fallback={<div className="app-page"><div className="app-container card">Loading stock workspace...</div></div>}>
+        <ProductsContent />
+      </Suspense>
     </>
   )
 }
