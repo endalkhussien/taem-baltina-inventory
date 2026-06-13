@@ -1,8 +1,9 @@
 "use client"
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useIngredients } from '../hooks/useModules'
+import { useProducts } from '../hooks/useProducts'
 
 type RecipeLineForm = {
   ingredientId: number
@@ -17,11 +18,22 @@ type Props = {
 export default function ProductRecipeEditor({ productId, productName }: Props) {
   const qc = useQueryClient()
   const { data: ingredients } = useIngredients()
+  const { data: products } = useProducts()
   const ingredientList = Array.isArray(ingredients) ? ingredients : []
+  const productList = Array.isArray(products) ? products : []
   const [lines, setLines] = useState<RecipeLineForm[]>([])
+  const [copyFromId, setCopyFromId] = useState<number | ''>('')
+  const [quickIngredientId, setQuickIngredientId] = useState<number | ''>('')
+  const [quickQty, setQuickQty] = useState('1')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [copyMessage, setCopyMessage] = useState('')
   const hasInvalidLines = lines.some((line) => !line.ingredientId || Number(line.quantityPerUnit) <= 0)
+
+  const otherProducts = useMemo(
+    () => productList.filter((product) => product.id !== productId),
+    [productList, productId]
+  )
 
   const getErrorMessage = async (res: Response, fallback: string) => {
     try {
@@ -66,6 +78,53 @@ export default function ProductRecipeEditor({ productId, productName }: Props) {
     return sum + (ingredient ? Number(ingredient.cost_per_unit) * Number(line.quantityPerUnit || 0) : 0)
   }, 0)
 
+  const copyRecipeFrom = async (sourceProductId: number) => {
+    setError('')
+    setCopyMessage('')
+    try {
+      const res = await fetch(`/api/products/${sourceProductId}/recipe`, { credentials: 'same-origin' })
+      if (!res.ok) throw new Error(await getErrorMessage(res, 'Could not load recipe to copy.'))
+      const data = await res.json()
+      const sourceLines = Array.isArray(data?.lines) ? data.lines : []
+      if (sourceLines.length === 0) {
+        setError('That product has no recipe yet.')
+        return
+      }
+      setLines(
+        sourceLines.map((line: any) => ({
+          ingredientId: line.ingredient_id,
+          quantityPerUnit: Number(line.quantity_per_unit)
+        }))
+      )
+      const sourceName = productList.find((product) => product.id === sourceProductId)?.name ?? 'product'
+      setCopyMessage(`Recipe copied from ${sourceName}. Click Save to apply.`)
+      setCopyFromId('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not copy recipe.')
+    }
+  }
+
+  const quickAddIngredient = () => {
+    if (!quickIngredientId) return
+    const qty = Number(quickQty)
+    if (!Number.isFinite(qty) || qty <= 0) {
+      setError('Enter a valid quantity for quick add.')
+      return
+    }
+    const existingIndex = lines.findIndex((line) => line.ingredientId === quickIngredientId)
+    if (existingIndex >= 0) {
+      const next = [...lines]
+      next[existingIndex] = { ...next[existingIndex], quantityPerUnit: qty }
+      setLines(next)
+    } else {
+      setLines([...lines, { ingredientId: Number(quickIngredientId), quantityPerUnit: qty }])
+    }
+    setQuickIngredientId('')
+    setQuickQty('1')
+    setError('')
+    setCopyMessage('Ingredient added. Click Save production recipe when done.')
+  }
+
   const saveRecipe = async () => {
     if (!productId) return
     if (hasInvalidLines) {
@@ -75,6 +134,7 @@ export default function ProductRecipeEditor({ productId, productName }: Props) {
 
     setSaving(true)
     setError('')
+    setCopyMessage('')
     try {
       const res = await fetch(`/api/products/${productId}/recipe`, {
         method: 'PATCH',
@@ -84,6 +144,7 @@ export default function ProductRecipeEditor({ productId, productName }: Props) {
       })
       if (!res.ok) throw new Error(await getErrorMessage(res, 'Could not save production recipe.'))
       await qc.invalidateQueries({ queryKey: ['recipe', productId] })
+      setCopyMessage('Recipe saved.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save recipe')
     } finally {
@@ -110,6 +171,62 @@ export default function ProductRecipeEditor({ productId, productName }: Props) {
         <div className="rounded-xl bg-spice-50 px-3 py-2 text-sm text-spice-800">
           Material cost: <span className="font-semibold">{materialCost.toFixed(2)} ETB</span>
         </div>
+      </div>
+
+      {otherProducts.length > 0 && (
+        <div className="mb-4 flex flex-col gap-2 rounded-xl border border-spice-200 bg-spice-50/60 p-3 sm:flex-row sm:items-end">
+          <div className="flex-1">
+            <label className="block text-xs font-bold uppercase tracking-wide text-earth-600 mb-1">One-click: copy recipe from</label>
+            <select
+              className="input-field"
+              value={copyFromId}
+              onChange={(event) => setCopyFromId(event.target.value ? Number(event.target.value) : '')}
+            >
+              <option value="">Select product…</option>
+              {otherProducts.map((product) => (
+                <option key={product.id} value={product.id}>{product.name}</option>
+              ))}
+            </select>
+          </div>
+          <button
+            className="btn-primary"
+            type="button"
+            disabled={!copyFromId}
+            onClick={() => copyFromId && copyRecipeFrom(copyFromId)}
+          >
+            Copy recipe
+          </button>
+        </div>
+      )}
+
+      <div className="mb-4 flex flex-col gap-2 rounded-xl border border-earth-100 bg-earth-50/60 p-3 sm:flex-row sm:items-end">
+        <div className="flex-1">
+          <label className="block text-xs font-bold uppercase tracking-wide text-earth-600 mb-1">Quick add ingredient</label>
+          <select
+            className="input-field"
+            value={quickIngredientId}
+            onChange={(event) => setQuickIngredientId(event.target.value ? Number(event.target.value) : '')}
+          >
+            <option value="">Choose raw material…</option>
+            {ingredientList.map((item) => (
+              <option key={item.id} value={item.id}>{item.name} ({item.unit})</option>
+            ))}
+          </select>
+        </div>
+        <div className="w-28">
+          <label className="block text-xs font-bold uppercase tracking-wide text-earth-600 mb-1">Qty / unit</label>
+          <input
+            className="input-field"
+            type="number"
+            step="0.001"
+            min="0"
+            value={quickQty}
+            onChange={(event) => setQuickQty(event.target.value)}
+          />
+        </div>
+        <button className="btn-secondary" type="button" onClick={quickAddIngredient}>
+          + Add
+        </button>
       </div>
 
       <div className="space-y-3">
@@ -163,6 +280,7 @@ export default function ProductRecipeEditor({ productId, productName }: Props) {
       </div>
 
       {error && <div className="mt-3 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">{error}</div>}
+      {copyMessage && <div className="mt-3 rounded-lg bg-green-50 border border-green-200 px-3 py-2 text-sm text-green-700">{copyMessage}</div>}
 
       <div className="mt-4 flex flex-col gap-2 sm:flex-row">
         <button
