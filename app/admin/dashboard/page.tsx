@@ -5,6 +5,7 @@ import { useProducts } from '../../../hooks/useProducts'
 import { useCustomers, useIngredients, useProduction, useSales, useExpenses, usePurchases, useRepayments } from '../../../hooks/useModules'
 import AdminNav from '../../../components/AdminNav'
 import { isLowStock } from '../../../lib/stock'
+import { averageCostPerProduct, estimateSalesCogs } from '../../../lib/productionCost'
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 type Period = 'week' | 'month' | 'all'
@@ -72,11 +73,22 @@ export default function DashboardPage() {
   const periodPurchaseCosts = periodPurchases.reduce((acc, purchase: any) => acc + Number(purchase.cost_total), 0)
   const periodProduced = periodProduction.reduce((acc, batch: any) => acc + Number(batch.quantity_produced), 0)
   const periodSoldUnits = periodSales.reduce((acc, sale: any) => acc + Number(sale.quantity), 0)
+
+  const avgCostByProduct = averageCostPerProduct(productionList)
+  const periodCogs = estimateSalesCogs(periodSales, avgCostByProduct)
+  const totalCogs = estimateSalesCogs(salesList, avgCostByProduct)
+  const periodProductionSpend = periodProduction.reduce((acc, batch: any) => acc + Number(batch.total_cost ?? 0), 0)
+  const periodMaterialSpend = periodProduction.reduce((acc, batch: any) => acc + Number(batch.material_cost ?? 0), 0)
+  const periodOverheadSpend = periodProduction.reduce(
+    (acc, batch: any) => acc + Number(batch.labor_cost ?? 0) + Number(batch.equipment_cost ?? 0) + Number(batch.other_overhead ?? 0),
+    0
+  )
+
   const periodNetCash = periodCash + periodRepaymentCash - periodOperatingCosts - periodPurchaseCosts
-  const periodNetProfit = periodRevenue - periodOperatingCosts - periodPurchaseCosts
+  const periodNetProfit = periodRevenue - periodCogs - periodOperatingCosts
   const periodProfitMargin = periodRevenue > 0 ? ((periodNetProfit / periodRevenue) * 100).toFixed(1) : '0'
   const totalPurchaseCosts = purchaseList.reduce((acc, purchase: any) => acc + Number(purchase.cost_total), 0)
-  const netProfit = totalRevenue - totalExpenses - totalPurchaseCosts
+  const netProfit = totalRevenue - totalCogs - totalExpenses
   const profitMargin = totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(1) : '0'
 
   const lowStockProducts = productList.filter((product: any) => isLowStock(product))
@@ -122,10 +134,18 @@ export default function DashboardPage() {
     }))
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 12)
 
-  const revenueByProduct = productList.map((p: any) => ({
-    name: p.name,
-    revenue: periodSales.filter((s: any) => s.product_id === p.id).reduce((acc, s: any) => acc + Number(s.total_amount), 0)
-  })).filter(x => x.revenue > 0)
+  const revenueByProduct = productList.map((p: any) => {
+    const productSales = periodSales.filter((s: any) => s.product_id === p.id)
+    const revenue = productSales.reduce((acc, s: any) => acc + Number(s.total_amount), 0)
+    const unitsSold = productSales.reduce((acc, s: any) => acc + Number(s.quantity), 0)
+    const productionCost = unitsSold * (avgCostByProduct[p.id] ?? 0)
+    return {
+      name: p.name,
+      revenue,
+      productionCost,
+      profit: revenue - productionCost
+    }
+  }).filter((x) => x.revenue > 0)
 
   const expenseByCategory = periodExpenses.reduce((acc: any, e: any) => {
     const existing = acc.find((x: any) => x.name === e.category)
@@ -245,17 +265,38 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="metric-card">
-          <div className="metric-label">{periodLabels[period]} operating costs</div>
-          <div className="metric-value text-purple-700">{periodOperatingCosts.toFixed(2)} ETB</div>
+          <div className="metric-label">{periodLabels[period]} production cost</div>
+          <div className="metric-value text-amber-700">{periodProductionSpend.toFixed(2)} ETB</div>
+          <div className="mt-2 text-xs font-semibold text-earth-500">
+            Materials {periodMaterialSpend.toFixed(2)} + overhead {periodOverheadSpend.toFixed(2)}
+          </div>
         </div>
         <div className="metric-card">
-          <div className="metric-label">{periodLabels[period]} estimated net</div>
+          <div className="metric-label">{periodLabels[period]} cost of goods sold</div>
+          <div className="metric-value text-orange-700">{periodCogs.toFixed(2)} ETB</div>
+          <div className="mt-2 text-xs font-semibold text-earth-500">Based on average production cost per unit sold.</div>
+        </div>
+        <div className="metric-card">
+          <div className="metric-label">{periodLabels[period]} operating costs</div>
+          <div className="metric-value text-purple-700">{periodOperatingCosts.toFixed(2)} ETB</div>
+          <div className="mt-2 text-xs font-semibold text-earth-500">Rent, transport, packaging, salaries, etc.</div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="metric-card">
+          <div className="metric-label">{periodLabels[period]} estimated net profit</div>
           <div className={`metric-value ${periodNetProfit >= 0 ? 'text-spice-700' : 'text-red-700'}`}>{periodNetProfit.toFixed(2)} ETB</div>
-          <div className="mt-2 text-xs font-semibold text-earth-500">Sales minus expenses and raw purchases.</div>
+          <div className="mt-2 text-xs font-semibold text-earth-500">Sales − production cost of goods sold − operating expenses.</div>
         </div>
         <div className="metric-card">
           <div className="metric-label">{periodLabels[period]} margin estimate</div>
           <div className={`metric-value ${Number(periodProfitMargin) >= 0 ? 'text-amber-700' : 'text-red-700'}`}>{periodProfitMargin}%</div>
+        </div>
+        <div className="metric-card">
+          <div className="metric-label">{periodLabels[period]} raw material purchases</div>
+          <div className="metric-value text-earth-700">{periodPurchaseCosts.toFixed(2)} ETB</div>
+          <div className="mt-2 text-xs font-semibold text-earth-500">Cash spent restocking (separate from production COGS).</div>
         </div>
       </div>
 
@@ -347,17 +388,24 @@ export default function DashboardPage() {
         <div className="metric-card">
           <div className="metric-label">All-time net estimate</div>
           <div className={`metric-value ${netProfit >= 0 ? 'text-spice-700' : 'text-red-700'}`}>{netProfit.toFixed(2)} ETB</div>
-          <div className="mt-2 text-xs font-semibold text-earth-500">Margin: {profitMargin}%</div>
+          <div className="mt-2 text-xs font-semibold text-earth-500">Revenue − production COGS ({totalCogs.toFixed(2)}) − expenses. Margin: {profitMargin}%</div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="card">
-          <h2 className="font-display text-xl font-black text-earth-950 mb-1">Revenue by Finished Good</h2>
-          <p className="mb-4 text-sm text-earth-500">Which products are driving sales value.</p>
+          <h2 className="font-display text-xl font-black text-earth-950 mb-1">Sales & Profit by Product</h2>
+          <p className="mb-4 text-sm text-earth-500">Revenue and estimated profit after production cost per unit sold.</p>
           {revenueByProduct.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={revenueByProduct}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis /><Tooltip /><Bar dataKey="revenue" fill="#c05e20" radius={[6, 6, 0, 0]} /></BarChart>
+              <BarChart data={revenueByProduct}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="revenue" name="Revenue" fill="#c05e20" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="profit" name="Profit" fill="#2f855a" radius={[6, 6, 0, 0]} />
+              </BarChart>
             </ResponsiveContainer>
           ) : <div className="rounded-2xl border border-dashed border-earth-200 p-6 text-sm text-earth-500">No sales data yet.</div>}
         </div>

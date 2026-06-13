@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
 import { db, schema } from '../../../lib/db'
 import { productionCreateSchema } from '../../../lib/validators/production'
+import {
+  computeBatchMaterialCost,
+  computeBatchTotalCost,
+  computeCostPerUnit
+} from '../../../lib/productionCost'
 import { desc, eq, sql } from 'drizzle-orm'
 import { databaseErrorResponse } from '../../../lib/apiErrors'
 
@@ -18,6 +23,12 @@ export async function GET() {
         product_id: schema.production_batches.product_id,
         product_name: schema.products.name,
         quantity_produced: schema.production_batches.quantity_produced,
+        material_cost: schema.production_batches.material_cost,
+        labor_cost: schema.production_batches.labor_cost,
+        equipment_cost: schema.production_batches.equipment_cost,
+        other_overhead: schema.production_batches.other_overhead,
+        total_cost: schema.production_batches.total_cost,
+        cost_per_unit: schema.production_batches.cost_per_unit,
         produced_at: schema.production_batches.produced_at,
         notes: schema.production_batches.notes,
         created_at: schema.production_batches.created_at
@@ -38,7 +49,15 @@ export async function POST(request: Request) {
     const parsed = productionCreateSchema.safeParse(body)
     if (!parsed.success) return NextResponse.json({ error: parsed.error.format() }, { status: 422 })
 
-    const { productId, quantityProduced, producedAt, notes } = parsed.data
+    const {
+      productId,
+      quantityProduced,
+      producedAt,
+      notes,
+      laborCost = 0,
+      equipmentCost = 0,
+      otherOverhead = 0
+    } = parsed.data
     const parsedDate = parseDate(producedAt)
     if (!parsedDate) return NextResponse.json({ error: 'Invalid production date.' }, { status: 422 })
 
@@ -56,7 +75,8 @@ export async function POST(request: Request) {
           ingredient_id: schema.product_ingredients.ingredient_id,
           ingredient_name: schema.ingredients.name,
           available_quantity: schema.ingredients.quantity,
-          quantity_per_unit: schema.product_ingredients.quantity_per_unit
+          quantity_per_unit: schema.product_ingredients.quantity_per_unit,
+          ingredient_cost_per_unit: schema.ingredients.cost_per_unit
         })
         .from(schema.product_ingredients)
         .leftJoin(schema.ingredients, eq(schema.product_ingredients.ingredient_id, schema.ingredients.id))
@@ -80,6 +100,10 @@ export async function POST(request: Request) {
         return { error: `Insufficient raw materials: ${shortages.join('; ')}`, status: 409 as const }
       }
 
+      const materialCost = computeBatchMaterialCost(recipe, quantityProduced)
+      const totalCost = computeBatchTotalCost(materialCost, laborCost, equipmentCost, otherOverhead)
+      const costPerUnit = computeCostPerUnit(totalCost, quantityProduced)
+
       for (const line of recipe) {
         const required = Number(line.quantity_per_unit) * quantityProduced
         await tx
@@ -98,6 +122,12 @@ export async function POST(request: Request) {
         .values({
           product_id: productId,
           quantity_produced: quantityProduced,
+          material_cost: materialCost,
+          labor_cost: laborCost,
+          equipment_cost: equipmentCost,
+          other_overhead: otherOverhead,
+          total_cost: totalCost,
+          cost_per_unit: costPerUnit,
           produced_at: parsedDate,
           notes
         })
