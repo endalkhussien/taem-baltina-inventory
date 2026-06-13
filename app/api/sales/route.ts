@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db, schema } from '../../../lib/db'
 import { saleCreateSchema } from '../../../lib/validators/sale'
+import { computeSaleTotals } from '../../../lib/sales'
 import { and, desc, eq, gte, sql } from 'drizzle-orm'
 import { databaseErrorResponse } from '../../../lib/apiErrors'
 
@@ -46,25 +47,57 @@ export async function POST(request: Request) {
     const parsed = saleCreateSchema.safeParse(body)
     if (!parsed.success) return NextResponse.json({ error: parsed.error.format() }, { status: 422 })
 
-    const { productId, customerId = 0, quantity, unitPrice, amountPaid = 0, saleDate } = parsed.data
+    const { productId, customerId = 0, quantity, amountPaid = 0, saleDate } = parsed.data
     const parsedSaleDate = parseDate(saleDate)
     if (!parsedSaleDate) return NextResponse.json({ error: 'Invalid sale date.' }, { status: 422 })
 
-    const totalAmount = quantity * unitPrice
-    if (amountPaid > totalAmount) {
-      return NextResponse.json({ error: 'Amount paid cannot exceed the sale total.' }, { status: 422 })
-    }
-
-    if (amountPaid < totalAmount && customerId === 0) {
-      return NextResponse.json({ error: 'Credit or partial sales must be linked to a customer.' }, { status: 422 })
-    }
-
-    const balance = totalAmount - amountPaid
-    const paymentStatus = balance === 0 ? 'Paid' : amountPaid > 0 ? 'Partial' : 'Credit'
-
-    const saleCode = `S-${Date.now()}`
-
     const result = await db.transaction(async (tx) => {
+      const [product] = await tx
+        .select({
+          id: schema.products.id,
+          name: schema.products.name,
+          selling_price: schema.products.selling_price,
+          stock_quantity: schema.products.stock_quantity
+        })
+        .from(schema.products)
+        .where(eq(schema.products.id, productId))
+        .limit(1)
+
+      if (!product) return { error: 'Product not found.', status: 404 as const }
+
+      if (product.stock_quantity < quantity) {
+        return {
+          error: `Not enough stock for ${product.name}. Only ${product.stock_quantity} unit${product.stock_quantity === 1 ? '' : 's'} available.`,
+          status: 409 as const
+        }
+      }
+
+      if (product.stock_quantity <= 0) {
+        return {
+          error: `${product.name} is out of stock. Produce or restock before selling.`,
+          status: 409 as const
+        }
+      }
+
+      const unitPrice = Number(product.selling_price)
+      const { total: totalAmount, paid, balance, status: paymentStatus } = computeSaleTotals(
+        quantity,
+        unitPrice,
+        customerId === 0 ? quantity * unitPrice : amountPaid
+      )
+
+      if (customerId === 0 && balance > 0) {
+        return { error: 'Walk-in sales must be paid in full. Select a customer for credit or partial payment.', status: 422 as const }
+      }
+
+      if (paid > totalAmount) {
+        return { error: 'Amount paid cannot exceed the sale total.', status: 422 as const }
+      }
+
+      if (balance > 0 && customerId === 0) {
+        return { error: 'Credit or partial sales must be linked to a customer.', status: 422 as const }
+      }
+
       if (customerId > 0) {
         const [customer] = await tx
           .select({ id: schema.customers.id })
@@ -82,12 +115,13 @@ export async function POST(request: Request) {
         .returning({ id: schema.products.id })
 
       if (!updatedProduct) {
-        const [product] = await tx.select({ id: schema.products.id }).from(schema.products).where(eq(schema.products.id, productId)).limit(1)
-
-        return product
-          ? { error: 'Insufficient stock for this sale.', status: 409 as const }
-          : { error: 'Product not found.', status: 404 as const }
+        return {
+          error: `Not enough stock for ${product.name}. Another sale may have used the remaining units.`,
+          status: 409 as const
+        }
       }
+
+      const saleCode = `S-${Date.now()}`
 
       const [created] = await tx
         .insert(schema.sales)
@@ -98,7 +132,7 @@ export async function POST(request: Request) {
           quantity,
           unit_price: unitPrice,
           total_amount: totalAmount,
-          amount_paid: amountPaid,
+          amount_paid: paid,
           balance,
           payment_status: paymentStatus,
           sale_date: parsedSaleDate
