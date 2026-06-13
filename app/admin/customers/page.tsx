@@ -16,8 +16,8 @@ export default function CustomersPage() {
   const [payAmounts, setPayAmounts] = useState<Record<number, string>>({})
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const { register, handleSubmit, reset } = useForm({ defaultValues: { name: '', phone: '', notes: '' } })
-  const list = Array.isArray(customers) ? customers : []
-  const salesList = Array.isArray(sales) ? sales : []
+  const list = useMemo(() => (Array.isArray(customers) ? customers : []), [customers])
+  const salesList = useMemo(() => (Array.isArray(sales) ? sales : []), [sales])
   const isSaving = isCreatingCustomer || isUpdatingCustomer
 
   useEffect(() => {

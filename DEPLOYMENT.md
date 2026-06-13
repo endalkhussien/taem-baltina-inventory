@@ -126,6 +126,21 @@ After logging in:
 
 ## Troubleshooting
 
+### `npm run build` fails on Vercel or locally
+
+1. Use **Node.js 18.18+** or **20.x** (see `.nvmrc`).
+2. Install dependencies cleanly:
+
+```bash
+rm -rf node_modules .next
+npm ci
+npm run build
+```
+
+3. On Vercel, confirm **Environment Variables** are set (`DATABASE_URL`, `JWT_SECRET`, `PASSWORD_RESET_SECRET`). The build should succeed without them, but the live app needs them at runtime.
+4. If the log shows an **ESLint** error, run `npm run lint` locally and fix the reported file.
+5. If the log shows **TypeScript** errors, run `npm run typecheck` locally.
+
 ### Vercel deploys, but pages error
 
 Most likely the database tables were not created yet.

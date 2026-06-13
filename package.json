@@ -12,7 +12,10 @@
     "typecheck": "tsc --noEmit",
     "drizzle:generate": "drizzle-kit generate",
     "drizzle:push": "drizzle-kit push",
-    "prepare": "husky install"
+    "prepare": "node scripts/prepare-husky.js"
+  },
+  "engines": {
+    "node": ">=18.18.0"
   },
   "dependencies": {
     "@hookform/resolvers": "3",

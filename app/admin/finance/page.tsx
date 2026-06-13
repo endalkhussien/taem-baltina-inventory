@@ -46,14 +46,14 @@ export default function FinancePage() {
   })
   const paymentForm = useForm({ defaultValues: { amount: 0, paymentDate: today, notes: '' } })
 
-  const cashList = Array.isArray(cashEntries) ? cashEntries : []
-  const liabilityList = Array.isArray(liabilities) ? liabilities : []
-  const salesList = Array.isArray(sales) ? sales : []
-  const customerList = Array.isArray(customers) ? customers : []
-  const expenseList = Array.isArray(expenses) ? expenses : []
-  const purchaseList = Array.isArray(purchases) ? purchases : []
-  const repaymentList = Array.isArray(repayments) ? repayments : []
-  const productList = Array.isArray(products) ? products : []
+  const cashList = useMemo(() => (Array.isArray(cashEntries) ? cashEntries : []), [cashEntries])
+  const liabilityList = useMemo(() => (Array.isArray(liabilities) ? liabilities : []), [liabilities])
+  const salesList = useMemo(() => (Array.isArray(sales) ? sales : []), [sales])
+  const customerList = useMemo(() => (Array.isArray(customers) ? customers : []), [customers])
+  const expenseList = useMemo(() => (Array.isArray(expenses) ? expenses : []), [expenses])
+  const purchaseList = useMemo(() => (Array.isArray(purchases) ? purchases : []), [purchases])
+  const repaymentList = useMemo(() => (Array.isArray(repayments) ? repayments : []), [repayments])
+  const productList = useMemo(() => (Array.isArray(products) ? products : []), [products])
 
   const latestCash = cashList[0] ? Number(cashList[0].amount) : 0
   const creditReceivable = salesList.reduce((sum, sale) => sum + Number(sale.balance), 0)
