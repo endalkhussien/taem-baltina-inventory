@@ -5,6 +5,7 @@ import { useProducts } from '../../../hooks/useProducts'
 import { useCustomers, useIngredients, useProduction, useSales, useExpenses, usePurchases, useRepayments, useCashEntries, useLiabilities } from '../../../hooks/useModules'
 import AdminNav from '../../../components/AdminNav'
 import { isLowStock } from '../../../lib/stock'
+import { formatStockKg } from '../../../lib/productStock'
 import { averageCostPerProduct, estimateSalesCogs } from '../../../lib/productionCost'
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
@@ -102,6 +103,8 @@ export default function DashboardPage() {
   const lowStockIngredients = ingredientList.filter((ingredient: any) => isLowStock(ingredient))
   const rawMaterialValue = ingredientList.reduce((acc: number, i: any) => acc + Number(i.quantity) * Number(i.cost_per_unit), 0)
   const finishedStockValue = productList.reduce((acc: number, p: any) => acc + Number(p.stock_quantity) * Number(p.selling_price), 0)
+  const totalFinishedKg = productList.reduce((acc: number, p: any) => acc + Number(p.stock_quantity), 0)
+  const totalRawMaterialKg = ingredientList.reduce((acc: number, i: any) => acc + Number(i.quantity), 0)
   const ingredientCategories = Object.values(ingredientList.reduce((acc: any, ingredient: any) => {
     const category = ingredient.category || 'Other'
     if (!acc[category]) acc[category] = { name: category, count: 0, value: 0, low: 0 }
@@ -198,6 +201,86 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Link href="/admin/products" className="metric-card block border-2 border-green-200 bg-green-50/50">
+          <div className="metric-label">Finished goods in stock</div>
+          <div className="metric-value text-green-700">{formatStockKg(totalFinishedKg)}</div>
+          <div className="mt-2 text-xs font-semibold text-earth-500">
+            {productList.length} product{productList.length === 1 ? '' : 's'} • {finishedStockValue.toFixed(2)} ETB value
+          </div>
+        </Link>
+        <Link href="/admin/ingredients" className="metric-card block border-2 border-amber-200 bg-amber-50/40">
+          <div className="metric-label">Raw materials on hand</div>
+          <div className="metric-value text-amber-800">{totalRawMaterialKg.toFixed(1)} kg total</div>
+          <div className="mt-2 text-xs font-semibold text-earth-500">
+            {ingredientList.length} materials • {rawMaterialValue.toFixed(2)} ETB value
+          </div>
+        </Link>
+        <Link href="/admin/production" className="metric-card block">
+          <div className="metric-label">Stock changes today</div>
+          <div className="metric-value text-spice-700">+{todayProduced} / −{todaySales.reduce((acc, s: any) => acc + Number(s.quantity), 0)} kg</div>
+          <div className="mt-2 text-xs font-semibold text-earth-500">Produced today minus sold today</div>
+        </Link>
+      </div>
+
+      <div className="card">
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="font-display text-xl font-black text-earth-950 mb-1">Current Finished Goods Stock</h2>
+            <p className="text-sm text-earth-500">Kg available to sell. Updates when you record production or sales.</p>
+          </div>
+          <Link href="/admin/products" className="text-sm font-bold text-spice-700 hover:text-spice-900">Manage products</Link>
+        </div>
+        {productList.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-earth-200 p-6 text-sm text-earth-500">No finished goods yet. Add products under Stock.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[520px] text-sm">
+              <thead>
+                <tr className="table-head">
+                  <th className="px-4 py-3 text-left">Product</th>
+                  <th className="px-4 py-3 text-left">In stock (kg)</th>
+                  <th className="px-4 py-3 text-left">Produced</th>
+                  <th className="px-4 py-3 text-left">Sold</th>
+                  <th className="px-4 py-3 text-left">Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                {productList.map((product: any) => {
+                  const low = isLowStock(product)
+                  const stockKg = Number(product.stock_quantity)
+                  const value = stockKg * Number(product.selling_price)
+                  return (
+                    <tr key={product.id} className={`table-row ${low ? 'bg-red-50/60' : ''}`}>
+                      <td className="px-4 py-3 font-bold text-earth-950">
+                        {product.name}
+                        {low && <span className="ml-2 text-xs font-bold text-red-600">LOW</span>}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`font-black ${stockKg > 0 ? 'text-green-700' : 'text-earth-400'}`}>
+                          {formatStockKg(stockKg)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-earth-600">{formatStockKg(product.total_produced ?? 0)}</td>
+                      <td className="px-4 py-3 text-earth-600">{formatStockKg(product.total_sold ?? 0)}</td>
+                      <td className="px-4 py-3 font-semibold text-earth-800">{value.toFixed(2)} ETB</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-earth-200 bg-earth-50 font-bold">
+                  <td className="px-4 py-3">Total</td>
+                  <td className="px-4 py-3 text-green-700">{formatStockKg(totalFinishedKg)}</td>
+                  <td className="px-4 py-3" colSpan={2} />
+                  <td className="px-4 py-3">{finishedStockValue.toFixed(2)} ETB</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Link href="/admin/finance" className="metric-card block border-2 border-spice-200 bg-spice-50/50">
           <div className="metric-label">Total money (net position)</div>
           <div className={`metric-value ${netPosition >= 0 ? 'text-green-700' : 'text-red-700'}`}>{netPosition.toFixed(2)} ETB</div>
@@ -240,6 +323,11 @@ export default function DashboardPage() {
           <div className="metric-label">Raw materials value</div>
           <div className="metric-value text-green-700">{rawMaterialValue.toFixed(2)} ETB</div>
           <div className="mt-2 text-xs font-semibold text-earth-500">{ingredientList.length} materials. Click to view stock.</div>
+        </Link>
+        <Link href="/admin/products" className="metric-card block">
+          <div className="metric-label">Finished stock value</div>
+          <div className="metric-value text-spice-700">{finishedStockValue.toFixed(2)} ETB</div>
+          <div className="mt-2 text-xs font-semibold text-earth-500">{formatStockKg(totalFinishedKg)} on hand. Click for full list.</div>
         </Link>
         <Link href="/admin/products?filter=low" className="metric-card block">
           <div className="metric-label">Low finished goods</div>
