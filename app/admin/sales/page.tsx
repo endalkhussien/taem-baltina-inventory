@@ -7,6 +7,7 @@ import { useCustomers, useRepayments, useSales } from '../../../hooks/useModules
 import AdminNav from '../../../components/AdminNav'
 import { computeSaleTotals, toLocalDateKey } from '../../../lib/sales'
 import { formatStockKg } from '../../../lib/productStock'
+import { isInSalesPeriod, salesPeriodLabels, summarizeSales, type SalesPeriod } from '../../../lib/periods'
 
 const today = new Date().toISOString().slice(0, 10)
 
@@ -24,6 +25,7 @@ export default function SalesPage() {
   const { data: sales, isLoading: sLoading, createSale, isCreatingSale, deleteSale } = useSales()
   const { data: repayments, createRepayment, isCreatingRepayment } = useRepayments()
   const [filterDate, setFilterDate] = useState(today)
+  const [salesPeriod, setSalesPeriod] = useState<SalesPeriod>('week')
   const [openCreditOnly, setOpenCreditOnly] = useState(false)
   const [repaySaleId, setRepaySaleId] = useState<number | null>(null)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -57,19 +59,17 @@ export default function SalesPage() {
     effectiveAmountPaid
   )
 
-  const daySales = useMemo(
-    () => salesList.filter((sale) => toLocalDateKey(sale.sale_date) === filterDate),
-    [filterDate, salesList]
+  const periodSales = useMemo(
+    () => salesList.filter((sale) => isInSalesPeriod(sale.sale_date, salesPeriod, filterDate)),
+    [filterDate, salesList, salesPeriod]
   )
   const openCreditSales = useMemo(
     () => salesList.filter((sale) => Number(sale.balance) > 0),
     [salesList]
   )
-  const tableSales = openCreditOnly ? openCreditSales : daySales
+  const tableSales = openCreditOnly ? openCreditSales : periodSales
+  const periodSummary = useMemo(() => summarizeSales(periodSales), [periodSales])
 
-  const totalDaySales = daySales.reduce((sum, sale) => sum + Number(sale.total_amount), 0)
-  const totalDayCash = daySales.reduce((sum, sale) => sum + Number(sale.amount_paid), 0)
-  const totalDayCredit = daySales.reduce((sum, sale) => sum + Number(sale.balance), 0)
   const totalOutstanding = openCreditSales.reduce((sum, sale) => sum + Number(sale.balance), 0)
 
   const selectedRepaySale = salesList.find((sale) => sale.id === repaySaleId) ?? null
@@ -202,19 +202,38 @@ export default function SalesPage() {
                 Price is taken from the product automatically. Walk-in sales are paid in full. Credit sales let you enter partial payment.
               </p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15">
-                <div className="text-xs uppercase tracking-[0.16em] text-spice-100">{filterDate} sales</div>
-                <div className="text-xl font-black text-white">{totalDaySales.toFixed(2)} ETB</div>
+            <div className="space-y-3">
+              <div className="flex flex-wrap rounded-2xl bg-white/10 p-1 ring-1 ring-white/15">
+                {(['today', 'week', 'month', 'all'] as SalesPeriod[]).map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => setSalesPeriod(item)}
+                    className={`rounded-xl px-3 py-2 text-xs font-black uppercase tracking-wide transition-colors ${salesPeriod === item ? 'bg-white text-earth-950' : 'text-earth-100 hover:bg-white/10'}`}
+                  >
+                    {salesPeriodLabels[item]}
+                  </button>
+                ))}
               </div>
-              <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15">
-                <div className="text-xs uppercase tracking-[0.16em] text-spice-100">{filterDate} cash in</div>
-                <div className="text-xl font-black text-white">{totalDayCash.toFixed(2)} ETB</div>
-              </div>
-              <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15">
-                <div className="text-xs uppercase tracking-[0.16em] text-spice-100">Open credit (all)</div>
-                <div className="text-xl font-black text-white">{totalOutstanding.toFixed(2)} ETB</div>
-                <div className="mt-1 text-[11px] text-spice-100">{openCreditSales.length} unpaid sale{openCreditSales.length === 1 ? '' : 's'}</div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15">
+                  <div className="text-xs uppercase tracking-[0.16em] text-spice-100">Sales total</div>
+                  <div className="text-xl font-black text-white">{periodSummary.revenue.toFixed(2)} ETB</div>
+                  <div className="mt-1 text-[11px] text-spice-100">{periodSummary.count} sale{periodSummary.count === 1 ? '' : 's'}</div>
+                </div>
+                <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15">
+                  <div className="text-xs uppercase tracking-[0.16em] text-spice-100">Cash collected</div>
+                  <div className="text-xl font-black text-white">{periodSummary.cash.toFixed(2)} ETB</div>
+                </div>
+                <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15">
+                  <div className="text-xs uppercase tracking-[0.16em] text-spice-100">Credit created</div>
+                  <div className="text-xl font-black text-white">{periodSummary.credit.toFixed(2)} ETB</div>
+                </div>
+                <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15">
+                  <div className="text-xs uppercase tracking-[0.16em] text-spice-100">Kg sold</div>
+                  <div className="text-xl font-black text-white">{periodSummary.kg} kg</div>
+                  <div className="mt-1 text-[11px] text-spice-100">Open credit all time: {totalOutstanding.toFixed(2)} ETB</div>
+                </div>
               </div>
             </div>
           </div>
@@ -334,7 +353,7 @@ export default function SalesPage() {
                   <p className="text-sm text-earth-500">
                     {openCreditOnly
                       ? `Showing ${tableSales.length} open credit sale${tableSales.length === 1 ? '' : 's'} (${totalOutstanding.toFixed(2)} ETB owed).`
-                      : `Showing ${tableSales.length} sale${tableSales.length === 1 ? '' : 's'} on ${filterDate}. Credit created that day: ${totalDayCredit.toFixed(2)} ETB.`}
+                      : `Showing ${tableSales.length} sale${tableSales.length === 1 ? '' : 's'} for ${salesPeriodLabels[salesPeriod].toLowerCase()}.`}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -343,9 +362,9 @@ export default function SalesPage() {
                     className={`rounded-full px-3 py-1 text-xs font-bold ${openCreditOnly ? 'bg-red-600 text-white' : 'bg-earth-100 text-earth-700'}`}
                     onClick={() => setOpenCreditOnly((value) => !value)}
                   >
-                    {openCreditOnly ? 'Show day sales' : 'Open credit only'}
+                    {openCreditOnly ? 'Show period sales' : 'Open credit only'}
                   </button>
-                  {!openCreditOnly && (
+                  {!openCreditOnly && salesPeriod === 'today' && (
                     <input type="date" className="input-field sm:max-w-[180px]" value={filterDate} onChange={(event) => setFilterDate(event.target.value)} />
                   )}
                 </div>

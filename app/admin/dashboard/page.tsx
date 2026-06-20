@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import React, { useState } from 'react'
 import { useProducts } from '../../../hooks/useProducts'
-import { useCustomers, useIngredients, useProduction, useSales, useExpenses, usePurchases, useRepayments } from '../../../hooks/useModules'
+import { useCustomers, useIngredients, useProduction, useSales, useExpenses, usePurchases, useRepayments, useCashEntries, useLiabilities } from '../../../hooks/useModules'
 import AdminNav from '../../../components/AdminNav'
 import { isLowStock } from '../../../lib/stock'
 import { averageCostPerProduct, estimateSalesCogs } from '../../../lib/productionCost'
@@ -40,6 +40,8 @@ export default function DashboardPage() {
   const { data: expenses } = useExpenses()
   const { data: purchases } = usePurchases()
   const { data: repayments } = useRepayments()
+  const { data: cashEntries } = useCashEntries()
+  const { data: liabilities } = useLiabilities()
 
   const productList = Array.isArray(products) ? products : []
   const ingredientList = Array.isArray(ingredients) ? ingredients : []
@@ -49,6 +51,8 @@ export default function DashboardPage() {
   const expensesList = Array.isArray(expenses) ? expenses : []
   const purchaseList = Array.isArray(purchases) ? purchases : []
   const repaymentList = Array.isArray(repayments) ? repayments : []
+  const cashList = Array.isArray(cashEntries) ? cashEntries : []
+  const liabilityList = Array.isArray(liabilities) ? liabilities : []
   const today = new Date().toISOString().slice(0, 10)
   const todaySales = salesList.filter((s: any) => new Date(s.sale_date).toISOString().slice(0, 10) === today)
   const todayProduction = productionList.filter((batch: any) => new Date(batch.produced_at).toISOString().slice(0, 10) === today)
@@ -62,6 +66,9 @@ export default function DashboardPage() {
   const totalCashCollected = salesList.reduce((acc, s: any) => acc + Number(s.amount_paid), 0)
   const totalExpenses = expensesList.reduce((acc, e: any) => acc + Number(e.amount), 0)
   const outstandingCredit = salesList.reduce((acc, s: any) => acc + Number(s.balance), 0)
+  const latestCash = cashList[0] ? Number(cashList[0].amount) : 0
+  const debtsPayable = liabilityList.reduce((acc, item) => acc + Number(item.balance), 0)
+  const netPosition = latestCash + outstandingCredit - debtsPayable
   const todayRevenue = todaySales.reduce((acc, s: any) => acc + Number(s.total_amount), 0)
   const todayProduced = todayProduction.reduce((acc, batch: any) => acc + Number(batch.quantity_produced), 0)
   const customersWithCredit = customerList.filter((customer: any) => Number(customer.outstanding_balance) > 0)
@@ -188,6 +195,26 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Link href="/admin/finance" className="metric-card block border-2 border-spice-200 bg-spice-50/50">
+          <div className="metric-label">Total money (net position)</div>
+          <div className={`metric-value ${netPosition >= 0 ? 'text-green-700' : 'text-red-700'}`}>{netPosition.toFixed(2)} ETB</div>
+          <div className="mt-2 text-xs font-semibold text-earth-500">
+            Cash {latestCash.toFixed(2)} + customer credit {outstandingCredit.toFixed(2)} − debts {debtsPayable.toFixed(2)}. Tap for Finance desk.
+          </div>
+        </Link>
+        <Link href="/admin/sales" className="metric-card block">
+          <div className="metric-label">{periodLabels[period]} sales trace</div>
+          <div className="metric-value text-spice-700">{periodRevenue.toFixed(2)} ETB</div>
+          <div className="mt-2 text-xs font-semibold text-earth-500">{periodSoldUnits} kg sold • {periodSales.length} sales. Open Sales for full list.</div>
+        </Link>
+        <Link href="/admin/finance" className="metric-card block">
+          <div className="metric-label">Cash on hand (last count)</div>
+          <div className="metric-value text-green-700">{latestCash.toFixed(2)} ETB</div>
+          <div className="mt-2 text-xs font-semibold text-earth-500">{cashList[0] ? `Counted ${new Date(cashList[0].entry_date).toLocaleDateString()}` : 'Record a cash count on Finance page'}</div>
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

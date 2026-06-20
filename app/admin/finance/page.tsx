@@ -15,10 +15,13 @@ import {
   useSales
 } from '../../../hooks/useModules'
 import { useProducts } from '../../../hooks/useProducts'
+import { useQueryClient } from '@tanstack/react-query'
+import { isInSalesPeriod, salesPeriodLabels, summarizeSales, type SalesPeriod } from '../../../lib/periods'
 
 const today = new Date().toISOString().slice(0, 10)
 
 export default function FinancePage() {
+  const qc = useQueryClient()
   const { data: cashEntries, createCashEntry, isCreatingCashEntry } = useCashEntries()
   const { data: liabilities, createLiability, isCreatingLiability, deleteLiability } = useLiabilities()
   const { data: liabilityPayments, createLiabilityPayment, isCreatingLiabilityPayment } = useLiabilityPayments()
@@ -31,6 +34,8 @@ export default function FinancePage() {
 
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [payLiabilityId, setPayLiabilityId] = useState<number | null>(null)
+  const [resetConfirm, setResetConfirm] = useState('')
+  const [isResetting, setIsResetting] = useState(false)
 
   const cashForm = useForm({ defaultValues: { amount: 0, notes: '', entryDate: today } })
   const liabilityForm = useForm({
@@ -72,6 +77,11 @@ export default function FinancePage() {
     () => salesList.filter((sale) => Number(sale.balance) > 0).sort((a, b) => new Date(b.sale_date).getTime() - new Date(a.sale_date).getTime()),
     [salesList]
   )
+
+  const weekSales = useMemo(() => salesList.filter((sale) => isInSalesPeriod(sale.sale_date, 'week')), [salesList])
+  const monthSales = useMemo(() => salesList.filter((sale) => isInSalesPeriod(sale.sale_date, 'month')), [salesList])
+  const weekSummary = useMemo(() => summarizeSales(weekSales), [weekSales])
+  const monthSummary = useMemo(() => summarizeSales(monthSales), [monthSales])
 
   const selectedLiability = liabilityList.find((item) => item.id === payLiabilityId)
 
@@ -118,6 +128,43 @@ export default function FinancePage() {
     }
   }
 
+  const onReset = async () => {
+    if (resetConfirm !== 'RESET ALL') {
+      setMessage({ type: 'error', text: 'Type RESET ALL exactly to confirm.' })
+      return
+    }
+
+    if (!confirm('Delete ALL sales, production, expenses, purchases, cash counts, debts, and zero all stock? This cannot be undone.')) {
+      return
+    }
+
+    setIsResetting(true)
+    setMessage(null)
+    try {
+      const res = await fetch('/api/admin/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ confirm: 'RESET ALL' })
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error || 'Reset failed.')
+
+      setResetConfirm('')
+      await qc.invalidateQueries()
+      setMessage({ type: 'success', text: body.message || 'All amounts reset to zero. You can start fresh.' })
+    } catch (err) {
+      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not reset data.' })
+    } finally {
+      setIsResetting(false)
+    }
+  }
+
+  const salesPeriodCards: Array<{ key: SalesPeriod; summary: ReturnType<typeof summarizeSales> }> = [
+    { key: 'week', summary: weekSummary },
+    { key: 'month', summary: monthSummary }
+  ]
+
   return (
     <>
       <AdminNav />
@@ -143,6 +190,21 @@ export default function FinancePage() {
               {message.text}
             </div>
           )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            {salesPeriodCards.map(({ key, summary }) => (
+              <div key={key} className="metric-card">
+                <div className="metric-label">{salesPeriodLabels[key]} sales</div>
+                <div className="metric-value text-spice-700">{summary.revenue.toFixed(2)} ETB</div>
+                <div className="mt-2 grid grid-cols-3 gap-2 text-xs font-semibold text-earth-500">
+                  <span>Cash {summary.cash.toFixed(2)}</span>
+                  <span>Credit {summary.credit.toFixed(2)}</span>
+                  <span>{summary.kg} kg</span>
+                </div>
+                <div className="mt-1 text-xs text-earth-400">{summary.count} sale{summary.count === 1 ? '' : 's'}</div>
+              </div>
+            ))}
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
             <div className="metric-card">
@@ -408,6 +470,35 @@ export default function FinancePage() {
             ) : (
               <div className="text-sm text-earth-500">No debt payments yet.</div>
             )}
+          </div>
+          <div className="card border-2 border-red-200 bg-red-50/40 mb-6 mt-6">
+            <h2 className="font-display text-xl font-black text-red-900 mb-1">Start fresh — reset all amounts to zero</h2>
+            <p className="mb-4 text-sm text-red-800">
+              Clears all sales, production batches, purchases, expenses, cash counts, debts, and repayments. Sets finished goods and raw material stock to 0 kg.
+              Products, recipes, customers, and your login are kept.
+            </p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="flex-1">
+                <label className="block text-sm font-bold text-red-900 mb-1.5">Type RESET ALL to confirm</label>
+                <input
+                  className="input-field border-red-200"
+                  value={resetConfirm}
+                  onChange={(event) => setResetConfirm(event.target.value)}
+                  placeholder="RESET ALL"
+                />
+              </div>
+              <button
+                type="button"
+                className="rounded-2xl bg-red-600 px-5 py-3 text-sm font-black text-white hover:bg-red-700 disabled:opacity-50"
+                disabled={isResetting || resetConfirm !== 'RESET ALL'}
+                onClick={onReset}
+              >
+                {isResetting ? 'Resetting...' : 'Reset everything to zero'}
+              </button>
+            </div>
+            <p className="mt-3 text-xs text-red-700">
+              Or from terminal: <code className="rounded bg-white/70 px-1">CONFIRM_RESET=yes npm run reset</code>
+            </p>
           </div>
         </div>
       </div>

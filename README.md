@@ -39,11 +39,19 @@ After starting the local Postgres (`docker compose up -d`), create tables and se
 npm ci
 # Create or update tables from db/schema.ts (recommended for local and Vercel/Neon)
 npm run drizzle:push
-# Seed initial products (Berbere, Shiro, Mitmita), ingredients, recipes, and customers
+# Seed initial products, ingredients, recipes, and customers (starts with zero stock)
 npm run seed
 ```
 
 `db/schema.ts` is the source of truth for the database. Use `npm run drizzle:push` for both local development and production (Neon).
+
+To wipe all transactional data and start from zero amounts:
+
+```bash
+CONFIRM_RESET=yes DATABASE_URL="your-neon-url" npm run reset
+```
+
+Or use **Finance → Start fresh** in the app (type `RESET ALL` to confirm).
 
 The SQL files in `drizzle/migrations/` are kept for reference. If you prefer raw SQL instead of `drizzle:push`, apply them in order through `0006_production_costs.sql`.
 
