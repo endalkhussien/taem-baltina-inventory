@@ -40,20 +40,20 @@ const connectionString = resolveDatabaseUrl()
 const pool = new Pool(createPgPoolOptions(connectionString))
 
 const products = [
-  { name: 'Berbere', selling_price: 150.0, stock_quantity: 100, alert_threshold: 10 },
-  { name: 'Shiro', selling_price: 120.0, stock_quantity: 100, alert_threshold: 10 },
-  { name: 'Mitmita', selling_price: 200.0, stock_quantity: 100, alert_threshold: 10 }
+  { name: 'Berbere', selling_price: 150.0, stock_quantity: 0, alert_threshold: 10 },
+  { name: 'Shiro', selling_price: 120.0, stock_quantity: 0, alert_threshold: 10 },
+  { name: 'Mitmita', selling_price: 200.0, stock_quantity: 0, alert_threshold: 10 }
 ]
 
 const ingredients = [
-  { name: 'Red pepper', category: 'Spices', quantity: 50, unit: 'kg', cost_per_unit: 80, alert_threshold: 5 },
-  { name: 'Fenugreek', category: 'Spices', quantity: 20, unit: 'kg', cost_per_unit: 120, alert_threshold: 2 },
-  { name: 'Garlic', category: 'Fresh aromatics', quantity: 15, unit: 'kg', cost_per_unit: 90, alert_threshold: 2 },
-  { name: 'Ginger', category: 'Fresh aromatics', quantity: 15, unit: 'kg', cost_per_unit: 95, alert_threshold: 2 },
-  { name: 'Black cumin', category: 'Spices', quantity: 10, unit: 'kg', cost_per_unit: 140, alert_threshold: 1 },
-  { name: 'Chickpea flour', category: 'Flours', quantity: 80, unit: 'kg', cost_per_unit: 65, alert_threshold: 10 },
-  { name: 'Birds eye chili', category: 'Spices', quantity: 12, unit: 'kg', cost_per_unit: 180, alert_threshold: 2 },
-  { name: 'Salt', category: 'Seasoning', quantity: 25, unit: 'kg', cost_per_unit: 20, alert_threshold: 5 }
+  { name: 'Red pepper', category: 'Spices', quantity: 0, unit: 'kg', cost_per_unit: 80, alert_threshold: 5 },
+  { name: 'Fenugreek', category: 'Spices', quantity: 0, unit: 'kg', cost_per_unit: 120, alert_threshold: 2 },
+  { name: 'Garlic', category: 'Fresh aromatics', quantity: 0, unit: 'kg', cost_per_unit: 90, alert_threshold: 2 },
+  { name: 'Ginger', category: 'Fresh aromatics', quantity: 0, unit: 'kg', cost_per_unit: 95, alert_threshold: 2 },
+  { name: 'Black cumin', category: 'Spices', quantity: 0, unit: 'kg', cost_per_unit: 140, alert_threshold: 1 },
+  { name: 'Chickpea flour', category: 'Flours', quantity: 0, unit: 'kg', cost_per_unit: 65, alert_threshold: 10 },
+  { name: 'Birds eye chili', category: 'Spices', quantity: 0, unit: 'kg', cost_per_unit: 180, alert_threshold: 2 },
+  { name: 'Salt', category: 'Seasoning', quantity: 0, unit: 'kg', cost_per_unit: 20, alert_threshold: 5 }
 ]
 
 const recipes = [
