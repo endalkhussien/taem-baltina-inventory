@@ -41,8 +41,9 @@ async function migrateCredit() {
 
     await runSqlFile(client, 'drizzle/migrations/0008_credit_ledger.sql')
     await runSqlFile(client, 'drizzle/migrations/0009_credit_product.sql')
+    await runSqlFile(client, 'drizzle/migrations/0010_credit_ledger_items.sql')
 
-    console.log('\nDone. credit_ledgers and credit_payments are ready.')
+    console.log('\nDone. credit_ledgers, credit_payments, and credit_ledger_items are ready.')
     console.log('Refresh the Customers page and record credit again.')
   } finally {
     client.release()

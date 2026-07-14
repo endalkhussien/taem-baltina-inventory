@@ -18,6 +18,7 @@ import {
 import { useProducts } from '../../../hooks/useProducts'
 import { useQueryClient } from '@tanstack/react-query'
 import { isInSalesPeriod, salesPeriodLabels, summarizeSales, type SalesPeriod } from '../../../lib/periods'
+import { formatCreditProductsSummary } from '../../../lib/credit'
 
 const today = new Date().toISOString().slice(0, 10)
 
@@ -85,8 +86,15 @@ export default function FinancePage() {
 
   const weekSales = useMemo(() => salesList.filter((sale) => isInSalesPeriod(sale.sale_date, 'week')), [salesList])
   const monthSales = useMemo(() => salesList.filter((sale) => isInSalesPeriod(sale.sale_date, 'month')), [salesList])
+  const allTimeSummary = useMemo(() => summarizeSales(salesList), [salesList])
   const weekSummary = useMemo(() => summarizeSales(weekSales), [weekSales])
   const monthSummary = useMemo(() => summarizeSales(monthSales), [monthSales])
+
+  const openCreditLedger = useMemo(
+    () => ledgerList.filter((row) => Number(row.balance) > 0).sort((a, b) => new Date(b.credit_date).getTime() - new Date(a.credit_date).getTime()),
+    [ledgerList]
+  )
+  const totalLedgerCreditCreated = ledgerList.reduce((sum, row) => sum + Number(row.total_amount), 0)
 
   const selectedLiability = liabilityList.find((item) => item.id === payLiabilityId)
 
@@ -165,7 +173,8 @@ export default function FinancePage() {
     }
   }
 
-  const salesPeriodCards: Array<{ key: SalesPeriod; summary: ReturnType<typeof summarizeSales> }> = [
+  const salesPeriodCards: Array<{ key: SalesPeriod | 'all'; summary: ReturnType<typeof summarizeSales> }> = [
+    { key: 'all', summary: allTimeSummary },
     { key: 'week', summary: weekSummary },
     { key: 'month', summary: monthSummary }
   ]
@@ -196,10 +205,10 @@ export default function FinancePage() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             {salesPeriodCards.map(({ key, summary }) => (
               <div key={key} className="metric-card">
-                <div className="metric-label">{salesPeriodLabels[key]} sales</div>
+                <div className="metric-label">{key === 'all' ? 'All-time sales' : `${salesPeriodLabels[key]} sales`}</div>
                 <div className="metric-value text-spice-700">{summary.revenue.toFixed(2)} ETB</div>
                 <div className="mt-2 grid grid-cols-3 gap-2 text-xs font-semibold text-earth-500">
                   <span>Cash {summary.cash.toFixed(2)}</span>
@@ -225,9 +234,17 @@ export default function FinancePage() {
               </div>
             </div>
             <div className="metric-card">
+              <div className="metric-label">Credit ledger recorded</div>
+              <div className="metric-value text-spice-700">{totalLedgerCreditCreated.toFixed(2)} ETB</div>
+              <div className="mt-2 text-xs text-earth-500">Open balance {ledgerCreditReceivable.toFixed(2)} ETB • {openCreditLedger.length} open</div>
+            </div>
+            <div className="metric-card">
               <div className="metric-label">You owe others</div>
               <div className="metric-value text-red-700">{debtsPayable.toFixed(2)} ETB</div>
-              <div className="mt-2 text-xs text-earth-500">{liabilityList.filter((item) => Number(item.balance) > 0).length} open debts</div>
+              <div className="mt-2 text-xs text-earth-500">
+                <a href="#record-debt" className="font-bold text-spice-700 hover:text-spice-900">Record debt ↓</a>
+                {' '}• {liabilityList.filter((item) => Number(item.balance) > 0).length} open
+              </div>
             </div>
             <div className="metric-card">
               <div className="metric-label">Finished stock value</div>
@@ -276,9 +293,9 @@ export default function FinancePage() {
               </form>
             </div>
 
-            <div className="card">
-              <h2 className="font-display text-xl font-black text-earth-950 mb-1">Record Debt You Owe</h2>
-              <p className="mb-5 text-sm text-earth-500">Bank loan, family loan, supplier credit, or other money you must pay back.</p>
+            <div className="card" id="record-debt">
+              <h2 className="font-display text-xl font-black text-earth-950 mb-1">You Owe Others (Record Debt)</h2>
+              <p className="mb-5 text-sm text-earth-500">Bank loan, family loan, supplier credit, or any money you must pay back.</p>
               <form onSubmit={liabilityForm.handleSubmit(onLiabilitySubmit)} className="space-y-4">
                 <div>
                   <label className="block text-sm font-bold text-earth-700 mb-1.5">Creditor</label>
@@ -336,6 +353,40 @@ export default function FinancePage() {
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+            <div className="card overflow-x-auto">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="font-display text-xl font-black text-earth-950">Open Credit Ledger</h2>
+                  <p className="text-sm text-earth-500">Credit recorded on Customers page (not from sales).</p>
+                </div>
+                <Link href="/admin/customers" className="text-sm font-bold text-spice-700">Go to Credit</Link>
+              </div>
+              {openCreditLedger.length === 0 ? (
+                <div className="text-sm text-earth-500">No open credit ledger entries.</div>
+              ) : (
+                <table className="w-full min-w-[640px] text-sm">
+                  <thead>
+                    <tr className="table-head">
+                      <th className="px-3 py-2">Date</th>
+                      <th className="px-3 py-2">Customer</th>
+                      <th className="px-3 py-2">Products</th>
+                      <th className="px-3 py-2">Balance</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {openCreditLedger.map((row) => (
+                      <tr key={row.id} className="table-row">
+                        <td className="px-3 py-3">{new Date(row.credit_date).toLocaleDateString()}</td>
+                        <td className="px-3 py-3">{row.customer_name}</td>
+                        <td className="px-3 py-3">{formatCreditProductsSummary(row.items, row.product_name, row.quantity_kg)}</td>
+                        <td className="px-3 py-3 font-bold text-red-700">{Number(row.balance).toFixed(2)} ETB</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
             <div className="card overflow-x-auto">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div>

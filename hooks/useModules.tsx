@@ -181,6 +181,12 @@ export type CreditLedger = {
   product_id?: number | null
   product_name?: string | null
   quantity_kg?: number | null
+  items?: Array<{
+    product_id: number
+    product_name?: string | null
+    quantity_kg: number
+    line_total: number
+  }>
   title: string
   total_amount: number
   amount_paid: number
@@ -222,6 +228,10 @@ export function useCreditLedgers() {
     isCreatingCreditLedger: create.isPending,
     deleteCreditLedger: async (id: number) => {
       await apiRequest(`/api/credit-ledgers/${id}`, { method: 'DELETE' }, 'Could not delete credit entry.')
+      await invalidateAll(qc, ['creditLedgers', 'creditPayments', 'customers'])
+    },
+    markCreditPaid: async (id: number) => {
+      await apiRequest(`/api/credit-ledgers/${id}/mark-paid`, { method: 'POST' }, 'Could not mark credit as paid.')
       await invalidateAll(qc, ['creditLedgers', 'creditPayments', 'customers'])
     }
   }

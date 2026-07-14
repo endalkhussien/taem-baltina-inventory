@@ -1,19 +1,18 @@
 import { NextResponse } from 'next/server'
-import { desc, eq } from 'drizzle-orm'
+import { desc, eq, inArray } from 'drizzle-orm'
 import { db, schema } from '../../../lib/db'
 import { databaseErrorResponse, parseJsonBody } from '../../../lib/apiErrors'
 import { creditLedgerCreateSchema } from '../../../lib/validators/credit'
+import {
+  buildCreditLinesFromProducts,
+  buildCreditTitleFromLines,
+  sumCreditLineTotals
+} from '../../../lib/credit'
 
 function parseDate(value?: string) {
   if (!value) return new Date()
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? null : date
-}
-
-function buildCreditTitle(productName: string | null, quantityKg: number, customTitle?: string) {
-  if (customTitle?.trim()) return customTitle.trim()
-  if (productName && quantityKg > 0) return `${productName} — ${quantityKg} kg on credit`
-  return 'Credit'
 }
 
 function isMissingCreditTableError(err: unknown) {
@@ -29,6 +28,41 @@ function missingCreditTableResponse() {
     },
     { status: 503 }
   )
+}
+
+async function loadCreditItems(creditIds: number[]) {
+  if (creditIds.length === 0) return new Map<number, Array<{ product_id: number; product_name: string | null; quantity_kg: number; line_total: number }>>()
+
+  try {
+    const rows = await db
+      .select({
+        credit_id: schema.credit_ledger_items.credit_id,
+        product_id: schema.credit_ledger_items.product_id,
+        product_name: schema.products.name,
+        quantity_kg: schema.credit_ledger_items.quantity_kg,
+        line_total: schema.credit_ledger_items.line_total
+      })
+      .from(schema.credit_ledger_items)
+      .leftJoin(schema.products, eq(schema.credit_ledger_items.product_id, schema.products.id))
+      .where(inArray(schema.credit_ledger_items.credit_id, creditIds))
+
+    const byCredit = new Map<number, Array<{ product_id: number; product_name: string | null; quantity_kg: number; line_total: number }>>()
+
+    for (const row of rows) {
+      const list = byCredit.get(row.credit_id) ?? []
+      list.push({
+        product_id: row.product_id,
+        product_name: row.product_name,
+        quantity_kg: Number(row.quantity_kg),
+        line_total: Number(row.line_total)
+      })
+      byCredit.set(row.credit_id, list)
+    }
+
+    return byCredit
+  } catch {
+    return new Map()
+  }
 }
 
 export async function GET() {
@@ -54,7 +88,14 @@ export async function GET() {
       .leftJoin(schema.products, eq(schema.credit_ledgers.product_id, schema.products.id))
       .orderBy(desc(schema.credit_ledgers.credit_date))
 
-    return NextResponse.json(rows)
+    const itemsByCredit = await loadCreditItems(rows.map((row) => row.id))
+
+    return NextResponse.json(
+      rows.map((row) => ({
+        ...row,
+        items: itemsByCredit.get(row.id) ?? []
+      }))
+    )
   } catch (err) {
     if (isMissingCreditTableError(err)) return missingCreditTableResponse()
     return databaseErrorResponse(err, 'Could not load credit ledger')
@@ -85,52 +126,82 @@ export async function POST(request: Request) {
 
     if (!customer) return NextResponse.json({ error: 'Customer not found.' }, { status: 404 })
 
-    const productId = Number(parsed.data.productId ?? 0)
-    const quantityKg = Number(parsed.data.quantityKg ?? 0)
-    let productName: string | null = null
+    const productRows = await db
+      .select({
+        id: schema.products.id,
+        name: schema.products.name,
+        selling_price: schema.products.selling_price
+      })
+      .from(schema.products)
 
-    if (productId > 0) {
-      const [product] = await db
-        .select({ id: schema.products.id, name: schema.products.name, selling_price: schema.products.selling_price })
-        .from(schema.products)
-        .where(eq(schema.products.id, productId))
-        .limit(1)
+    let lineDrafts = buildCreditLinesFromProducts(parsed.data.lines ?? [], productRows)
 
-      if (!product) return NextResponse.json({ error: 'Product not found.' }, { status: 404 })
+    if (lineDrafts.length === 0 && Number(parsed.data.productId ?? 0) > 0) {
+      lineDrafts = buildCreditLinesFromProducts(
+        [{ productId: Number(parsed.data.productId), quantityKg: Number(parsed.data.quantityKg) }],
+        productRows
+      )
+    }
 
-      productName = product.name
-      const expectedTotal = Number((quantityKg * Number(product.selling_price)).toFixed(2))
+    if (lineDrafts.length > 0) {
+      const expectedTotal = sumCreditLineTotals(lineDrafts)
       if (Math.abs(expectedTotal - parsed.data.totalAmount) > 0.02) {
         return NextResponse.json(
-          { error: `Total should be ${expectedTotal.toFixed(2)} ETB (${quantityKg} kg × ${Number(product.selling_price).toFixed(2)}).` },
+          { error: `Total should be ${expectedTotal.toFixed(2)} ETB based on selected products.` },
           { status: 422 }
         )
       }
     }
 
-    const title = buildCreditTitle(productName, quantityKg, parsed.data.title)
-    const balance = parsed.data.totalAmount - amountPaid
+    const title = lineDrafts.length > 0
+      ? buildCreditTitleFromLines(lineDrafts, parsed.data.title)
+      : (parsed.data.title?.trim() || 'Mixed products on credit')
 
-    const [created] = await db
-      .insert(schema.credit_ledgers)
-      .values({
-        customer_id: parsed.data.customerId,
-        product_id: productId > 0 ? productId : null,
-        quantity_kg: productId > 0 ? quantityKg : null,
-        title,
-        total_amount: parsed.data.totalAmount,
-        amount_paid: amountPaid,
-        balance,
-        credit_date: creditDate,
-        notes: parsed.data.notes
-      })
-      .returning()
+    const balance = parsed.data.totalAmount - amountPaid
+    const primaryLine = lineDrafts.length === 1 ? lineDrafts[0] : null
+
+    const result = await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(schema.credit_ledgers)
+        .values({
+          customer_id: parsed.data.customerId,
+          product_id: primaryLine?.productId ?? null,
+          quantity_kg: primaryLine?.quantityKg ?? null,
+          title,
+          total_amount: parsed.data.totalAmount,
+          amount_paid: amountPaid,
+          balance,
+          credit_date: creditDate,
+          notes: parsed.data.notes
+        })
+        .returning()
+
+      if (lineDrafts.length > 0) {
+        await tx.insert(schema.credit_ledger_items).values(
+          lineDrafts.map((line) => ({
+            credit_id: created.id,
+            product_id: line.productId,
+            quantity_kg: line.quantityKg,
+            unit_price: line.unitPrice,
+            line_total: line.lineTotal
+          }))
+        )
+      }
+
+      return created
+    })
 
     return NextResponse.json(
       {
-        ...created,
+        ...result,
         customer_name: customer.name,
-        product_name: productName
+        product_name: primaryLine?.productName ?? null,
+        items: lineDrafts.map((line) => ({
+          product_id: line.productId,
+          product_name: line.productName,
+          quantity_kg: line.quantityKg,
+          line_total: line.lineTotal
+        }))
       },
       { status: 201 }
     )

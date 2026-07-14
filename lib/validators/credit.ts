@@ -1,9 +1,15 @@
 import { z } from 'zod'
 import { nonNegativeNumber, positiveInt, positiveNumber } from './numeric'
 
+export const creditLineSchema = z.object({
+  productId: positiveInt,
+  quantityKg: positiveNumber
+})
+
 export const creditLedgerCreateSchema = z
   .object({
     customerId: positiveInt,
+    lines: z.array(creditLineSchema).optional().default([]),
     productId: nonNegativeNumber.optional().default(0),
     quantityKg: nonNegativeNumber.optional().default(0),
     title: z.string().optional(),
@@ -16,13 +22,13 @@ export const creditLedgerCreateSchema = z
     message: 'Paid now cannot be more than total credit.',
     path: ['amountPaid']
   })
-  .refine((data) => Number(data.productId ?? 0) > 0 || (data.title?.trim().length ?? 0) > 0, {
-    message: 'Add a description for mixed / all-product credit.',
+  .refine((data) => {
+    const lines = data.lines ?? []
+    const legacyProduct = Number(data.productId ?? 0) > 0
+    return lines.length > 0 || legacyProduct || (data.title?.trim().length ?? 0) > 0
+  }, {
+    message: 'Select at least one product or add a description for mixed credit.',
     path: ['title']
-  })
-  .refine((data) => Number(data.productId ?? 0) === 0 || Number(data.quantityKg ?? 0) > 0, {
-    message: 'Enter kg quantity for the selected product.',
-    path: ['quantityKg']
   })
 
 export const creditPaymentSchema = z.object({
@@ -31,3 +37,5 @@ export const creditPaymentSchema = z.object({
   paymentDate: z.string().optional(),
   notes: z.string().optional()
 })
+
+export type CreditLineInput = z.infer<typeof creditLineSchema>

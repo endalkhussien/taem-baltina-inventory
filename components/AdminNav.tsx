@@ -10,7 +10,7 @@ const links = [
   { href: '/admin/production', label: 'Production', short: 'Make' },
   { href: '/admin/sales', label: 'Sales', short: 'Sales' },
   { href: '/admin/customers', label: 'Credit', short: 'Credit' },
-  { href: '/admin/finance', label: 'Finance', short: 'Money' },
+  { href: '/admin/finance', label: 'Finance & Debts', short: 'Money' },
   { href: '/admin/expenses', label: 'Expenses', short: 'Costs' }
 ]
 
