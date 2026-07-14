@@ -16,6 +16,21 @@ function buildCreditTitle(productName: string | null, quantityKg: number, custom
   return 'Credit'
 }
 
+function isMissingCreditTableError(err: unknown) {
+  const message = err instanceof Error ? err.message : String(err)
+  return message.includes('credit_ledgers') && message.includes('does not exist')
+}
+
+function missingCreditTableResponse() {
+  return NextResponse.json(
+    {
+      error: 'Credit tables are not set up yet. Run: npm run migrate:credit (safe — does not change sales or stock).',
+      hint: 'In PowerShell: $env:DATABASE_URL = "postgresql://..."; npm run migrate:credit'
+    },
+    { status: 503 }
+  )
+}
+
 export async function GET() {
   try {
     const rows = await db
@@ -41,6 +56,7 @@ export async function GET() {
 
     return NextResponse.json(rows)
   } catch (err) {
+    if (isMissingCreditTableError(err)) return missingCreditTableResponse()
     return databaseErrorResponse(err, 'Could not load credit ledger')
   }
 }
@@ -119,6 +135,7 @@ export async function POST(request: Request) {
       { status: 201 }
     )
   } catch (err) {
+    if (isMissingCreditTableError(err)) return missingCreditTableResponse()
     return databaseErrorResponse(err, 'Could not record credit')
   }
 }

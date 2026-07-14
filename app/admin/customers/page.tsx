@@ -261,7 +261,8 @@ export default function CustomersPage() {
                 <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                   <p className="font-bold">Could not load credit list.</p>
                   <p className="mt-1">{creditLoadErrorMessage instanceof Error ? creditLoadErrorMessage.message : 'Unknown error.'}</p>
-                  <p className="mt-2 text-xs">Run <code className="font-mono">npm run drizzle:push</code> once if credit tables are new.</p>
+                  <p className="mt-2 text-xs">Run once (safe — only adds credit tables, does not touch sales):</p>
+                  <p className="mt-1 text-xs font-mono">$env:DATABASE_URL = &quot;postgresql://...&quot;; npm run migrate:credit</p>
                 </div>
               ) : sortedLedger.length === 0 ? (
                 <p className="text-sm text-earth-500">No credit recorded yet.</p>
