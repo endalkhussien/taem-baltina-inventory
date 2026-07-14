@@ -94,3 +94,26 @@ export function creditKgByProduct(
 export function creditStatusFromBalance(balance: number) {
   return Number(balance) > 0 ? 'Open' : 'Paid'
 }
+
+/** Parse "Berbere = 10 kg, Shiro = 5 kg on credit" style titles when item rows are missing. */
+export function parseCreditLinesFromTitle(
+  title: string,
+  products?: Array<{ id: number; name: string }>
+) {
+  const matches = [...title.matchAll(/([^=,]+?)\s*=\s*([\d.]+)\s*kg/gi)]
+
+  return matches
+    .map((match) => {
+      const productName = match[1].trim()
+      const quantityKg = Number(match[2])
+      const product = products?.find((item) => item.name.toLowerCase() === productName.toLowerCase())
+
+      return {
+        product_id: product?.id,
+        product_name: productName,
+        quantity_kg: quantityKg,
+        line_total: 0
+      }
+    })
+    .filter((line) => line.quantity_kg > 0)
+}

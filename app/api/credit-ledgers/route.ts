@@ -6,6 +6,7 @@ import { creditLedgerCreateSchema } from '../../../lib/validators/credit'
 import {
   buildCreditLinesFromProducts,
   buildCreditTitleFromLines,
+  parseCreditLinesFromTitle,
   sumCreditLineTotals
 } from '../../../lib/credit'
 
@@ -15,9 +16,23 @@ function parseDate(value?: string) {
   return Number.isNaN(date.getTime()) ? null : date
 }
 
+function errorMessage(err: unknown) {
+  return err instanceof Error ? err.message : String(err)
+}
+
 function isMissingCreditTableError(err: unknown) {
-  const message = err instanceof Error ? err.message : String(err)
+  const message = errorMessage(err)
   return message.includes('credit_ledgers') && message.includes('does not exist')
+}
+
+function isMissingCreditItemsTableError(err: unknown) {
+  const message = errorMessage(err)
+  return message.includes('credit_ledger_items') && message.includes('does not exist')
+}
+
+function isMissingProductColumnError(err: unknown) {
+  const message = errorMessage(err)
+  return message.includes('product_id') && message.includes('does not exist')
 }
 
 function missingCreditTableResponse() {
@@ -31,7 +46,9 @@ function missingCreditTableResponse() {
 }
 
 async function loadCreditItems(creditIds: number[]) {
-  if (creditIds.length === 0) return new Map<number, Array<{ product_id: number; product_name: string | null; quantity_kg: number; line_total: number }>>()
+  if (creditIds.length === 0) {
+    return new Map<number, Array<{ product_id: number; product_name: string | null; quantity_kg: number; line_total: number }>>()
+  }
 
   try {
     const rows = await db
@@ -65,9 +82,9 @@ async function loadCreditItems(creditIds: number[]) {
   }
 }
 
-export async function GET() {
+async function loadCreditLedgerRows() {
   try {
-    const rows = await db
+    return await db
       .select({
         id: schema.credit_ledgers.id,
         customer_id: schema.credit_ledgers.customer_id,
@@ -87,13 +104,85 @@ export async function GET() {
       .leftJoin(schema.customers, eq(schema.credit_ledgers.customer_id, schema.customers.id))
       .leftJoin(schema.products, eq(schema.credit_ledgers.product_id, schema.products.id))
       .orderBy(desc(schema.credit_ledgers.credit_date))
+  } catch (err) {
+    if (!isMissingProductColumnError(err)) throw err
+
+    const basicRows = await db
+      .select({
+        id: schema.credit_ledgers.id,
+        customer_id: schema.credit_ledgers.customer_id,
+        customer_name: schema.customers.name,
+        title: schema.credit_ledgers.title,
+        total_amount: schema.credit_ledgers.total_amount,
+        amount_paid: schema.credit_ledgers.amount_paid,
+        balance: schema.credit_ledgers.balance,
+        credit_date: schema.credit_ledgers.credit_date,
+        notes: schema.credit_ledgers.notes,
+        created_at: schema.credit_ledgers.created_at
+      })
+      .from(schema.credit_ledgers)
+      .leftJoin(schema.customers, eq(schema.credit_ledgers.customer_id, schema.customers.id))
+      .orderBy(desc(schema.credit_ledgers.credit_date))
+
+    return basicRows.map((row) => ({
+      ...row,
+      product_id: null,
+      product_name: null,
+      quantity_kg: null
+    }))
+  }
+}
+
+function enrichCreditItems(
+  row: {
+    id: number
+    title: string
+    product_id: number | null
+    product_name: string | null
+    quantity_kg: number | null
+    items?: Array<{ product_id: number; product_name: string | null; quantity_kg: number; line_total: number }>
+  },
+  itemsByCredit: Map<number, Array<{ product_id: number; product_name: string | null; quantity_kg: number; line_total: number }>>,
+  products: Array<{ id: number; name: string }>
+) {
+  const storedItems = itemsByCredit.get(row.id) ?? []
+  if (storedItems.length > 0) return storedItems
+
+  const parsedFromTitle = parseCreditLinesFromTitle(row.title, products)
+  if (parsedFromTitle.length > 0) {
+    return parsedFromTitle.map((line) => ({
+      product_id: line.product_id ?? 0,
+      product_name: line.product_name,
+      quantity_kg: line.quantity_kg,
+      line_total: line.line_total
+    }))
+  }
+
+  if (row.product_id && row.quantity_kg) {
+    return [{
+      product_id: row.product_id,
+      product_name: row.product_name,
+      quantity_kg: Number(row.quantity_kg),
+      line_total: 0
+    }]
+  }
+
+  return []
+}
+
+export async function GET() {
+  try {
+    const [rows, productRows] = await Promise.all([
+      loadCreditLedgerRows(),
+      db.select({ id: schema.products.id, name: schema.products.name }).from(schema.products)
+    ])
 
     const itemsByCredit = await loadCreditItems(rows.map((row) => row.id))
 
     return NextResponse.json(
       rows.map((row) => ({
         ...row,
-        items: itemsByCredit.get(row.id) ?? []
+        items: enrichCreditItems(row, itemsByCredit, productRows)
       }))
     )
   } catch (err) {
@@ -108,7 +197,13 @@ export async function POST(request: Request) {
     if (!body.ok) return body.response
 
     const parsed = creditLedgerCreateSchema.safeParse(body.data)
-    if (!parsed.success) return NextResponse.json({ error: parsed.error.format() }, { status: 422 })
+    if (!parsed.success) {
+      const firstIssue = parsed.error.issues[0]
+      return NextResponse.json(
+        { error: firstIssue?.message ?? 'Invalid credit data.' },
+        { status: 422 }
+      )
+    }
 
     const creditDate = parseDate(parsed.data.creditDate)
     if (!creditDate) return NextResponse.json({ error: 'Invalid credit date.' }, { status: 422 })
@@ -160,24 +255,24 @@ export async function POST(request: Request) {
     const balance = parsed.data.totalAmount - amountPaid
     const primaryLine = lineDrafts.length === 1 ? lineDrafts[0] : null
 
-    const result = await db.transaction(async (tx) => {
-      const [created] = await tx
-        .insert(schema.credit_ledgers)
-        .values({
-          customer_id: parsed.data.customerId,
-          product_id: primaryLine?.productId ?? null,
-          quantity_kg: primaryLine?.quantityKg ?? null,
-          title,
-          total_amount: parsed.data.totalAmount,
-          amount_paid: amountPaid,
-          balance,
-          credit_date: creditDate,
-          notes: parsed.data.notes
-        })
-        .returning()
+    const [created] = await db
+      .insert(schema.credit_ledgers)
+      .values({
+        customer_id: parsed.data.customerId,
+        product_id: primaryLine?.productId ?? null,
+        quantity_kg: primaryLine?.quantityKg ?? null,
+        title,
+        total_amount: parsed.data.totalAmount,
+        amount_paid: amountPaid,
+        balance,
+        credit_date: creditDate,
+        notes: parsed.data.notes
+      })
+      .returning()
 
-      if (lineDrafts.length > 0) {
-        await tx.insert(schema.credit_ledger_items).values(
+    if (lineDrafts.length > 0) {
+      try {
+        await db.insert(schema.credit_ledger_items).values(
           lineDrafts.map((line) => ({
             credit_id: created.id,
             product_id: line.productId,
@@ -186,14 +281,14 @@ export async function POST(request: Request) {
             line_total: line.lineTotal
           }))
         )
+      } catch (itemsErr) {
+        if (!isMissingCreditItemsTableError(itemsErr)) throw itemsErr
       }
-
-      return created
-    })
+    }
 
     return NextResponse.json(
       {
-        ...result,
+        ...created,
         customer_name: customer.name,
         product_name: primaryLine?.productName ?? null,
         items: lineDrafts.map((line) => ({
