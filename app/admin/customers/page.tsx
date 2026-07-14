@@ -375,6 +375,7 @@ export default function CustomersPage() {
 
             <div className="lg:col-span-2 card overflow-x-auto">
               <h2 className="font-display text-xl font-black text-earth-950 mb-1">Customers</h2>
+              <p className="mb-4 text-sm text-earth-500">Per-customer sales from the Sales register. Walk-in sales (no customer) appear only on the Sales page total.</p>
               {isLoading ? (
                 <p className="text-earth-500">Loading customers...</p>
               ) : customersLoadError ? (
@@ -390,7 +391,7 @@ export default function CustomersPage() {
                     <tr className="table-head">
                       <th className="px-3 py-2">Name</th>
                       <th className="px-3 py-2">Phone</th>
-                      <th className="px-3 py-2">Total sales</th>
+                      <th className="px-3 py-2">Sales to customer</th>
                       <th className="px-3 py-2">Ledger credit</th>
                       <th className="px-3 py-2">Sales credit</th>
                       <th className="px-3 py-2">Total owed</th>

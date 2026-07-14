@@ -25,7 +25,7 @@ export default function SalesPage() {
   const { data: sales, isLoading: sLoading, createSale, isCreatingSale, deleteSale } = useSales()
   const { data: repayments, createRepayment, isCreatingRepayment } = useRepayments()
   const [filterDate, setFilterDate] = useState(today)
-  const [salesPeriod, setSalesPeriod] = useState<SalesPeriod>('week')
+  const [salesPeriod, setSalesPeriod] = useState<SalesPeriod>('all')
   const [openCreditOnly, setOpenCreditOnly] = useState(false)
   const [repaySaleId, setRepaySaleId] = useState<number | null>(null)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -69,6 +69,7 @@ export default function SalesPage() {
   )
   const tableSales = openCreditOnly ? openCreditSales : periodSales
   const periodSummary = useMemo(() => summarizeSales(periodSales), [periodSales])
+  const allTimeSummary = useMemo(() => summarizeSales(salesList), [salesList])
 
   const totalOutstanding = openCreditSales.reduce((sum, sale) => sum + Number(sale.balance), 0)
 
@@ -215,9 +216,14 @@ export default function SalesPage() {
                   </button>
                 ))}
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15 sm:col-span-2">
+                  <div className="text-xs uppercase tracking-[0.16em] text-spice-100">All-time sales total</div>
+                  <div className="text-xl font-black text-white">{allTimeSummary.revenue.toFixed(2)} ETB</div>
+                  <div className="mt-1 text-[11px] text-spice-100">{allTimeSummary.count} sale{allTimeSummary.count === 1 ? '' : 's'} recorded — your full history</div>
+                </div>
                 <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15">
-                  <div className="text-xs uppercase tracking-[0.16em] text-spice-100">Sales total</div>
+                  <div className="text-xs uppercase tracking-[0.16em] text-spice-100">{salesPeriodLabels[salesPeriod]} sales</div>
                   <div className="text-xl font-black text-white">{periodSummary.revenue.toFixed(2)} ETB</div>
                   <div className="mt-1 text-[11px] text-spice-100">{periodSummary.count} sale{periodSummary.count === 1 ? '' : 's'}</div>
                 </div>
