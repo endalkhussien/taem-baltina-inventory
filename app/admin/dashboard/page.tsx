@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import React, { useState } from 'react'
 import { useProducts } from '../../../hooks/useProducts'
-import { useCustomers, useIngredients, useProduction, useSales, useExpenses, usePurchases, useRepayments, useCashEntries, useLiabilities } from '../../../hooks/useModules'
+import { useCustomers, useIngredients, useProduction, useSales, useExpenses, usePurchases, useRepayments, useCashEntries, useLiabilities, useCreditLedgers } from '../../../hooks/useModules'
 import AdminNav from '../../../components/AdminNav'
 import { isLowStock } from '../../../lib/stock'
 import { formatStockKg } from '../../../lib/productStock'
@@ -43,6 +43,7 @@ export default function DashboardPage() {
   const { data: repayments } = useRepayments()
   const { data: cashEntries } = useCashEntries()
   const { data: liabilities } = useLiabilities()
+  const { data: creditLedgers } = useCreditLedgers()
 
   const productList = Array.isArray(products) ? products : []
   const ingredientList = Array.isArray(ingredients) ? ingredients : []
@@ -54,6 +55,7 @@ export default function DashboardPage() {
   const repaymentList = Array.isArray(repayments) ? repayments : []
   const cashList = Array.isArray(cashEntries) ? cashEntries : []
   const liabilityList = Array.isArray(liabilities) ? liabilities : []
+  const ledgerList = Array.isArray(creditLedgers) ? creditLedgers : []
   const today = new Date().toISOString().slice(0, 10)
   const todaySales = salesList.filter((s: any) => new Date(s.sale_date).toISOString().slice(0, 10) === today)
   const todayProduction = productionList.filter((batch: any) => new Date(batch.produced_at).toISOString().slice(0, 10) === today)
@@ -67,9 +69,11 @@ export default function DashboardPage() {
   const totalCashCollected = salesList.reduce((acc, s: any) => acc + Number(s.amount_paid), 0)
   const totalExpenses = expensesList.reduce((acc, e: any) => acc + Number(e.amount), 0)
   const outstandingCredit = salesList.reduce((acc, s: any) => acc + Number(s.balance), 0)
+  const ledgerCredit = ledgerList.reduce((acc, row) => acc + Number(row.balance), 0)
+  const totalCreditOwed = outstandingCredit + ledgerCredit
   const latestCash = cashList[0] ? Number(cashList[0].amount) : 0
   const debtsPayable = liabilityList.reduce((acc, item) => acc + Number(item.balance), 0)
-  const netPosition = latestCash + outstandingCredit - debtsPayable
+  const netPosition = latestCash + totalCreditOwed - debtsPayable
   const todayRevenue = todaySales.reduce((acc, s: any) => acc + Number(s.total_amount), 0)
   const todayProduced = todayProduction.reduce((acc, batch: any) => acc + Number(batch.quantity_produced), 0)
   const customersWithCredit = customerList.filter((customer: any) => Number(customer.outstanding_balance) > 0)
@@ -285,7 +289,7 @@ export default function DashboardPage() {
           <div className="metric-label">Total money (net position)</div>
           <div className={`metric-value ${netPosition >= 0 ? 'text-green-700' : 'text-red-700'}`}>{netPosition.toFixed(2)} ETB</div>
           <div className="mt-2 text-xs font-semibold text-earth-500">
-            Cash {latestCash.toFixed(2)} + customer credit {outstandingCredit.toFixed(2)} − debts {debtsPayable.toFixed(2)}. Tap for Finance desk.
+            Cash {latestCash.toFixed(2)} + customer credit {totalCreditOwed.toFixed(2)} − debts {debtsPayable.toFixed(2)}. Tap for Finance desk.
           </div>
         </Link>
         <Link href="/admin/sales" className="metric-card block">
@@ -339,10 +343,12 @@ export default function DashboardPage() {
           <div className="metric-value text-orange-700">{lowStockIngredients.length}</div>
           <div className="mt-2 text-xs font-semibold text-earth-500">Click to open reorder list.</div>
         </Link>
-        <Link href="/admin/sales" className="metric-card block">
+        <Link href="/admin/customers" className="metric-card block">
           <div className="metric-label">Outstanding credit</div>
-          <div className="metric-value text-red-700">{outstandingCredit.toFixed(2)} ETB</div>
-          <div className="mt-2 text-xs font-semibold text-earth-500">{customersWithCredit.length} customers owe money.</div>
+          <div className="metric-value text-red-700">{totalCreditOwed.toFixed(2)} ETB</div>
+          <div className="mt-2 text-xs font-semibold text-earth-500">
+            Ledger {ledgerCredit.toFixed(2)} + sales {outstandingCredit.toFixed(2)} ETB owed.
+          </div>
         </Link>
       </div>
 

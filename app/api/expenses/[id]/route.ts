@@ -32,6 +32,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     if (parsed.data.category !== undefined) updateData.category = parsed.data.category
     if (parsed.data.amount !== undefined) updateData.amount = parsed.data.amount
     if (parsed.data.notes !== undefined) updateData.notes = parsed.data.notes
+    if (parsed.data.expenseDate !== undefined) updateData.expense_date = new Date(parsed.data.expenseDate)
 
     const [updated] = await db.update(schema.expenses).set(updateData).where(eq(schema.expenses.id, id)).returning()
     if (!updated) return NextResponse.json({ error: 'Not found' }, { status: 404 })

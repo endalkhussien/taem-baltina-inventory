@@ -5,6 +5,7 @@ export const expenseCreateSchema = z.object({
   title: z.string().min(1),
   category: z.string().min(1),
   amount: positiveNumber,
+  expenseDate: z.string().optional(),
   notes: z.string().optional()
 })
 

@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form'
 import AdminNav from '../../../components/AdminNav'
 import {
   useCashEntries,
+  useCreditLedgers,
   useCustomers,
   useExpenses,
   useLiabilities,
@@ -30,6 +31,7 @@ export default function FinancePage() {
   const { data: expenses } = useExpenses()
   const { data: purchases } = usePurchases()
   const { data: repayments } = useRepayments()
+  const { data: creditLedgers } = useCreditLedgers()
   const { data: products } = useProducts()
 
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -58,10 +60,13 @@ export default function FinancePage() {
   const expenseList = useMemo(() => (Array.isArray(expenses) ? expenses : []), [expenses])
   const purchaseList = useMemo(() => (Array.isArray(purchases) ? purchases : []), [purchases])
   const repaymentList = useMemo(() => (Array.isArray(repayments) ? repayments : []), [repayments])
+  const ledgerList = useMemo(() => (Array.isArray(creditLedgers) ? creditLedgers : []), [creditLedgers])
   const productList = useMemo(() => (Array.isArray(products) ? products : []), [products])
 
   const latestCash = cashList[0] ? Number(cashList[0].amount) : 0
-  const creditReceivable = salesList.reduce((sum, sale) => sum + Number(sale.balance), 0)
+  const salesCreditReceivable = salesList.reduce((sum, sale) => sum + Number(sale.balance), 0)
+  const ledgerCreditReceivable = ledgerList.reduce((sum, row) => sum + Number(row.balance), 0)
+  const creditReceivable = salesCreditReceivable + ledgerCreditReceivable
   const debtsPayable = liabilityList.reduce((sum, item) => sum + Number(item.balance), 0)
   const netPosition = latestCash + creditReceivable - debtsPayable
 
@@ -215,7 +220,9 @@ export default function FinancePage() {
             <div className="metric-card">
               <div className="metric-label">Customers owe you</div>
               <div className="metric-value text-amber-700">{creditReceivable.toFixed(2)} ETB</div>
-              <div className="mt-2 text-xs text-earth-500">{openCreditSales.length} open credit sales</div>
+              <div className="mt-2 text-xs text-earth-500">
+                Ledger {ledgerCreditReceivable.toFixed(2)} + sales credit {salesCreditReceivable.toFixed(2)} ETB
+              </div>
             </div>
             <div className="metric-card">
               <div className="metric-label">You owe others</div>

@@ -165,3 +165,27 @@ export const liability_payments = pgTable('liability_payments', {
   notes: text('notes'),
   created_at: timestamp('created_at').defaultNow().notNull()
 })
+
+export const credit_ledgers = pgTable('credit_ledgers', {
+  id: serial('id').primaryKey(),
+  customer_id: integer('customer_id').notNull().references(() => customers.id, { onDelete: 'restrict' }),
+  title: varchar('title', { length: 255 }).notNull(),
+  total_amount: numeric('total_amount', { precision: 14, scale: 2, mode: 'number' }).notNull(),
+  amount_paid: numeric('amount_paid', { precision: 14, scale: 2, mode: 'number' }).notNull().default(0),
+  balance: numeric('balance', { precision: 14, scale: 2, mode: 'number' }).notNull().default(0),
+  credit_date: timestamp('credit_date').defaultNow().notNull(),
+  notes: text('notes'),
+  created_at: timestamp('created_at').defaultNow().notNull()
+}, (table) => ({
+  customerIdx: index('idx_credit_ledgers_customer_id').on(table.customer_id),
+  creditDateIdx: index('idx_credit_ledgers_credit_date').on(table.credit_date)
+}))
+
+export const credit_payments = pgTable('credit_payments', {
+  id: serial('id').primaryKey(),
+  credit_id: integer('credit_id').notNull().references(() => credit_ledgers.id, { onDelete: 'cascade' }),
+  amount: numeric('amount', { precision: 14, scale: 2, mode: 'number' }).notNull(),
+  payment_date: timestamp('payment_date').defaultNow().notNull(),
+  notes: text('notes'),
+  created_at: timestamp('created_at').defaultNow().notNull()
+})
