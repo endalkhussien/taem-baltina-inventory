@@ -192,3 +192,16 @@ export const credit_payments = pgTable('credit_payments', {
   notes: text('notes'),
   created_at: timestamp('created_at').defaultNow().notNull()
 })
+
+export const credit_ledger_items = pgTable('credit_ledger_items', {
+  id: serial('id').primaryKey(),
+  credit_id: integer('credit_id').notNull().references(() => credit_ledgers.id, { onDelete: 'cascade' }),
+  product_id: integer('product_id').notNull().references(() => products.id, { onDelete: 'restrict' }),
+  quantity_kg: numeric('quantity_kg', { precision: 14, scale: 3, mode: 'number' }).notNull(),
+  unit_price: numeric('unit_price', { precision: 14, scale: 2, mode: 'number' }).notNull(),
+  line_total: numeric('line_total', { precision: 14, scale: 2, mode: 'number' }).notNull(),
+  created_at: timestamp('created_at').defaultNow().notNull()
+}, (table) => ({
+  creditIdx: index('idx_credit_ledger_items_credit_id').on(table.credit_id),
+  productIdx: index('idx_credit_ledger_items_product_id').on(table.product_id)
+}))

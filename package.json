@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "drizzle:generate": "drizzle-kit generate",
     "drizzle:push": "drizzle-kit push",
+    "migrate:credit": "node scripts/migrate-credit.js",
     "prepare": "node scripts/prepare-husky.js"
   },
   "engines": {

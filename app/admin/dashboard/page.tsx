@@ -32,7 +32,7 @@ const periodLabels: Record<Period, string> = {
 }
 
 export default function DashboardPage() {
-  const [period, setPeriod] = useState<Period>('month')
+  const [period, setPeriod] = useState<Period>('all')
   const { data: products } = useProducts()
   const { data: ingredients } = useIngredients()
   const { data: customers } = useCustomers()
@@ -56,6 +56,7 @@ export default function DashboardPage() {
   const cashList = Array.isArray(cashEntries) ? cashEntries : []
   const liabilityList = Array.isArray(liabilities) ? liabilities : []
   const ledgerList = Array.isArray(creditLedgers) ? creditLedgers : []
+  const totalLedgerCreditCreated = ledgerList.reduce((acc, row) => acc + Number(row.total_amount), 0)
   const today = new Date().toISOString().slice(0, 10)
   const todaySales = salesList.filter((s: any) => new Date(s.sale_date).toISOString().slice(0, 10) === today)
   const todayProduction = productionList.filter((batch: any) => new Date(batch.produced_at).toISOString().slice(0, 10) === today)
@@ -184,10 +185,15 @@ export default function DashboardPage() {
               See raw materials, stock, sales, credit, purchases, expenses, and cash flow for the selected period.
             </p>
           </div>
-          <div className="space-y-3">
+            <div className="space-y-3">
             <div className="rounded-2xl bg-white/10 px-5 py-4 ring-1 ring-white/15">
-              <div className="text-xs uppercase tracking-[0.18em] text-spice-100">{periodLabels[period]} sales</div>
-              <div className="mt-1 text-3xl font-black">{periodRevenue.toFixed(2)} ETB</div>
+              <div className="text-xs uppercase tracking-[0.18em] text-spice-100">All-time sales (never deleted by updates)</div>
+              <div className="mt-1 text-3xl font-black">{totalRevenue.toFixed(2)} ETB</div>
+              <div className="mt-1 text-xs text-spice-100">{salesList.length} sale{salesList.length === 1 ? '' : 's'} in your database</div>
+            </div>
+            <div className="rounded-2xl bg-white/10 px-5 py-4 ring-1 ring-white/15">
+              <div className="text-xs uppercase tracking-[0.18em] text-spice-100">{periodLabels[period]} sales (filtered view)</div>
+              <div className="mt-1 text-2xl font-black">{periodRevenue.toFixed(2)} ETB</div>
             </div>
             <div className="flex rounded-2xl bg-white/10 p-1 ring-1 ring-white/15">
               {(['week', 'month', 'all'] as Period[]).map((item) => (
@@ -344,11 +350,16 @@ export default function DashboardPage() {
           <div className="mt-2 text-xs font-semibold text-earth-500">Click to open reorder list.</div>
         </Link>
         <Link href="/admin/customers" className="metric-card block">
-          <div className="metric-label">Outstanding credit</div>
-          <div className="metric-value text-red-700">{totalCreditOwed.toFixed(2)} ETB</div>
+          <div className="metric-label">Credit ledger (customers owe)</div>
+          <div className="metric-value text-spice-700">{ledgerCredit.toFixed(2)} ETB open</div>
           <div className="mt-2 text-xs font-semibold text-earth-500">
-            Ledger {ledgerCredit.toFixed(2)} + sales {outstandingCredit.toFixed(2)} ETB owed.
+            {totalLedgerCreditCreated.toFixed(2)} ETB recorded total • {ledgerList.filter((row) => Number(row.balance) > 0).length} open
           </div>
+        </Link>
+        <Link href="/admin/finance#record-debt" className="metric-card block">
+          <div className="metric-label">You owe others</div>
+          <div className="metric-value text-red-700">{debtsPayable.toFixed(2)} ETB</div>
+          <div className="mt-2 text-xs font-semibold text-earth-500">Record bank, family, supplier debts on Finance</div>
         </Link>
       </div>
 
