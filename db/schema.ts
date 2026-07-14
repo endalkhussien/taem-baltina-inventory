@@ -169,6 +169,8 @@ export const liability_payments = pgTable('liability_payments', {
 export const credit_ledgers = pgTable('credit_ledgers', {
   id: serial('id').primaryKey(),
   customer_id: integer('customer_id').notNull().references(() => customers.id, { onDelete: 'restrict' }),
+  product_id: integer('product_id').references(() => products.id, { onDelete: 'set null' }),
+  quantity_kg: numeric('quantity_kg', { precision: 14, scale: 3, mode: 'number' }),
   title: varchar('title', { length: 255 }).notNull(),
   total_amount: numeric('total_amount', { precision: 14, scale: 2, mode: 'number' }).notNull(),
   amount_paid: numeric('amount_paid', { precision: 14, scale: 2, mode: 'number' }).notNull().default(0),
@@ -178,7 +180,8 @@ export const credit_ledgers = pgTable('credit_ledgers', {
   created_at: timestamp('created_at').defaultNow().notNull()
 }, (table) => ({
   customerIdx: index('idx_credit_ledgers_customer_id').on(table.customer_id),
-  creditDateIdx: index('idx_credit_ledgers_credit_date').on(table.credit_date)
+  creditDateIdx: index('idx_credit_ledgers_credit_date').on(table.credit_date),
+  productIdx: index('idx_credit_ledgers_product_id').on(table.product_id)
 }))
 
 export const credit_payments = pgTable('credit_payments', {

@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 export type Ingredient = { id: number; name: string; category: string; quantity: number; unit: string; cost_per_unit: number; alert_threshold: number }
 export type Purchase = { id: number; ingredient_id: number; ingredient_name: string | null; quantity: number; cost_total: number; supplier?: string | null; purchase_date: string }
-export type Customer = { id: number; name: string; phone?: string | null; notes?: string | null; outstanding_balance: number; ledger_balance?: number; total_credit?: number }
+export type Customer = { id: number; name: string; phone?: string | null; notes?: string | null; outstanding_balance: number; total_sales?: number; ledger_balance?: number; total_credit?: number }
 export type ProductionBatch = {
   id: number
   product_id: number
@@ -54,9 +54,7 @@ async function apiRequest<T>(url: string, options: RequestInit = {}, fallback: s
 }
 
 function invalidateAll(qc: ReturnType<typeof useQueryClient>, queryKeys: string[]) {
-  for (const queryKey of queryKeys) {
-    qc.invalidateQueries({ queryKey: [queryKey] })
-  }
+  return Promise.all(queryKeys.map((queryKey) => qc.invalidateQueries({ queryKey: [queryKey] })))
 }
 
 export function useIngredients() {
@@ -99,7 +97,17 @@ export function useRepayments() {
 export function useCustomers() {
   const qc = useQueryClient()
   const query = useQuery<Customer[]>({ queryKey: ['customers'], queryFn: () => apiRequest<Customer[]>('/api/customers', {}, 'Failed to load customer accounts.') })
-  const create = useMutation({ mutationFn: (data: any) => apiRequest<Customer>('/api/customers', { method: 'POST', body: JSON.stringify(data) }, 'Could not create customer account.'), onSuccess: () => qc.invalidateQueries({ queryKey: ['customers'] }) })
+  const create = useMutation({
+    mutationFn: (data: any) => apiRequest<Customer>('/api/customers', { method: 'POST', body: JSON.stringify(data) }, 'Could not create customer account.'),
+    onSuccess: async (created) => {
+      qc.setQueryData<Customer[]>(['customers'], (current) => {
+        const list = Array.isArray(current) ? current : []
+        const withoutDuplicate = list.filter((row) => row.id !== created.id)
+        return [created, ...withoutDuplicate]
+      })
+      await qc.invalidateQueries({ queryKey: ['customers'] })
+    }
+  })
   const update = useMutation({ mutationFn: ({ id, data }: any) => apiRequest<Customer>(`/api/customers/${id}`, { method: 'PATCH', body: JSON.stringify(data) }, 'Could not update customer account.'), onSuccess: () => qc.invalidateQueries({ queryKey: ['customers'] }) })
   return { ...query, createCustomer: (d: any) => create.mutateAsync(d), updateCustomer: (id: number, d: any) => update.mutateAsync({ id, data: d }), isCreatingCustomer: create.isPending, isUpdatingCustomer: update.isPending, deleteCustomer: async (id: number) => { await apiRequest(`/api/customers/${id}`, { method: 'DELETE' }, 'Could not delete customer account.'); qc.invalidateQueries({ queryKey: ['customers'] }) } }
 }
@@ -170,6 +178,9 @@ export type CreditLedger = {
   id: number
   customer_id: number
   customer_name?: string | null
+  product_id?: number | null
+  product_name?: string | null
+  quantity_kg?: number | null
   title: string
   total_amount: number
   amount_paid: number
@@ -196,7 +207,14 @@ export function useCreditLedgers() {
   })
   const create = useMutation({
     mutationFn: (data: any) => apiRequest<CreditLedger>('/api/credit-ledgers', { method: 'POST', body: JSON.stringify(data) }, 'Could not record credit.'),
-    onSuccess: () => invalidateAll(qc, ['creditLedgers', 'creditPayments', 'customers'])
+    onSuccess: async (created) => {
+      qc.setQueryData<CreditLedger[]>(['creditLedgers'], (current) => {
+        const list = Array.isArray(current) ? current : []
+        const withoutDuplicate = list.filter((row) => row.id !== created.id)
+        return [created, ...withoutDuplicate]
+      })
+      await invalidateAll(qc, ['creditLedgers', 'creditPayments', 'customers'])
+    }
   })
   return {
     ...query,
@@ -204,7 +222,7 @@ export function useCreditLedgers() {
     isCreatingCreditLedger: create.isPending,
     deleteCreditLedger: async (id: number) => {
       await apiRequest(`/api/credit-ledgers/${id}`, { method: 'DELETE' }, 'Could not delete credit entry.')
-      invalidateAll(qc, ['creditLedgers', 'creditPayments', 'customers'])
+      await invalidateAll(qc, ['creditLedgers', 'creditPayments', 'customers'])
     }
   }
 }
