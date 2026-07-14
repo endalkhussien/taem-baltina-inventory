@@ -4,18 +4,21 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import AdminNav from '../../../components/AdminNav'
 import { useCreditLedgers, useCreditPayments, useCustomers } from '../../../hooks/useModules'
+import { creditLedgerCreateSchema } from '../../../lib/validators/credit'
+import { zodResolver } from '@hookform/resolvers/zod'
 
 const today = new Date().toISOString().slice(0, 10)
 
 export default function CustomersPage() {
   const { data: customers, isLoading, createCustomer, updateCustomer, isCreatingCustomer, isUpdatingCustomer, deleteCustomer } = useCustomers()
-  const { data: creditLedgers, createCreditLedger, isCreatingCreditLedger, deleteCreditLedger } = useCreditLedgers()
+  const { data: creditLedgers, isLoading: creditLoading, isError: creditLoadError, error: creditLoadErrorMessage, createCreditLedger, isCreatingCreditLedger, deleteCreditLedger } = useCreditLedgers()
   const { createCreditPayment, isCreatingCreditPayment } = useCreditPayments()
   const [editing, setEditing] = useState<number | null>(null)
   const [payCreditId, setPayCreditId] = useState<number | null>(null)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const { register, handleSubmit, reset } = useForm({ defaultValues: { name: '', phone: '', notes: '' } })
   const creditForm = useForm({
+    resolver: zodResolver(creditLedgerCreateSchema),
     defaultValues: { customerId: 0, title: '', totalAmount: 0, amountPaid: 0, creditDate: today, notes: '' }
   })
   const paymentForm = useForm({ defaultValues: { amount: 0, paymentDate: today, notes: '' } })
@@ -25,11 +28,15 @@ export default function CustomersPage() {
   const isSaving = isCreatingCustomer || isUpdatingCustomer
 
   const openCredits = useMemo(() => ledgerList.filter((row) => Number(row.balance) > 0), [ledgerList])
+  const sortedLedger = useMemo(
+    () => [...ledgerList].sort((a, b) => new Date(b.credit_date).getTime() - new Date(a.credit_date).getTime()),
+    [ledgerList]
+  )
   const totalLedgerCredit = ledgerList.reduce((sum, row) => sum + Number(row.balance), 0)
   const totalSalesCredit = list.reduce((sum, customer) => sum + Number(customer.outstanding_balance), 0)
   const totalAllCredit = totalLedgerCredit + totalSalesCredit
 
-  const selectedCredit = openCredits.find((row) => row.id === payCreditId) ?? null
+  const selectedCredit = ledgerList.find((row) => row.id === payCreditId && Number(row.balance) > 0) ?? null
 
   useEffect(() => {
     if (!editing) {
@@ -127,21 +134,33 @@ export default function CustomersPage() {
                       <option key={customer.id} value={customer.id}>{customer.name}</option>
                     ))}
                   </select>
+                  {creditForm.formState.errors.customerId && (
+                    <p className="mt-1 text-xs text-red-600">Select a customer.</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-earth-700 mb-1.5">What is owed for?</label>
-                  <input className="input-field" {...creditForm.register('title', { required: true })} placeholder="e.g. Berbere 20kg on credit" />
+                  <input className="input-field" {...creditForm.register('title')} placeholder="e.g. Berbere 20kg on credit" />
+                  {creditForm.formState.errors.title && (
+                    <p className="mt-1 text-xs text-red-600">Description is required.</p>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-bold text-earth-700 mb-1.5">Total credit (ETB)</label>
-                    <input type="number" step="0.01" min="0" className="input-field" {...creditForm.register('totalAmount', { valueAsNumber: true })} />
+                    <input type="number" step="0.01" min="0.01" className="input-field" {...creditForm.register('totalAmount', { valueAsNumber: true })} />
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-earth-700 mb-1.5">Paid now (ETB)</label>
                     <input type="number" step="0.01" min="0" className="input-field" {...creditForm.register('amountPaid', { valueAsNumber: true })} />
                   </div>
                 </div>
+                {(creditForm.formState.errors.totalAmount || creditForm.formState.errors.amountPaid) && (
+                  <p className="text-xs text-red-600">
+                    {creditForm.formState.errors.totalAmount?.message || creditForm.formState.errors.amountPaid?.message}
+                  </p>
+                )}
+                <p className="text-xs text-earth-500">Leave &quot;Paid now&quot; at 0 for full credit. If paid in full now, the entry shows as Paid.</p>
                 <div>
                   <label className="block text-sm font-bold text-earth-700 mb-1.5">Credit date</label>
                   <input type="date" className="input-field" {...creditForm.register('creditDate')} />
@@ -157,12 +176,22 @@ export default function CustomersPage() {
             </div>
 
             <div className="lg:col-span-2 card overflow-x-auto">
-              <h2 className="font-display text-xl font-black text-earth-950 mb-1">Open credit list</h2>
-              <p className="mb-4 text-sm text-earth-500">{openCredits.length} open entr{openCredits.length === 1 ? 'y' : 'ies'} • Pay partial or full anytime.</p>
-              {openCredits.length === 0 ? (
-                <p className="text-sm text-earth-500">No open credit. Record credit above when a customer owes you money.</p>
+              <h2 className="font-display text-xl font-black text-earth-950 mb-1">Credit ledger</h2>
+              <p className="mb-4 text-sm text-earth-500">
+                {openCredits.length} open • {sortedLedger.length} total entr{sortedLedger.length === 1 ? 'y' : 'ies'}
+              </p>
+              {creditLoading ? (
+                <p className="text-sm text-earth-500">Loading credit entries...</p>
+              ) : creditLoadError ? (
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  <p className="font-bold">Could not load credit list.</p>
+                  <p className="mt-1">{creditLoadErrorMessage instanceof Error ? creditLoadErrorMessage.message : 'Unknown error.'}</p>
+                  <p className="mt-2 text-xs">If this is a new install, run <code className="font-mono">npm run drizzle:push</code> once to create the credit tables.</p>
+                </div>
+              ) : sortedLedger.length === 0 ? (
+                <p className="text-sm text-earth-500">No credit recorded yet. Save a credit entry using the form on the left.</p>
               ) : (
-                <table className="w-full min-w-[640px] text-sm">
+                <table className="w-full min-w-[720px] text-sm">
                   <thead>
                     <tr className="table-head">
                       <th className="px-3 py-2">Date</th>
@@ -171,20 +200,31 @@ export default function CustomersPage() {
                       <th className="px-3 py-2">Total</th>
                       <th className="px-3 py-2">Paid</th>
                       <th className="px-3 py-2">Balance</th>
+                      <th className="px-3 py-2">Status</th>
                       <th className="px-3 py-2">Action</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {openCredits.map((row) => (
+                    {sortedLedger.map((row) => {
+                      const balance = Number(row.balance)
+                      const isOpen = balance > 0
+                      return (
                       <tr key={row.id} className="table-row">
                         <td className="px-3 py-3">{new Date(row.credit_date).toLocaleDateString()}</td>
-                        <td className="px-3 py-3 font-bold">{row.customer_name}</td>
+                        <td className="px-3 py-3 font-bold">{row.customer_name || '—'}</td>
                         <td className="px-3 py-3">{row.title}</td>
                         <td className="px-3 py-3">{Number(row.total_amount).toFixed(2)}</td>
                         <td className="px-3 py-3 text-green-700">{Number(row.amount_paid).toFixed(2)}</td>
-                        <td className="px-3 py-3 font-bold text-red-700">{Number(row.balance).toFixed(2)}</td>
+                        <td className={`px-3 py-3 font-bold ${isOpen ? 'text-red-700' : 'text-green-700'}`}>{balance.toFixed(2)}</td>
+                        <td className="px-3 py-3">
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${isOpen ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'}`}>
+                            {isOpen ? 'Open' : 'Paid'}
+                          </span>
+                        </td>
                         <td className="px-3 py-3 whitespace-nowrap">
-                          <button type="button" className="text-spice-700 font-bold mr-3" onClick={() => setPayCreditId(row.id)}>Pay</button>
+                          {isOpen && (
+                            <button type="button" className="text-spice-700 font-bold mr-3" onClick={() => setPayCreditId(row.id)}>Pay</button>
+                          )}
                           <button
                             type="button"
                             className="text-red-600 font-bold"
@@ -202,7 +242,7 @@ export default function CustomersPage() {
                           </button>
                         </td>
                       </tr>
-                    ))}
+                    )})}
                   </tbody>
                 </table>
               )}

@@ -27,6 +27,7 @@ export async function GET() {
       })
       .from(schema.credit_ledgers)
       .groupBy(schema.credit_ledgers.customer_id)
+      .catch(() => [] as Array<{ customer_id: number; ledger_balance: number }>)
 
     const ledgerByCustomer = new Map(ledgerTotals.map((row) => [row.customer_id, Number(row.ledger_balance)]))
 

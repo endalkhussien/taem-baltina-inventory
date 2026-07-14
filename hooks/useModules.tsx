@@ -54,9 +54,7 @@ async function apiRequest<T>(url: string, options: RequestInit = {}, fallback: s
 }
 
 function invalidateAll(qc: ReturnType<typeof useQueryClient>, queryKeys: string[]) {
-  for (const queryKey of queryKeys) {
-    qc.invalidateQueries({ queryKey: [queryKey] })
-  }
+  return Promise.all(queryKeys.map((queryKey) => qc.invalidateQueries({ queryKey: [queryKey] })))
 }
 
 export function useIngredients() {
@@ -196,7 +194,14 @@ export function useCreditLedgers() {
   })
   const create = useMutation({
     mutationFn: (data: any) => apiRequest<CreditLedger>('/api/credit-ledgers', { method: 'POST', body: JSON.stringify(data) }, 'Could not record credit.'),
-    onSuccess: () => invalidateAll(qc, ['creditLedgers', 'creditPayments', 'customers'])
+    onSuccess: async (created) => {
+      qc.setQueryData<CreditLedger[]>(['creditLedgers'], (current) => {
+        const list = Array.isArray(current) ? current : []
+        const withoutDuplicate = list.filter((row) => row.id !== created.id)
+        return [created, ...withoutDuplicate]
+      })
+      await invalidateAll(qc, ['creditLedgers', 'creditPayments', 'customers'])
+    }
   })
   return {
     ...query,
@@ -204,7 +209,7 @@ export function useCreditLedgers() {
     isCreatingCreditLedger: create.isPending,
     deleteCreditLedger: async (id: number) => {
       await apiRequest(`/api/credit-ledgers/${id}`, { method: 'DELETE' }, 'Could not delete credit entry.')
-      invalidateAll(qc, ['creditLedgers', 'creditPayments', 'customers'])
+      await invalidateAll(qc, ['creditLedgers', 'creditPayments', 'customers'])
     }
   }
 }

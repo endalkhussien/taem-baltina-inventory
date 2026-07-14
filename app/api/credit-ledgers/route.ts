@@ -74,7 +74,19 @@ export async function POST(request: Request) {
       })
       .returning()
 
-    return NextResponse.json(created, { status: 201 })
+    const [customerRow] = await db
+      .select({ name: schema.customers.name })
+      .from(schema.customers)
+      .where(eq(schema.customers.id, parsed.data.customerId))
+      .limit(1)
+
+    return NextResponse.json(
+      {
+        ...created,
+        customer_name: customerRow?.name ?? null
+      },
+      { status: 201 }
+    )
   } catch (err) {
     return databaseErrorResponse(err, 'Could not record credit')
   }
