@@ -8,7 +8,7 @@ import { useCreditLedgers, useCreditPayments, useCustomers } from '../../../hook
 import { useProducts } from '../../../hooks/useProducts'
 import { creditLedgerCreateSchema } from '../../../lib/validators/credit'
 import { customerCreateSchema } from '../../../lib/validators/customer'
-import { buildCreditLinesFromProducts, formatCreditProductsSummary, sumCreditLineTotals } from '../../../lib/credit'
+import { buildCreditLinesFromProducts, creditKgByProduct, sumCreditLineTotals } from '../../../lib/credit'
 
 const today = new Date().toISOString().slice(0, 10)
 
@@ -27,7 +27,6 @@ export default function CustomersPage() {
   })
 
   const [productQtys, setProductQtys] = useState<Record<number, string>>({})
-  const [manualCreditMode, setManualCreditMode] = useState(false)
 
   const creditForm = useForm({
     resolver: zodResolver(creditLedgerCreateSchema),
@@ -42,7 +41,6 @@ export default function CustomersPage() {
   const isSaving = isCreatingCustomer || isUpdatingCustomer
 
   const selectedProductLines = useMemo(() => {
-    if (manualCreditMode) return []
     const drafts = Object.entries(productQtys)
       .map(([productId, qty]) => ({ productId: Number(productId), quantityKg: Number(qty) }))
       .filter((line) => line.quantityKg > 0)
@@ -52,7 +50,7 @@ export default function CustomersPage() {
     } catch {
       return []
     }
-  }, [manualCreditMode, productList, productQtys])
+  }, [productList, productQtys])
 
   const autoCreditTotal = useMemo(() => sumCreditLineTotals(selectedProductLines), [selectedProductLines])
 
@@ -65,17 +63,35 @@ export default function CustomersPage() {
   const totalSalesCredit = list.reduce((sum, customer) => sum + Number(customer.outstanding_balance), 0)
   const totalAllCredit = totalLedgerCredit + totalSalesCredit
 
+  const openCreditKgByProduct = useMemo(
+    () =>
+      productList.map((product) => ({
+        product,
+        kg: creditKgByProduct(openCredits, product.id, true)
+      })),
+    [openCredits, productList]
+  )
+
   const selectedCredit = ledgerList.find((row) => row.id === payCreditId && Number(row.balance) > 0) ?? null
 
+  const getCreditKgForProduct = (row: (typeof sortedLedger)[number], productId: number) => {
+    if (row.items && row.items.length > 0) {
+      const item = row.items.find((entry) => entry.product_id === productId)
+      return item ? Number(item.quantity_kg) : 0
+    }
+    if (row.product_id === productId && row.quantity_kg) return Number(row.quantity_kg)
+    return 0
+  }
+
   useEffect(() => {
-    if (manualCreditMode || selectedProductLines.length === 0) return
+    if (selectedProductLines.length === 0) return
     creditForm.setValue('totalAmount', autoCreditTotal, { shouldValidate: true })
     creditForm.setValue(
       'title',
-      `${selectedProductLines.map((line) => `${line.productName} ${line.quantityKg}kg`).join(', ')} on credit`,
+      `${selectedProductLines.map((line) => `${line.productName} = ${line.quantityKg} kg`).join(', ')} on credit`,
       { shouldValidate: true }
     )
-  }, [autoCreditTotal, creditForm, manualCreditMode, selectedProductLines])
+  }, [autoCreditTotal, creditForm, selectedProductLines])
 
   useEffect(() => {
     if (!editing) {
@@ -108,16 +124,16 @@ export default function CustomersPage() {
 
   const onSubmitCredit = async (values: any) => {
     setMessage(null)
+    if (selectedProductLines.length === 0) {
+      setMessage({ type: 'error', text: 'Enter kg for at least one product (e.g. Berbere = 5, Shiro = 3).' })
+      return
+    }
     try {
-      const lines = manualCreditMode
-        ? []
-        : selectedProductLines.map((line) => ({ productId: line.productId, quantityKg: line.quantityKg }))
-
+      const lines = selectedProductLines.map((line) => ({ productId: line.productId, quantityKg: line.quantityKg }))
       await createCreditLedger({ ...values, lines })
       creditForm.reset({ customerId: 0, lines: [], productId: 0, quantityKg: 0, title: '', totalAmount: 0, amountPaid: 0, creditDate: today, notes: '' })
       setProductQtys({})
-      setManualCreditMode(false)
-      setMessage({ type: 'success', text: 'Credit recorded.' })
+      setMessage({ type: 'success', text: 'Credit recorded with product amounts.' })
     } catch (err) {
       setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not record credit.' })
     }
@@ -175,7 +191,7 @@ export default function CustomersPage() {
             <div className="card">
               <h2 className="font-display text-xl font-black text-earth-950 mb-1">Record credit</h2>
               <p className="mb-5 text-sm text-earth-500">
-                Tick one, two, or all finished goods and enter kg for each. Total auto-calculates. Or use manual mode for a custom amount.
+                Enter how many kg of each product the customer took on credit. Example: Berbere = 10, Shiro = 5, Mitmita = 2.
               </p>
               <form onSubmit={creditForm.handleSubmit(onSubmitCredit)} className="space-y-4">
                 <div>
@@ -193,79 +209,64 @@ export default function CustomersPage() {
                     <p className="mt-1 text-xs text-red-600">Select a customer.</p>
                   )}
                 </div>
-                <div className="flex items-center justify-between gap-3">
-                  <label className="block text-sm font-bold text-earth-700">Products on credit</label>
-                  <label className="flex items-center gap-2 text-xs font-semibold text-earth-600">
-                    <input
-                      type="checkbox"
-                      checked={manualCreditMode}
-                      onChange={(event) => {
-                        setManualCreditMode(event.target.checked)
-                        if (event.target.checked) setProductQtys({})
-                      }}
-                    />
-                    Manual amount (no product list)
-                  </label>
-                </div>
-                {!manualCreditMode ? (
+                <div>
+                  <label className="block text-sm font-bold text-earth-700 mb-2">Kg taken on credit (per product)</label>
                   <div className="space-y-2 rounded-2xl border border-earth-100 bg-earth-50 p-3">
                     {productList.length === 0 ? (
-                      <p className="text-sm text-earth-500">Add finished goods under Stock first.</p>
+                      <p className="text-sm text-earth-500">Add Berbere, Shiro, Mitmita under Stock first.</p>
                     ) : productList.map((product) => {
                       const qty = productQtys[product.id] ?? ''
-                      const selected = Number(qty) > 0
+                      const lineTotal = Number(qty) > 0 ? Number(qty) * Number(product.selling_price) : 0
                       return (
-                        <div key={product.id} className={`rounded-xl border px-3 py-2 ${selected ? 'border-spice-200 bg-white' : 'border-earth-100'}`}>
-                          <div className="flex flex-wrap items-center gap-3">
-                            <div className="min-w-[120px] flex-1 font-semibold text-earth-900">{product.name}</div>
-                            <div className="text-xs text-earth-500">{Number(product.selling_price).toFixed(2)} ETB/kg</div>
-                            <input
-                              type="number"
-                              step="0.001"
-                              min="0"
-                              className="input-field w-28"
-                              placeholder="kg"
-                              value={qty}
-                              onChange={(event) => {
-                                const next = event.target.value
-                                setProductQtys((current) => {
-                                  const copy = { ...current }
-                                  if (!next || Number(next) <= 0) delete copy[product.id]
-                                  else copy[product.id] = next
-                                  return copy
-                                })
-                              }}
-                            />
-                          </div>
+                        <div key={product.id} className="grid grid-cols-[minmax(100px,1fr)_auto_1fr_auto] items-center gap-2 rounded-xl border border-earth-100 bg-white px-3 py-2">
+                          <span className="font-bold text-earth-900">{product.name}</span>
+                          <span className="text-earth-500">=</span>
+                          <input
+                            type="number"
+                            step="0.001"
+                            min="0"
+                            className="input-field"
+                            placeholder="0"
+                            value={qty}
+                            onChange={(event) => {
+                              const next = event.target.value
+                              setProductQtys((current) => {
+                                const copy = { ...current }
+                                if (!next || Number(next) <= 0) delete copy[product.id]
+                                else copy[product.id] = next
+                                return copy
+                              })
+                            }}
+                          />
+                          <span className="text-xs text-earth-500 whitespace-nowrap">
+                            kg {lineTotal > 0 ? `• ${lineTotal.toFixed(2)} ETB` : `• ${Number(product.selling_price).toFixed(2)}/kg`}
+                          </span>
                         </div>
                       )
                     })}
-                    {selectedProductLines.length > 0 && (
-                      <p className="pt-1 text-xs font-semibold text-spice-700">
-                        Selected: {selectedProductLines.map((line) => `${line.productName} ${line.quantityKg}kg`).join(' • ')}
-                      </p>
-                    )}
                   </div>
-                ) : (
-                  <div>
-                    <label className="block text-sm font-bold text-earth-700 mb-1.5">What is owed for?</label>
-                    <input className="input-field" {...creditForm.register('title')} placeholder="e.g. Mixed goods on credit" />
-                    {creditForm.formState.errors.title && (
-                      <p className="mt-1 text-xs text-red-600">{creditForm.formState.errors.title.message}</p>
-                    )}
-                  </div>
-                )}
+                  {selectedProductLines.length > 0 && (
+                    <div className="mt-3 rounded-xl border border-spice-200 bg-spice-50 px-3 py-2 text-sm text-spice-900">
+                      <div className="font-bold">Registered:</div>
+                      <div className="mt-1">
+                        {selectedProductLines.map((line) => (
+                          <span key={line.productId} className="mr-3 inline-block">
+                            {line.productName} = {line.quantityKg} kg
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-bold text-earth-700 mb-1.5">
-                      {manualCreditMode ? 'Total credit (ETB)' : 'Total credit (auto)'}
-                    </label>
+                    <label className="block text-sm font-bold text-earth-700 mb-1.5">Total credit (auto)</label>
                     <input
                       type="number"
                       step="0.01"
                       min="0.01"
-                      className={`input-field ${!manualCreditMode ? 'bg-earth-50' : ''}`}
-                      readOnly={!manualCreditMode && selectedProductLines.length > 0}
+                      className="input-field bg-earth-50"
+                      readOnly={selectedProductLines.length > 0}
                       {...creditForm.register('totalAmount', { valueAsNumber: true })}
                     />
                   </div>
@@ -297,8 +298,18 @@ export default function CustomersPage() {
             <div className="lg:col-span-2 card overflow-x-auto">
               <h2 className="font-display text-xl font-black text-earth-950 mb-1">Credit ledger</h2>
               <p className="mb-4 text-sm text-earth-500">
-                {openCredits.length} open • {sortedLedger.length} total entr{sortedLedger.length === 1 ? 'y' : 'ies'}
+                {openCredits.length} open • {sortedLedger.length} total — kg taken per product is saved for each entry.
               </p>
+              {productList.length > 0 && openCredits.length > 0 && (
+                <div className="mb-4 flex flex-wrap gap-2">
+                  {openCreditKgByProduct.map(({ product, kg }) => (
+                    <div key={product.id} className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
+                      <span className="font-bold text-earth-900">{product.name}</span>
+                      <span className="text-amber-800"> = {kg.toFixed(2)} kg on open credit</span>
+                    </div>
+                  ))}
+                </div>
+              )}
               {creditLoading ? (
                 <p className="text-sm text-earth-500">Loading credit entries...</p>
               ) : creditLoadError ? (
@@ -311,14 +322,15 @@ export default function CustomersPage() {
               ) : sortedLedger.length === 0 ? (
                 <p className="text-sm text-earth-500">No credit recorded yet.</p>
               ) : (
-                <table className="w-full min-w-[800px] text-sm">
+                <table className="w-full min-w-[900px] text-sm">
                   <thead>
                     <tr className="table-head">
                       <th className="px-3 py-2">Date</th>
                       <th className="px-3 py-2">Customer</th>
-                      <th className="px-3 py-2">Product</th>
-                      <th className="px-3 py-2">Description</th>
-                      <th className="px-3 py-2">Total</th>
+                      {productList.map((product) => (
+                        <th key={product.id} className="px-3 py-2">{product.name} (kg)</th>
+                      ))}
+                      <th className="px-3 py-2">Total ETB</th>
                       <th className="px-3 py-2">Paid</th>
                       <th className="px-3 py-2">Balance</th>
                       <th className="px-3 py-2">Status</th>
@@ -333,10 +345,14 @@ export default function CustomersPage() {
                         <tr key={row.id} className="table-row">
                           <td className="px-3 py-3">{new Date(row.credit_date).toLocaleDateString()}</td>
                           <td className="px-3 py-3 font-bold">{row.customer_name || '—'}</td>
-                          <td className="px-3 py-3">
-                            {formatCreditProductsSummary(row.items, row.product_name, row.quantity_kg)}
-                          </td>
-                          <td className="px-3 py-3">{row.title}</td>
+                          {productList.map((product) => {
+                            const kg = getCreditKgForProduct(row, product.id)
+                            return (
+                              <td key={product.id} className={`px-3 py-3 ${kg > 0 ? 'font-bold text-earth-900' : 'text-earth-300'}`}>
+                                {kg > 0 ? kg.toFixed(2) : '—'}
+                              </td>
+                            )
+                          })}
                           <td className="px-3 py-3">{Number(row.total_amount).toFixed(2)}</td>
                           <td className="px-3 py-3 text-green-700">{Number(row.amount_paid).toFixed(2)}</td>
                           <td className={`px-3 py-3 font-bold ${isOpen ? 'text-red-700' : 'text-green-700'}`}>{balance.toFixed(2)}</td>

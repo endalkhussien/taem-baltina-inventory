@@ -24,11 +24,11 @@ export const creditLedgerCreateSchema = z
   })
   .refine((data) => {
     const lines = data.lines ?? []
-    const legacyProduct = Number(data.productId ?? 0) > 0
-    return lines.length > 0 || legacyProduct || (data.title?.trim().length ?? 0) > 0
+    const legacyProduct = Number(data.productId ?? 0) > 0 && Number(data.quantityKg ?? 0) > 0
+    return lines.length > 0 || legacyProduct
   }, {
-    message: 'Select at least one product or add a description for mixed credit.',
-    path: ['title']
+    message: 'Enter kg for at least one product.',
+    path: ['lines']
   })
 
 export const creditPaymentSchema = z.object({

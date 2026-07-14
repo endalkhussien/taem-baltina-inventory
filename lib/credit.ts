@@ -39,7 +39,7 @@ export function sumCreditLineTotals(lines: CreditLineDraft[]) {
 export function buildCreditTitleFromLines(lines: CreditLineDraft[], customTitle?: string) {
   if (customTitle?.trim()) return customTitle.trim()
   if (lines.length === 0) return 'Credit'
-  return `${lines.map((line) => `${line.productName} ${line.quantityKg}kg`).join(', ')} on credit`
+  return `${lines.map((line) => `${line.productName} = ${line.quantityKg} kg`).join(', ')} on credit`
 }
 
 export function formatCreditProductsSummary(
@@ -47,13 +47,48 @@ export function formatCreditProductsSummary(
   productName?: string | null,
   quantityKg?: number | null
 ) {
+  return formatCreditProductLines(items, productName, quantityKg)
+    .map((line) => `${line.name} = ${line.kg} kg`)
+    .join(', ')
+}
+
+export function formatCreditProductLines(
+  items?: Array<{ product_id?: number; product_name?: string | null; quantity_kg?: number | null }> | null,
+  productName?: string | null,
+  quantityKg?: number | null
+) {
   if (items && items.length > 0) {
-    return items.map((item) => `${item.product_name} (${Number(item.quantity_kg)} kg)`).join(', ')
+    return items
+      .filter((item) => Number(item.quantity_kg) > 0)
+      .map((item) => ({
+        productId: item.product_id,
+        name: item.product_name || 'Product',
+        kg: Number(item.quantity_kg)
+      }))
   }
-  if (productName) {
-    return quantityKg ? `${productName} (${Number(quantityKg)} kg)` : productName
+  if (productName && Number(quantityKg) > 0) {
+    return [{ productId: undefined, name: productName, kg: Number(quantityKg) }]
   }
-  return 'Mixed / manual'
+  return []
+}
+
+export function creditKgByProduct(
+  ledgerRows: Array<{
+    balance: number
+    items?: Array<{ product_id?: number; product_name?: string | null; quantity_kg?: number | null }> | null
+    product_id?: number | null
+    product_name?: string | null
+    quantity_kg?: number | null
+  }>,
+  productId: number,
+  openOnly = true
+) {
+  return ledgerRows.reduce((sum, row) => {
+    if (openOnly && Number(row.balance) <= 0) return sum
+    const lines = formatCreditProductLines(row.items, row.product_name, row.quantity_kg)
+    const match = lines.find((line) => line.productId === productId)
+    return sum + (match?.kg ?? 0)
+  }, 0)
 }
 
 export function creditStatusFromBalance(balance: number) {

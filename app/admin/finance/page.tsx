@@ -18,7 +18,7 @@ import {
 import { useProducts } from '../../../hooks/useProducts'
 import { useQueryClient } from '@tanstack/react-query'
 import { isInSalesPeriod, salesPeriodLabels, summarizeSales, type SalesPeriod } from '../../../lib/periods'
-import { formatCreditProductsSummary } from '../../../lib/credit'
+import { formatCreditProductLines } from '../../../lib/credit'
 
 const today = new Date().toISOString().slice(0, 10)
 
@@ -378,7 +378,18 @@ export default function FinancePage() {
                       <tr key={row.id} className="table-row">
                         <td className="px-3 py-3">{new Date(row.credit_date).toLocaleDateString()}</td>
                         <td className="px-3 py-3">{row.customer_name}</td>
-                        <td className="px-3 py-3">{formatCreditProductsSummary(row.items, row.product_name, row.quantity_kg)}</td>
+                        <td className="px-3 py-3">
+                          <div className="space-y-1">
+                            {formatCreditProductLines(row.items, row.product_name, row.quantity_kg).map((line) => (
+                              <div key={`${row.id}-${line.name}`} className="font-semibold text-earth-900">
+                                {line.name} = {line.kg} kg
+                              </div>
+                            ))}
+                            {formatCreditProductLines(row.items, row.product_name, row.quantity_kg).length === 0 && (
+                              <span className="text-earth-400">—</span>
+                            )}
+                          </div>
+                        </td>
                         <td className="px-3 py-3 font-bold text-red-700">{Number(row.balance).toFixed(2)} ETB</td>
                       </tr>
                     ))}
