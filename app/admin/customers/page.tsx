@@ -3,74 +3,77 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import AdminNav from '../../../components/AdminNav'
-import { useCustomers, useRepayments, useSales } from '../../../hooks/useModules'
+import { useCreditLedgers, useCreditPayments, useCustomers } from '../../../hooks/useModules'
 
 const today = new Date().toISOString().slice(0, 10)
 
 export default function CustomersPage() {
   const { data: customers, isLoading, createCustomer, updateCustomer, isCreatingCustomer, isUpdatingCustomer, deleteCustomer } = useCustomers()
-  const { data: sales } = useSales()
-  const { createRepayment, isCreatingRepayment } = useRepayments()
+  const { data: creditLedgers, createCreditLedger, isCreatingCreditLedger, deleteCreditLedger } = useCreditLedgers()
+  const { createCreditPayment, isCreatingCreditPayment } = useCreditPayments()
   const [editing, setEditing] = useState<number | null>(null)
-  const [expandedId, setExpandedId] = useState<number | null>(null)
-  const [payAmounts, setPayAmounts] = useState<Record<number, string>>({})
+  const [payCreditId, setPayCreditId] = useState<number | null>(null)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const { register, handleSubmit, reset } = useForm({ defaultValues: { name: '', phone: '', notes: '' } })
+  const creditForm = useForm({
+    defaultValues: { customerId: 0, title: '', totalAmount: 0, amountPaid: 0, creditDate: today, notes: '' }
+  })
+  const paymentForm = useForm({ defaultValues: { amount: 0, paymentDate: today, notes: '' } })
+
   const list = useMemo(() => (Array.isArray(customers) ? customers : []), [customers])
-  const salesList = useMemo(() => (Array.isArray(sales) ? sales : []), [sales])
+  const ledgerList = useMemo(() => (Array.isArray(creditLedgers) ? creditLedgers : []), [creditLedgers])
   const isSaving = isCreatingCustomer || isUpdatingCustomer
+
+  const openCredits = useMemo(() => ledgerList.filter((row) => Number(row.balance) > 0), [ledgerList])
+  const totalLedgerCredit = ledgerList.reduce((sum, row) => sum + Number(row.balance), 0)
+  const totalSalesCredit = list.reduce((sum, customer) => sum + Number(customer.outstanding_balance), 0)
+  const totalAllCredit = totalLedgerCredit + totalSalesCredit
+
+  const selectedCredit = openCredits.find((row) => row.id === payCreditId) ?? null
 
   useEffect(() => {
     if (!editing) {
       reset({ name: '', phone: '', notes: '' })
       return
     }
-
     const customer = list.find((item) => item.id === editing)
     if (customer) {
-      reset({
-        name: customer.name,
-        phone: customer.phone ?? '',
-        notes: customer.notes ?? ''
-      })
+      reset({ name: customer.name, phone: customer.phone ?? '', notes: customer.notes ?? '' })
     }
   }, [editing, list, reset])
 
-  const customerStats = useMemo(() => {
-    return list.map((customer) => {
-      const allCustomerSales = salesList.filter((sale) => sale.customer_id === customer.id)
-      const openSales = allCustomerSales.filter((sale) => Number(sale.balance) > 0)
-      const totalCredit = allCustomerSales.reduce((sum, sale) => sum + Number(sale.total_amount), 0)
-      const totalPaid = allCustomerSales.reduce((sum, sale) => sum + Number(sale.amount_paid), 0)
-      const outstanding = Number(customer.outstanding_balance)
-      return { customer, allCustomerSales, openSales, totalCredit, totalPaid, outstanding }
-    })
-  }, [list, salesList])
-
-  const totalOutstanding = list.reduce((sum, customer) => sum + Number(customer.outstanding_balance), 0)
-  const customersWithOpenCredit = customerStats.filter((row) => row.outstanding > 0).length
-
-  const onSubmit = async (values: any) => {
+  const onSubmitCustomer = async (values: any) => {
     setMessage(null)
-
     try {
       if (editing) await updateCustomer(editing, values)
       else await createCustomer(values)
       setEditing(null)
       reset()
-      setMessage({ type: 'success', text: 'Customer account saved.' })
+      setMessage({ type: 'success', text: 'Customer saved.' })
     } catch (err) {
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not save customer account.' })
+      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not save customer.' })
     }
   }
 
-  const handleRepay = async (saleId: number, amount: number, customerName: string) => {
-    if (amount <= 0) return
+  const onSubmitCredit = async (values: any) => {
     setMessage(null)
     try {
-      await createRepayment({ saleId, amount, paymentDate: today })
-      setPayAmounts((prev) => ({ ...prev, [saleId]: '' }))
-      setMessage({ type: 'success', text: `Payment recorded for ${customerName}.` })
+      await createCreditLedger(values)
+      creditForm.reset({ customerId: 0, title: '', totalAmount: 0, amountPaid: 0, creditDate: today, notes: '' })
+      setMessage({ type: 'success', text: 'Credit recorded. Balance tracked separately from sales.' })
+    } catch (err) {
+      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not record credit.' })
+    }
+  }
+
+  const onSubmitPayment = async (values: any) => {
+    if (!payCreditId) return
+    setMessage(null)
+    try {
+      await createCreditPayment({ creditId: payCreditId, ...values })
+      setPayCreditId(null)
+      paymentForm.reset({ amount: 0, paymentDate: today, notes: '' })
+      setMessage({ type: 'success', text: 'Payment recorded.' })
     } catch (err) {
       setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not record payment.' })
     }
@@ -81,22 +84,26 @@ export default function CustomersPage() {
       <AdminNav />
       <div className="app-page">
         <div className="app-container">
-          <div className="page-hero-subtle flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+          <div className="page-hero-subtle flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <div className="eyebrow">Customer accounts</div>
-              <h1 className="mt-2 font-display text-4xl font-black text-earth-950">Credit Customers and Balances</h1>
+              <div className="eyebrow">Credit desk</div>
+              <h1 className="mt-2 font-display text-4xl font-black text-earth-950">Customer Credit Ledger</h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-earth-500">
-                Maintain every client, expand to see each credit sale, and record partial or full repayments in one place.
+                Record credit owed to you without linking to sales. Enter total amount, optional payment now, then collect partial or full payments later.
               </p>
             </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="rounded-3xl bg-spice-50 px-5 py-4 shadow-sm border border-spice-100">
-                <div className="text-xs uppercase tracking-wide text-earth-500">Total customer credit</div>
-                <div className="text-3xl font-black text-spice-800">{totalOutstanding.toFixed(2)} ETB</div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="rounded-3xl bg-spice-50 px-5 py-4 border border-spice-100">
+                <div className="text-xs uppercase tracking-wide text-earth-500">Credit ledger owed</div>
+                <div className="text-2xl font-black text-spice-800">{totalLedgerCredit.toFixed(2)} ETB</div>
               </div>
-              <div className="rounded-3xl bg-earth-50 px-5 py-4 shadow-sm border border-earth-100">
-                <div className="text-xs uppercase tracking-wide text-earth-500">Open credit accounts</div>
-                <div className="text-3xl font-black text-earth-900">{customersWithOpenCredit}</div>
+              <div className="rounded-3xl bg-amber-50 px-5 py-4 border border-amber-100">
+                <div className="text-xs uppercase tracking-wide text-earth-500">From sales (old)</div>
+                <div className="text-2xl font-black text-amber-800">{totalSalesCredit.toFixed(2)} ETB</div>
+              </div>
+              <div className="rounded-3xl bg-earth-50 px-5 py-4 border border-earth-100">
+                <div className="text-xs uppercase tracking-wide text-earth-500">Total owed to you</div>
+                <div className="text-2xl font-black text-earth-900">{totalAllCredit.toFixed(2)} ETB</div>
               </div>
             </div>
           </div>
@@ -109,166 +116,177 @@ export default function CustomersPage() {
 
           <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
             <div className="card">
-              <h2 className="font-display text-xl font-black text-earth-950 mb-1">{editing ? 'Edit Customer Account' : 'Add Customer Account'}</h2>
-              <p className="mb-5 text-sm text-earth-500">Use customer accounts for buyers who take products on partial payment or credit.</p>
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              <h2 className="font-display text-xl font-black text-earth-950 mb-1">Record credit</h2>
+              <p className="mb-5 text-sm text-earth-500">Simple credit — not tied to a sale. Example: customer took 5,000 ETB goods on credit.</p>
+              <form onSubmit={creditForm.handleSubmit(onSubmitCredit)} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-bold text-earth-700 mb-1.5">Customer / Shop Name</label>
-                  <input className="input-field" {...register('name', { required: true })} placeholder="Customer or shop name" />
+                  <label className="block text-sm font-bold text-earth-700 mb-1.5">Customer</label>
+                  <select className="input-field" {...creditForm.register('customerId', { valueAsNumber: true })}>
+                    <option value={0}>Select customer</option>
+                    {list.map((customer) => (
+                      <option key={customer.id} value={customer.id}>{customer.name}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-earth-700 mb-1.5">Phone Number</label>
-                  <input className="input-field" {...register('phone')} placeholder="+251..." />
+                  <label className="block text-sm font-bold text-earth-700 mb-1.5">What is owed for?</label>
+                  <input className="input-field" {...creditForm.register('title', { required: true })} placeholder="e.g. Berbere 20kg on credit" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-bold text-earth-700 mb-1.5">Total credit (ETB)</label>
+                    <input type="number" step="0.01" min="0" className="input-field" {...creditForm.register('totalAmount', { valueAsNumber: true })} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-earth-700 mb-1.5">Paid now (ETB)</label>
+                    <input type="number" step="0.01" min="0" className="input-field" {...creditForm.register('amountPaid', { valueAsNumber: true })} />
+                  </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-earth-700 mb-1.5">Account Notes</label>
-                  <textarea className="input-field" {...register('notes')} rows={3} placeholder="Location, credit terms, contact person..." />
+                  <label className="block text-sm font-bold text-earth-700 mb-1.5">Credit date</label>
+                  <input type="date" className="input-field" {...creditForm.register('creditDate')} />
                 </div>
+                <div>
+                  <label className="block text-sm font-bold text-earth-700 mb-1.5">Notes</label>
+                  <input className="input-field" {...creditForm.register('notes')} placeholder="Optional" />
+                </div>
+                <button className="btn-primary w-full" type="submit" disabled={isCreatingCreditLedger}>
+                  {isCreatingCreditLedger ? 'Saving...' : 'Save credit'}
+                </button>
+              </form>
+            </div>
+
+            <div className="lg:col-span-2 card overflow-x-auto">
+              <h2 className="font-display text-xl font-black text-earth-950 mb-1">Open credit list</h2>
+              <p className="mb-4 text-sm text-earth-500">{openCredits.length} open entr{openCredits.length === 1 ? 'y' : 'ies'} • Pay partial or full anytime.</p>
+              {openCredits.length === 0 ? (
+                <p className="text-sm text-earth-500">No open credit. Record credit above when a customer owes you money.</p>
+              ) : (
+                <table className="w-full min-w-[640px] text-sm">
+                  <thead>
+                    <tr className="table-head">
+                      <th className="px-3 py-2">Date</th>
+                      <th className="px-3 py-2">Customer</th>
+                      <th className="px-3 py-2">Description</th>
+                      <th className="px-3 py-2">Total</th>
+                      <th className="px-3 py-2">Paid</th>
+                      <th className="px-3 py-2">Balance</th>
+                      <th className="px-3 py-2">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {openCredits.map((row) => (
+                      <tr key={row.id} className="table-row">
+                        <td className="px-3 py-3">{new Date(row.credit_date).toLocaleDateString()}</td>
+                        <td className="px-3 py-3 font-bold">{row.customer_name}</td>
+                        <td className="px-3 py-3">{row.title}</td>
+                        <td className="px-3 py-3">{Number(row.total_amount).toFixed(2)}</td>
+                        <td className="px-3 py-3 text-green-700">{Number(row.amount_paid).toFixed(2)}</td>
+                        <td className="px-3 py-3 font-bold text-red-700">{Number(row.balance).toFixed(2)}</td>
+                        <td className="px-3 py-3 whitespace-nowrap">
+                          <button type="button" className="text-spice-700 font-bold mr-3" onClick={() => setPayCreditId(row.id)}>Pay</button>
+                          <button
+                            type="button"
+                            className="text-red-600 font-bold"
+                            onClick={async () => {
+                              if (!confirm('Delete this credit entry?')) return
+                              try {
+                                await deleteCreditLedger(row.id)
+                                setMessage({ type: 'success', text: 'Credit entry deleted.' })
+                              } catch (err) {
+                                setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not delete.' })
+                              }
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+
+          {payCreditId && selectedCredit && (
+            <div className="card max-w-xl">
+              <h2 className="font-display text-xl font-black text-earth-950 mb-1">Record payment</h2>
+              <p className="mb-4 text-sm text-earth-500">
+                {selectedCredit.customer_name} • {selectedCredit.title} • balance {Number(selectedCredit.balance).toFixed(2)} ETB
+              </p>
+              <form onSubmit={paymentForm.handleSubmit(onSubmitPayment)} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3">
+                <input type="number" step="0.01" className="input-field" placeholder="Amount" {...paymentForm.register('amount', { valueAsNumber: true })} />
+                <input type="date" className="input-field" {...paymentForm.register('paymentDate')} />
+                <button className="btn-primary" type="submit" disabled={isCreatingCreditPayment}>
+                  {isCreatingCreditPayment ? 'Saving...' : 'Save'}
+                </button>
+              </form>
+              <div className="mt-3 flex gap-3">
+                <button type="button" className="text-sm font-bold text-spice-700" onClick={() => paymentForm.setValue('amount', Number(selectedCredit.balance))}>
+                  Pay full balance
+                </button>
+                <button type="button" className="text-sm text-earth-500" onClick={() => setPayCreditId(null)}>Cancel</button>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <div className="card">
+              <h2 className="font-display text-xl font-black text-earth-950 mb-1">{editing ? 'Edit customer' : 'Add customer'}</h2>
+              <form onSubmit={handleSubmit(onSubmitCustomer)} className="space-y-4 mt-4">
+                <input className="input-field" placeholder="Customer name" {...register('name', { required: true })} />
+                <input className="input-field" placeholder="Phone" {...register('phone')} />
+                <textarea className="input-field" rows={2} placeholder="Notes" {...register('notes')} />
                 <div className="flex gap-2">
-                  <button className="btn-primary flex-1" type="submit" disabled={isSaving}>
-                    {isSaving ? 'Saving...' : editing ? 'Update Account' : 'Create Account'}
-                  </button>
+                  <button className="btn-primary flex-1" type="submit" disabled={isSaving}>{isSaving ? 'Saving...' : editing ? 'Update' : 'Add'}</button>
                   {editing && <button className="btn-secondary" type="button" onClick={() => setEditing(null)}>Cancel</button>}
                 </div>
               </form>
             </div>
 
             <div className="lg:col-span-2 card overflow-x-auto">
-              <h2 className="font-display text-xl font-black text-earth-950 mb-1">Customer credit ledger</h2>
-              <p className="mb-4 text-sm text-earth-500">Expand a row to see every sale and record repayments without leaving this page.</p>
-              {isLoading ? (
-                <p className="text-earth-500">Loading customers...</p>
-              ) : customerStats.length === 0 ? (
-                <p className="text-earth-500">No customers yet. Add credit customers before recording unpaid sales.</p>
+              <h2 className="font-display text-xl font-black text-earth-950 mb-1">Customers</h2>
+              {isLoading ? <p className="text-earth-500">Loading...</p> : list.length === 0 ? (
+                <p className="text-earth-500">Add a customer first, then record credit above.</p>
               ) : (
-                <table className="w-full min-w-[720px] text-left text-sm">
+                <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-earth-200 text-earth-600">
-                      <th className="pb-2 pr-4">Customer</th>
-                      <th className="pb-2 pr-4">Phone</th>
-                      <th className="pb-2 pr-4 text-right">Sales total</th>
-                      <th className="pb-2 pr-4 text-right">Paid</th>
-                      <th className="pb-2 pr-4 text-right">Balance</th>
-                      <th className="pb-2">Actions</th>
+                    <tr className="table-head">
+                      <th className="px-3 py-2">Name</th>
+                      <th className="px-3 py-2">Phone</th>
+                      <th className="px-3 py-2">Ledger credit</th>
+                      <th className="px-3 py-2">Sales credit</th>
+                      <th className="px-3 py-2">Total owed</th>
+                      <th className="px-3 py-2">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {customerStats.map(({ customer, allCustomerSales, openSales, totalCredit, totalPaid, outstanding }) => (
-                      <React.Fragment key={customer.id}>
-                        <tr className="border-b border-earth-100">
-                          <td className="py-3 pr-4 font-bold text-earth-950">{customer.name}</td>
-                          <td className="py-3 pr-4 text-earth-500">{customer.phone || '—'}</td>
-                          <td className="py-3 pr-4 text-right">{totalCredit.toFixed(2)}</td>
-                          <td className="py-3 pr-4 text-right text-green-700">{totalPaid.toFixed(2)}</td>
-                          <td className={`py-3 pr-4 text-right font-bold ${outstanding > 0 ? 'text-red-700' : 'text-green-700'}`}>
-                            {outstanding.toFixed(2)}
-                          </td>
-                          <td className="py-3">
-                            <div className="flex flex-wrap items-center gap-3">
-                              {allCustomerSales.length > 0 && (
-                                <button
-                                  type="button"
-                                  className="font-medium text-spice-700 hover:text-spice-900"
-                                  onClick={() => setExpandedId(expandedId === customer.id ? null : customer.id)}
-                                >
-                                  {expandedId === customer.id ? 'Hide sales' : `View ${openSales.length} open`}
-                                </button>
-                              )}
-                              <button className="font-medium text-spice-700 hover:text-spice-900" onClick={() => setEditing(customer.id)}>Edit</button>
-                              <button
-                                className="font-medium text-red-600 hover:text-red-800"
-                                onClick={async () => {
-                                  if (!confirm('Delete this customer account? Credit sales may prevent deletion.')) return
-                                  setMessage(null)
-                                  try {
-                                    await deleteCustomer(customer.id)
-                                    setMessage({ type: 'success', text: 'Customer account deleted.' })
-                                  } catch (err) {
-                                    setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not delete customer account.' })
-                                  }
-                                }}
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                        {expandedId === customer.id && (
-                          <tr className="border-b border-earth-100 bg-earth-50/70">
-                            <td colSpan={6} className="px-4 py-4">
-                              {allCustomerSales.length === 0 ? (
-                                <p className="text-sm text-earth-500">No sales recorded for this customer yet.</p>
-                              ) : (
-                                <div className="space-y-3">
-                                  <p className="text-xs font-bold uppercase tracking-wide text-earth-500">Credit sales for {customer.name}</p>
-                                  <table className="w-full text-sm">
-                                    <thead>
-                                      <tr className="text-left text-earth-600">
-                                        <th className="pb-2 pr-3">Date</th>
-                                        <th className="pb-2 pr-3">Product</th>
-                                        <th className="pb-2 pr-3 text-right">Total</th>
-                                        <th className="pb-2 pr-3 text-right">Paid</th>
-                                        <th className="pb-2 pr-3 text-right">Balance</th>
-                                        <th className="pb-2">Repayment</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {allCustomerSales.map((sale) => {
-                                        const balance = Number(sale.balance)
-                                        return (
-                                          <tr key={sale.id} className="border-t border-earth-200">
-                                            <td className="py-2 pr-3">{new Date(sale.sale_date).toLocaleDateString()}</td>
-                                            <td className="py-2 pr-3">{sale.product_name ?? sale.sale_code}</td>
-                                            <td className="py-2 pr-3 text-right">{Number(sale.total_amount).toFixed(2)}</td>
-                                            <td className="py-2 pr-3 text-right">{Number(sale.amount_paid).toFixed(2)}</td>
-                                            <td className={`py-2 pr-3 text-right font-semibold ${balance > 0 ? 'text-red-700' : 'text-green-700'}`}>
-                                              {balance > 0 ? balance.toFixed(2) : 'Paid'}
-                                            </td>
-                                            <td className="py-2">
-                                              {balance > 0 ? (
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                  <input
-                                                    type="number"
-                                                    min={0}
-                                                    step="0.01"
-                                                    className="input-field w-24 py-1 text-sm"
-                                                    placeholder="Amount"
-                                                    value={payAmounts[sale.id] ?? ''}
-                                                    onChange={(event) =>
-                                                      setPayAmounts((prev) => ({ ...prev, [sale.id]: event.target.value }))
-                                                    }
-                                                  />
-                                                  <button
-                                                    type="button"
-                                                    className="btn-secondary py-1 text-xs"
-                                                    disabled={isCreatingRepayment}
-                                                    onClick={() => handleRepay(sale.id, Number(payAmounts[sale.id] || 0), customer.name)}
-                                                  >
-                                                    Pay
-                                                  </button>
-                                                  <button
-                                                    type="button"
-                                                    className="text-xs font-bold text-spice-700 hover:text-spice-900"
-                                                    onClick={() => handleRepay(sale.id, balance, customer.name)}
-                                                  >
-                                                    Pay full
-                                                  </button>
-                                                </div>
-                                              ) : (
-                                                <span className="text-green-700 font-medium">Settled</span>
-                                              )}
-                                            </td>
-                                          </tr>
-                                        )
-                                      })}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              )}
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
+                    {list.map((customer) => (
+                      <tr key={customer.id} className="table-row">
+                        <td className="px-3 py-3 font-bold">{customer.name}</td>
+                        <td className="px-3 py-3">{customer.phone || '—'}</td>
+                        <td className="px-3 py-3">{Number(customer.ledger_balance ?? 0).toFixed(2)}</td>
+                        <td className="px-3 py-3">{Number(customer.outstanding_balance).toFixed(2)}</td>
+                        <td className="px-3 py-3 font-bold text-red-700">{Number(customer.total_credit ?? customer.outstanding_balance).toFixed(2)}</td>
+                        <td className="px-3 py-3">
+                          <button className="text-spice-700 font-bold mr-3" onClick={() => setEditing(customer.id)}>Edit</button>
+                          <button
+                            className="text-red-600 font-bold"
+                            onClick={async () => {
+                              if (!confirm('Delete customer?')) return
+                              try {
+                                await deleteCustomer(customer.id)
+                                setMessage({ type: 'success', text: 'Customer deleted.' })
+                              } catch (err) {
+                                setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not delete.' })
+                              }
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
                     ))}
                   </tbody>
                 </table>

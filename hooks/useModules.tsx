@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 export type Ingredient = { id: number; name: string; category: string; quantity: number; unit: string; cost_per_unit: number; alert_threshold: number }
 export type Purchase = { id: number; ingredient_id: number; ingredient_name: string | null; quantity: number; cost_total: number; supplier?: string | null; purchase_date: string }
-export type Customer = { id: number; name: string; phone?: string | null; notes?: string | null; outstanding_balance: number }
+export type Customer = { id: number; name: string; phone?: string | null; notes?: string | null; outstanding_balance: number; ledger_balance?: number; total_credit?: number }
 export type ProductionBatch = {
   id: number
   product_id: number
@@ -164,4 +164,60 @@ export function useLiabilityPayments() {
     onSuccess: () => invalidateAll(qc, ['liabilityPayments', 'liabilities'])
   })
   return { ...query, createLiabilityPayment: (d: any) => create.mutateAsync(d), isCreatingLiabilityPayment: create.isPending }
+}
+
+export type CreditLedger = {
+  id: number
+  customer_id: number
+  customer_name?: string | null
+  title: string
+  total_amount: number
+  amount_paid: number
+  balance: number
+  credit_date: string
+  notes?: string | null
+}
+
+export type CreditPayment = {
+  id: number
+  credit_id: number
+  customer_name?: string | null
+  credit_title?: string | null
+  amount: number
+  payment_date: string
+  notes?: string | null
+}
+
+export function useCreditLedgers() {
+  const qc = useQueryClient()
+  const query = useQuery<CreditLedger[]>({
+    queryKey: ['creditLedgers'],
+    queryFn: () => apiRequest<CreditLedger[]>('/api/credit-ledgers', {}, 'Failed to load credit ledger.')
+  })
+  const create = useMutation({
+    mutationFn: (data: any) => apiRequest<CreditLedger>('/api/credit-ledgers', { method: 'POST', body: JSON.stringify(data) }, 'Could not record credit.'),
+    onSuccess: () => invalidateAll(qc, ['creditLedgers', 'creditPayments', 'customers'])
+  })
+  return {
+    ...query,
+    createCreditLedger: (d: any) => create.mutateAsync(d),
+    isCreatingCreditLedger: create.isPending,
+    deleteCreditLedger: async (id: number) => {
+      await apiRequest(`/api/credit-ledgers/${id}`, { method: 'DELETE' }, 'Could not delete credit entry.')
+      invalidateAll(qc, ['creditLedgers', 'creditPayments', 'customers'])
+    }
+  }
+}
+
+export function useCreditPayments() {
+  const qc = useQueryClient()
+  const query = useQuery<CreditPayment[]>({
+    queryKey: ['creditPayments'],
+    queryFn: () => apiRequest<CreditPayment[]>('/api/credit-payments', {}, 'Failed to load credit payments.')
+  })
+  const create = useMutation({
+    mutationFn: (data: any) => apiRequest<CreditPayment>('/api/credit-payments', { method: 'POST', body: JSON.stringify(data) }, 'Could not record credit payment.'),
+    onSuccess: () => invalidateAll(qc, ['creditPayments', 'creditLedgers', 'customers'])
+  })
+  return { ...query, createCreditPayment: (d: any) => create.mutateAsync(d), isCreatingCreditPayment: create.isPending }
 }

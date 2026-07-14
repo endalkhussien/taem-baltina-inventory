@@ -6,13 +6,15 @@ import { useExpenses } from '../../../hooks/useModules'
 import AdminNav from '../../../components/AdminNav'
 import { expenseCreateSchema } from '../../../lib/validators/expense'
 
+const today = new Date().toISOString().slice(0, 10)
+
 export default function ExpensesPage() {
   const { data: expenses, isLoading, createExpense, updateExpense, isCreatingExpense, isUpdatingExpense, deleteExpense } = useExpenses()
   const [editing, setEditing] = useState<number | null>(null)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const { register, handleSubmit, reset, formState: { errors } } = useForm({
     resolver: zodResolver(expenseCreateSchema as any),
-    defaultValues: { title: '', category: 'Other', amount: 0, notes: '' }
+    defaultValues: { title: '', category: 'Other', amount: 0, expenseDate: today, notes: '' }
   })
 
   useEffect(() => {
@@ -23,15 +25,17 @@ export default function ExpensesPage() {
           title: expense.title,
           category: expense.category,
           amount: Number(expense.amount),
+          expenseDate: expense.expense_date ? new Date(expense.expense_date).toISOString().slice(0, 10) : today,
           notes: expense.notes ?? ''
         })
       }
     } else {
-      reset({ title: '', category: 'Other', amount: 0, notes: '' })
+      reset({ title: '', category: 'Other', amount: 0, expenseDate: today, notes: '' })
     }
   }, [editing, expenses, reset])
 
   const list = Array.isArray(expenses) ? expenses : []
+  const totalOperatingCosts = list.reduce((sum, expense) => sum + Number(expense.amount), 0)
   const categories = ['Transport', 'Packaging', 'Rent', 'Salary', 'Labor', 'Equipment', 'Utilities', 'Other']
   const isSaving = isCreatingExpense || isUpdatingExpense
 
@@ -54,12 +58,19 @@ export default function ExpensesPage() {
       <AdminNav />
       <div className="app-page">
       <div className="app-container">
-        <div className="page-hero-subtle">
-          <div className="eyebrow">Operating costs</div>
-          <h1 className="mt-2 font-display text-4xl font-black text-earth-950">Business Cost Register</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-earth-500">
-            Track packaging, transport, salaries, rent, utilities, and other costs that affect profit.
-          </p>
+        <div className="page-hero-subtle flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <div className="eyebrow">Operating costs</div>
+            <h1 className="mt-2 font-display text-4xl font-black text-earth-950">Business Cost Register</h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-earth-500">
+              Track packaging, transport, salaries, rent, utilities, and other costs that affect profit.
+            </p>
+          </div>
+          <div className="rounded-3xl bg-purple-50 px-5 py-4 border border-purple-100">
+            <div className="text-xs uppercase tracking-wide text-earth-500">Total operating costs</div>
+            <div className="text-3xl font-black text-purple-800">{totalOperatingCosts.toFixed(2)} ETB</div>
+            <div className="mt-1 text-xs text-earth-500">{list.length} entr{list.length === 1 ? 'y' : 'ies'} recorded</div>
+          </div>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="card">
@@ -75,6 +86,10 @@ export default function ExpensesPage() {
               <label className="block text-sm font-bold text-earth-700 mb-1.5">Cost Category</label>
               <select className="input-field" {...register('category')}>{categories.map(c => (<option key={c} value={c}>{c}</option>))}</select>
               {errors.category && <p className="mt-1 text-xs text-red-600">Category is required.</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-earth-700 mb-1.5">Expense date</label>
+              <input type="date" className="input-field" {...register('expenseDate')} />
             </div>
             <div>
               <label className="block text-sm font-bold text-earth-700 mb-1.5">Amount (ETB)</label>
@@ -105,7 +120,7 @@ export default function ExpensesPage() {
         <div className="lg:col-span-2 card overflow-x-auto">
           <h2 className="font-display text-xl font-black text-earth-950 mb-1">Operating Cost Ledger</h2>
           <p className="mb-4 text-sm text-earth-500">Recent non-material business costs.</p>
-          {isLoading ? <div>Loading...</div> : <table className="w-full text-sm"><thead><tr className="table-head"><th className="pb-3">Description</th><th className="pb-3">Category</th><th className="pb-3">Amount</th><th className="pb-3">Actions</th></tr></thead><tbody>{list.map((e: any) => (<tr key={e.id} className="table-row"><td className="py-3 font-bold text-earth-950">{e.title}</td><td className="py-3">{e.category}</td><td className="py-3">{Number(e.amount).toFixed(2)} ETB</td><td className="py-3 text-sm"><button className="text-spice-700 font-bold mr-2" onClick={() => setEditing(e.id)}>Edit</button><button className="text-red-600 font-bold" onClick={async () => { if (!confirm('Delete this operating cost?')) return; setMessage(null); try { await deleteExpense(e.id); setMessage({ type: 'success', text: 'Operating cost deleted.' }) } catch (err) { setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not delete operating cost.' }) } }}>Delete</button></td></tr>))}</tbody></table>}
+          {isLoading ? <div>Loading...</div> : <table className="w-full text-sm"><thead><tr className="table-head"><th className="pb-3">Date</th><th className="pb-3">Description</th><th className="pb-3">Category</th><th className="pb-3">Amount</th><th className="pb-3">Actions</th></tr></thead><tbody>{list.map((e: any) => (<tr key={e.id} className="table-row"><td className="py-3">{e.expense_date ? new Date(e.expense_date).toLocaleDateString() : '—'}</td><td className="py-3 font-bold text-earth-950">{e.title}</td><td className="py-3">{e.category}</td><td className="py-3">{Number(e.amount).toFixed(2)} ETB</td><td className="py-3 text-sm"><button className="text-spice-700 font-bold mr-2" onClick={() => setEditing(e.id)}>Edit</button><button className="text-red-600 font-bold" onClick={async () => { if (!confirm('Delete this operating cost?')) return; setMessage(null); try { await deleteExpense(e.id); setMessage({ type: 'success', text: 'Operating cost deleted.' }) } catch (err) { setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not delete operating cost.' }) } }}>Delete</button></td></tr>))}</tbody></table>}
           </div>
         </div>
       </div>

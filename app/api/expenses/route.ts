@@ -18,9 +18,15 @@ export async function POST(request: Request) {
     const parsed = expenseCreateSchema.safeParse(body)
     if (!parsed.success) return NextResponse.json({ error: parsed.error.format() }, { status: 422 })
 
-    const { title, category, amount, notes } = parsed.data
+    const { title, category, amount, expenseDate, notes } = parsed.data
 
-    const [created] = await db.insert(schema.expenses).values({ title, category, amount, notes } as any).returning()
+    const [created] = await db.insert(schema.expenses).values({
+      title,
+      category,
+      amount,
+      notes,
+      expense_date: expenseDate ? new Date(expenseDate) : new Date()
+    } as any).returning()
 
     return NextResponse.json(created, { status: 201 })
   } catch (err) {

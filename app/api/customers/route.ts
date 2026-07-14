@@ -20,7 +20,28 @@ export async function GET() {
       .groupBy(schema.customers.id)
       .orderBy(desc(schema.customers.created_at))
 
-    return NextResponse.json(customers)
+    const ledgerTotals = await db
+      .select({
+        customer_id: schema.credit_ledgers.customer_id,
+        ledger_balance: sql<number>`coalesce(sum(${schema.credit_ledgers.balance}), 0)`
+      })
+      .from(schema.credit_ledgers)
+      .groupBy(schema.credit_ledgers.customer_id)
+
+    const ledgerByCustomer = new Map(ledgerTotals.map((row) => [row.customer_id, Number(row.ledger_balance)]))
+
+    return NextResponse.json(
+      customers.map((customer) => {
+        const ledger_balance = ledgerByCustomer.get(customer.id) ?? 0
+        const sales_balance = Number(customer.outstanding_balance)
+        return {
+          ...customer,
+          ledger_balance,
+          outstanding_balance: sales_balance,
+          total_credit: sales_balance + ledger_balance
+        }
+      })
+    )
   } catch (err) {
     return databaseErrorResponse(err, 'Could not load customer accounts')
   }

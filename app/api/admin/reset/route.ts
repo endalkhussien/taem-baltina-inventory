@@ -15,6 +15,8 @@ export async function POST(request: Request) {
     }
 
     await db.transaction(async (tx) => {
+      await tx.execute(sql`DELETE FROM credit_payments`)
+      await tx.execute(sql`DELETE FROM credit_ledgers`)
       await tx.execute(sql`DELETE FROM liability_payments`)
       await tx.execute(sql`DELETE FROM liabilities`)
       await tx.execute(sql`DELETE FROM cash_entries`)

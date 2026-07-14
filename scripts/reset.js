@@ -39,6 +39,8 @@ async function reset() {
   try {
     await client.query('BEGIN')
 
+    await client.query('DELETE FROM credit_payments')
+    await client.query('DELETE FROM credit_ledgers')
     await client.query('DELETE FROM liability_payments')
     await client.query('DELETE FROM liabilities')
     await client.query('DELETE FROM cash_entries')

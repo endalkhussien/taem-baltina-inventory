@@ -8,6 +8,7 @@ import { useProduction } from '../../../hooks/useModules'
 import { useProducts } from '../../../hooks/useProducts'
 import { computeBatchMaterialCost, computeBatchTotalCost, computeCostPerKg } from '../../../lib/productionCost'
 import { formatStockKg } from '../../../lib/productStock'
+import { computeEstimatedBatchProfit, computeProfitMarginPercent, computeProfitPerKg } from '../../../lib/profit'
 
 const today = new Date().toISOString().slice(0, 10)
 
@@ -62,10 +63,15 @@ export default function ProductionPage() {
     () => computeBatchMaterialCost(recipe.data?.lines ?? [], batchCount),
     [batchCount, recipe.data]
   )
+  const selectedProduct = productList.find((product) => product.id === selectedProductId) ?? null
   const overheadCost = laborCost + equipmentCost + otherOverhead
   const totalBatchCost = computeBatchTotalCost(materialCost, laborCost, equipmentCost, otherOverhead)
   const costPerKg = computeCostPerKg(totalBatchCost, quantityProduced)
-  const selectedProduct = productList.find((product) => product.id === selectedProductId) ?? null
+  const sellingPricePerKg = selectedProduct ? Number(selectedProduct.selling_price) : 0
+  const profitPerKg = computeProfitPerKg(sellingPricePerKg, costPerKg)
+  const estimatedBatchProfit = computeEstimatedBatchProfit(quantityProduced, sellingPricePerKg, totalBatchCost)
+  const batchRevenue = quantityProduced * sellingPricePerKg
+  const profitMargin = computeProfitMarginPercent(estimatedBatchProfit, batchRevenue)
   const currentStockKg = selectedProduct ? Number(selectedProduct.stock_quantity) : 0
   const projectedStockKg = currentStockKg + quantityProduced
 
@@ -182,6 +188,34 @@ export default function ProductionPage() {
                   <div className="flex justify-between mt-2 pt-2 border-t border-spice-200 text-base"><span className="font-black">Total batch cost</span><span className="font-black text-spice-800">{totalBatchCost.toFixed(2)} ETB</span></div>
                   {quantityProduced > 0 && (
                     <div className="mt-1 text-xs text-earth-600">{costPerKg.toFixed(2)} ETB cost per kg produced</div>
+                  )}
+                  {selectedProductId > 0 && quantityProduced > 0 && sellingPricePerKg > 0 && (
+                    <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/80 p-3 text-sm">
+                      <p className="font-bold text-emerald-900">Estimated profit (this batch)</p>
+                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                        <p className="text-earth-700">
+                          Cost to produce: <span className="font-bold">{costPerKg.toFixed(2)} ETB</span>/kg
+                        </p>
+                        <p className="text-earth-700">
+                          Selling price: <span className="font-bold">{sellingPricePerKg.toFixed(2)} ETB</span>/kg
+                        </p>
+                        <p className="text-earth-700">
+                          Profit per kg:{' '}
+                          <span className={`font-bold ${profitPerKg >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                            {profitPerKg.toFixed(2)} ETB
+                          </span>
+                        </p>
+                        <p className="text-earth-700">
+                          Margin: <span className="font-bold">{profitMargin.toFixed(1)}%</span>
+                        </p>
+                      </div>
+                      <p className="mt-2 border-t border-emerald-200 pt-2 font-bold text-emerald-900">
+                        If you sell all {quantityProduced.toLocaleString()} kg at list price: {estimatedBatchProfit.toFixed(2)} ETB profit
+                      </p>
+                      <p className="mt-1 text-xs text-earth-500">
+                        Cost = materials + labour + machine + other overhead. Operating expenses (rent, etc.) are tracked on Expenses.
+                      </p>
+                    </div>
                   )}
                 </div>
                 <button className="btn-primary w-full" type="submit" disabled={isCreatingProduction || selectedProductId === 0 || batchCount < 1}>
