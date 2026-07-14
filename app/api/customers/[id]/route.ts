@@ -29,9 +29,14 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     const parsed = customerPatchSchema.safeParse(body.data)
     if (!parsed.success) return NextResponse.json({ error: parsed.error.format() }, { status: 422 })
 
+    const updateData: Record<string, unknown> = {}
+    if (parsed.data.name !== undefined) updateData.name = parsed.data.name.trim()
+    if (parsed.data.phone !== undefined) updateData.phone = parsed.data.phone.trim() || null
+    if (parsed.data.notes !== undefined) updateData.notes = parsed.data.notes.trim() || null
+
     const [updated] = await db
       .update(schema.customers)
-      .set(parsed.data)
+      .set(updateData)
       .where(eq(schema.customers.id, id))
       .returning()
 
@@ -55,6 +60,22 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
 
     if (Number(credit?.balance ?? 0) > 0) {
       return NextResponse.json({ error: 'Cannot delete a customer account with outstanding credit. Record repayments first.' }, { status: 409 })
+    }
+
+    let ledgerBalance = 0
+    try {
+      const [ledger] = await db
+        .select({ balance: sql<number>`coalesce(sum(${schema.credit_ledgers.balance}), 0)` })
+        .from(schema.credit_ledgers)
+        .where(eq(schema.credit_ledgers.customer_id, id))
+
+      ledgerBalance = Number(ledger?.balance ?? 0)
+    } catch {
+      // credit ledger table may not exist yet on older databases
+    }
+
+    if (ledgerBalance > 0) {
+      return NextResponse.json({ error: 'Cannot delete a customer with open credit ledger balance. Record payments first.' }, { status: 409 })
     }
 
     await db.delete(schema.customers).where(eq(schema.customers.id, id))

@@ -2,30 +2,47 @@
 
 import React, { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import AdminNav from '../../../components/AdminNav'
 import { useCreditLedgers, useCreditPayments, useCustomers } from '../../../hooks/useModules'
+import { useProducts } from '../../../hooks/useProducts'
 import { creditLedgerCreateSchema } from '../../../lib/validators/credit'
-import { zodResolver } from '@hookform/resolvers/zod'
+import { customerCreateSchema } from '../../../lib/validators/customer'
+import { formatStockKg } from '../../../lib/productStock'
 
 const today = new Date().toISOString().slice(0, 10)
 
 export default function CustomersPage() {
-  const { data: customers, isLoading, createCustomer, updateCustomer, isCreatingCustomer, isUpdatingCustomer, deleteCustomer } = useCustomers()
+  const { data: products } = useProducts()
+  const { data: customers, isLoading, isError: customersLoadError, error: customersLoadErrorMessage, createCustomer, updateCustomer, isCreatingCustomer, isUpdatingCustomer, deleteCustomer } = useCustomers()
   const { data: creditLedgers, isLoading: creditLoading, isError: creditLoadError, error: creditLoadErrorMessage, createCreditLedger, isCreatingCreditLedger, deleteCreditLedger } = useCreditLedgers()
   const { createCreditPayment, isCreatingCreditPayment } = useCreditPayments()
   const [editing, setEditing] = useState<number | null>(null)
   const [payCreditId, setPayCreditId] = useState<number | null>(null)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
-  const { register, handleSubmit, reset } = useForm({ defaultValues: { name: '', phone: '', notes: '' } })
+
+  const { register, handleSubmit, reset, formState: { errors: customerErrors } } = useForm({
+    resolver: zodResolver(customerCreateSchema),
+    defaultValues: { name: '', phone: '', notes: '' }
+  })
+
   const creditForm = useForm({
     resolver: zodResolver(creditLedgerCreateSchema),
-    defaultValues: { customerId: 0, title: '', totalAmount: 0, amountPaid: 0, creditDate: today, notes: '' }
+    defaultValues: { customerId: 0, productId: 0, quantityKg: 0, title: '', totalAmount: 0, amountPaid: 0, creditDate: today, notes: '' }
   })
+
   const paymentForm = useForm({ defaultValues: { amount: 0, paymentDate: today, notes: '' } })
 
+  const productList = useMemo(() => (Array.isArray(products) ? products : []), [products])
   const list = useMemo(() => (Array.isArray(customers) ? customers : []), [customers])
   const ledgerList = useMemo(() => (Array.isArray(creditLedgers) ? creditLedgers : []), [creditLedgers])
   const isSaving = isCreatingCustomer || isUpdatingCustomer
+
+  const creditProductId = Number(creditForm.watch('productId') || 0)
+  const creditQuantityKg = Number(creditForm.watch('quantityKg') || 0)
+  const selectedCreditProduct = productList.find((product) => product.id === creditProductId) ?? null
+  const unitPrice = selectedCreditProduct ? Number(selectedCreditProduct.selling_price) : 0
+  const isProductCredit = creditProductId > 0
 
   const openCredits = useMemo(() => ledgerList.filter((row) => Number(row.balance) > 0), [ledgerList])
   const sortedLedger = useMemo(
@@ -39,6 +56,16 @@ export default function CustomersPage() {
   const selectedCredit = ledgerList.find((row) => row.id === payCreditId && Number(row.balance) > 0) ?? null
 
   useEffect(() => {
+    if (!isProductCredit || !selectedCreditProduct) return
+
+    const nextTotal = Number((creditQuantityKg * unitPrice).toFixed(2))
+    if (creditQuantityKg > 0) {
+      creditForm.setValue('totalAmount', nextTotal, { shouldValidate: true })
+      creditForm.setValue('title', `${selectedCreditProduct.name} — ${creditQuantityKg} kg on credit`, { shouldValidate: true })
+    }
+  }, [creditForm, creditQuantityKg, isProductCredit, selectedCreditProduct, unitPrice])
+
+  useEffect(() => {
     if (!editing) {
       reset({ name: '', phone: '', notes: '' })
       return
@@ -49,14 +76,19 @@ export default function CustomersPage() {
     }
   }, [editing, list, reset])
 
-  const onSubmitCustomer = async (values: any) => {
+  const onSubmitCustomer = async (values: { name: string; phone?: string; notes?: string }) => {
     setMessage(null)
     try {
-      if (editing) await updateCustomer(editing, values)
-      else await createCustomer(values)
+      const payload = {
+        name: values.name.trim(),
+        phone: values.phone?.trim() || undefined,
+        notes: values.notes?.trim() || undefined
+      }
+      if (editing) await updateCustomer(editing, payload)
+      else await createCustomer(payload)
       setEditing(null)
       reset()
-      setMessage({ type: 'success', text: 'Customer saved.' })
+      setMessage({ type: 'success', text: editing ? 'Customer updated.' : 'Customer added. You can record credit for them now.' })
     } catch (err) {
       setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not save customer.' })
     }
@@ -66,8 +98,8 @@ export default function CustomersPage() {
     setMessage(null)
     try {
       await createCreditLedger(values)
-      creditForm.reset({ customerId: 0, title: '', totalAmount: 0, amountPaid: 0, creditDate: today, notes: '' })
-      setMessage({ type: 'success', text: 'Credit recorded. Balance tracked separately from sales.' })
+      creditForm.reset({ customerId: 0, productId: 0, quantityKg: 0, title: '', totalAmount: 0, amountPaid: 0, creditDate: today, notes: '' })
+      setMessage({ type: 'success', text: 'Credit recorded.' })
     } catch (err) {
       setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not record credit.' })
     }
@@ -96,7 +128,7 @@ export default function CustomersPage() {
               <div className="eyebrow">Credit desk</div>
               <h1 className="mt-2 font-display text-4xl font-black text-earth-950">Customer Credit Ledger</h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-earth-500">
-                Record credit owed to you without linking to sales. Enter total amount, optional payment now, then collect partial or full payments later.
+                Add customers first, then record credit for one finished good or for mixed / all products. Total auto-calculates when you pick a product and kg.
               </p>
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -124,7 +156,9 @@ export default function CustomersPage() {
           <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
             <div className="card">
               <h2 className="font-display text-xl font-black text-earth-950 mb-1">Record credit</h2>
-              <p className="mb-5 text-sm text-earth-500">Simple credit — not tied to a sale. Example: customer took 5,000 ETB goods on credit.</p>
+              <p className="mb-5 text-sm text-earth-500">
+                Pick a finished good for one-product credit, or choose &quot;Mixed / all products&quot; when the credit covers more than one stock item.
+              </p>
               <form onSubmit={creditForm.handleSubmit(onSubmitCredit)} className="space-y-4">
                 <div>
                   <label className="block text-sm font-bold text-earth-700 mb-1.5">Customer</label>
@@ -134,21 +168,62 @@ export default function CustomersPage() {
                       <option key={customer.id} value={customer.id}>{customer.name}</option>
                     ))}
                   </select>
+                  {list.length === 0 && (
+                    <p className="mt-1 text-xs text-amber-700">Add a customer below before recording credit.</p>
+                  )}
                   {creditForm.formState.errors.customerId && (
                     <p className="mt-1 text-xs text-red-600">Select a customer.</p>
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-earth-700 mb-1.5">What is owed for?</label>
-                  <input className="input-field" {...creditForm.register('title')} placeholder="e.g. Berbere 20kg on credit" />
-                  {creditForm.formState.errors.title && (
-                    <p className="mt-1 text-xs text-red-600">Description is required.</p>
-                  )}
+                  <label className="block text-sm font-bold text-earth-700 mb-1.5">Credit for (finished good)</label>
+                  <select className="input-field" {...creditForm.register('productId', { valueAsNumber: true })}>
+                    <option value={0}>Mixed / all products</option>
+                    {productList.map((product) => (
+                      <option key={product.id} value={product.id}>
+                        {product.name} ({formatStockKg(product.stock_quantity)} in stock)
+                      </option>
+                    ))}
+                  </select>
                 </div>
+                {isProductCredit ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-bold text-earth-700 mb-1.5">Quantity (kg)</label>
+                      <input type="number" step="0.001" min="0.001" className="input-field" {...creditForm.register('quantityKg', { valueAsNumber: true })} />
+                      {creditForm.formState.errors.quantityKg && (
+                        <p className="mt-1 text-xs text-red-600">{creditForm.formState.errors.quantityKg.message}</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-earth-700 mb-1.5">Price per kg (auto)</label>
+                      <div className="input-field bg-earth-50 font-semibold text-earth-800">
+                        {unitPrice > 0 ? `${unitPrice.toFixed(2)} ETB` : '—'}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-sm font-bold text-earth-700 mb-1.5">What is owed for?</label>
+                    <input className="input-field" {...creditForm.register('title')} placeholder="e.g. Berbere + Shiro mix on credit" />
+                    {creditForm.formState.errors.title && (
+                      <p className="mt-1 text-xs text-red-600">{creditForm.formState.errors.title.message}</p>
+                    )}
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-bold text-earth-700 mb-1.5">Total credit (ETB)</label>
-                    <input type="number" step="0.01" min="0.01" className="input-field" {...creditForm.register('totalAmount', { valueAsNumber: true })} />
+                    <label className="block text-sm font-bold text-earth-700 mb-1.5">
+                      {isProductCredit ? 'Total credit (auto)' : 'Total credit (ETB)'}
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      className={`input-field ${isProductCredit ? 'bg-earth-50' : ''}`}
+                      readOnly={isProductCredit}
+                      {...creditForm.register('totalAmount', { valueAsNumber: true })}
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-earth-700 mb-1.5">Paid now (ETB)</label>
@@ -160,7 +235,7 @@ export default function CustomersPage() {
                     {creditForm.formState.errors.totalAmount?.message || creditForm.formState.errors.amountPaid?.message}
                   </p>
                 )}
-                <p className="text-xs text-earth-500">Leave &quot;Paid now&quot; at 0 for full credit. If paid in full now, the entry shows as Paid.</p>
+                <p className="text-xs text-earth-500">Leave &quot;Paid now&quot; at 0 for full credit.</p>
                 <div>
                   <label className="block text-sm font-bold text-earth-700 mb-1.5">Credit date</label>
                   <input type="date" className="input-field" {...creditForm.register('creditDate')} />
@@ -169,7 +244,7 @@ export default function CustomersPage() {
                   <label className="block text-sm font-bold text-earth-700 mb-1.5">Notes</label>
                   <input className="input-field" {...creditForm.register('notes')} placeholder="Optional" />
                 </div>
-                <button className="btn-primary w-full" type="submit" disabled={isCreatingCreditLedger}>
+                <button className="btn-primary w-full" type="submit" disabled={isCreatingCreditLedger || list.length === 0}>
                   {isCreatingCreditLedger ? 'Saving...' : 'Save credit'}
                 </button>
               </form>
@@ -186,16 +261,17 @@ export default function CustomersPage() {
                 <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                   <p className="font-bold">Could not load credit list.</p>
                   <p className="mt-1">{creditLoadErrorMessage instanceof Error ? creditLoadErrorMessage.message : 'Unknown error.'}</p>
-                  <p className="mt-2 text-xs">If this is a new install, run <code className="font-mono">npm run drizzle:push</code> once to create the credit tables.</p>
+                  <p className="mt-2 text-xs">Run <code className="font-mono">npm run drizzle:push</code> once if credit tables are new.</p>
                 </div>
               ) : sortedLedger.length === 0 ? (
-                <p className="text-sm text-earth-500">No credit recorded yet. Save a credit entry using the form on the left.</p>
+                <p className="text-sm text-earth-500">No credit recorded yet.</p>
               ) : (
-                <table className="w-full min-w-[720px] text-sm">
+                <table className="w-full min-w-[800px] text-sm">
                   <thead>
                     <tr className="table-head">
                       <th className="px-3 py-2">Date</th>
                       <th className="px-3 py-2">Customer</th>
+                      <th className="px-3 py-2">Product</th>
                       <th className="px-3 py-2">Description</th>
                       <th className="px-3 py-2">Total</th>
                       <th className="px-3 py-2">Paid</th>
@@ -209,40 +285,48 @@ export default function CustomersPage() {
                       const balance = Number(row.balance)
                       const isOpen = balance > 0
                       return (
-                      <tr key={row.id} className="table-row">
-                        <td className="px-3 py-3">{new Date(row.credit_date).toLocaleDateString()}</td>
-                        <td className="px-3 py-3 font-bold">{row.customer_name || '—'}</td>
-                        <td className="px-3 py-3">{row.title}</td>
-                        <td className="px-3 py-3">{Number(row.total_amount).toFixed(2)}</td>
-                        <td className="px-3 py-3 text-green-700">{Number(row.amount_paid).toFixed(2)}</td>
-                        <td className={`px-3 py-3 font-bold ${isOpen ? 'text-red-700' : 'text-green-700'}`}>{balance.toFixed(2)}</td>
-                        <td className="px-3 py-3">
-                          <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${isOpen ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'}`}>
-                            {isOpen ? 'Open' : 'Paid'}
-                          </span>
-                        </td>
-                        <td className="px-3 py-3 whitespace-nowrap">
-                          {isOpen && (
-                            <button type="button" className="text-spice-700 font-bold mr-3" onClick={() => setPayCreditId(row.id)}>Pay</button>
-                          )}
-                          <button
-                            type="button"
-                            className="text-red-600 font-bold"
-                            onClick={async () => {
-                              if (!confirm('Delete this credit entry?')) return
-                              try {
-                                await deleteCreditLedger(row.id)
-                                setMessage({ type: 'success', text: 'Credit entry deleted.' })
-                              } catch (err) {
-                                setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not delete.' })
-                              }
-                            }}
-                          >
-                            Delete
-                          </button>
-                        </td>
-                      </tr>
-                    )})}
+                        <tr key={row.id} className="table-row">
+                          <td className="px-3 py-3">{new Date(row.credit_date).toLocaleDateString()}</td>
+                          <td className="px-3 py-3 font-bold">{row.customer_name || '—'}</td>
+                          <td className="px-3 py-3">
+                            {row.product_name ? (
+                              <span>{row.product_name}{row.quantity_kg ? ` (${Number(row.quantity_kg)} kg)` : ''}</span>
+                            ) : (
+                              <span className="text-earth-500">Mixed / all</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-3">{row.title}</td>
+                          <td className="px-3 py-3">{Number(row.total_amount).toFixed(2)}</td>
+                          <td className="px-3 py-3 text-green-700">{Number(row.amount_paid).toFixed(2)}</td>
+                          <td className={`px-3 py-3 font-bold ${isOpen ? 'text-red-700' : 'text-green-700'}`}>{balance.toFixed(2)}</td>
+                          <td className="px-3 py-3">
+                            <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${isOpen ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800'}`}>
+                              {isOpen ? 'Open' : 'Paid'}
+                            </span>
+                          </td>
+                          <td className="px-3 py-3 whitespace-nowrap">
+                            {isOpen && (
+                              <button type="button" className="text-spice-700 font-bold mr-3" onClick={() => setPayCreditId(row.id)}>Pay</button>
+                            )}
+                            <button
+                              type="button"
+                              className="text-red-600 font-bold"
+                              onClick={async () => {
+                                if (!confirm('Delete this credit entry?')) return
+                                try {
+                                  await deleteCreditLedger(row.id)
+                                  setMessage({ type: 'success', text: 'Credit entry deleted.' })
+                                } catch (err) {
+                                  setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not delete.' })
+                                }
+                              }}
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               )}
@@ -250,7 +334,7 @@ export default function CustomersPage() {
           </div>
 
           {payCreditId && selectedCredit && (
-            <div className="card max-w-xl">
+            <div className="card max-w-xl mt-6">
               <h2 className="font-display text-xl font-black text-earth-950 mb-1">Record payment</h2>
               <p className="mb-4 text-sm text-earth-500">
                 {selectedCredit.customer_name} • {selectedCredit.title} • balance {Number(selectedCredit.balance).toFixed(2)} ETB
@@ -274,12 +358,16 @@ export default function CustomersPage() {
           <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
             <div className="card">
               <h2 className="font-display text-xl font-black text-earth-950 mb-1">{editing ? 'Edit customer' : 'Add customer'}</h2>
-              <form onSubmit={handleSubmit(onSubmitCustomer)} className="space-y-4 mt-4">
-                <input className="input-field" placeholder="Customer name" {...register('name', { required: true })} />
-                <input className="input-field" placeholder="Phone" {...register('phone')} />
-                <textarea className="input-field" rows={2} placeholder="Notes" {...register('notes')} />
+              <p className="mb-4 text-sm text-earth-500">Create the customer here first, then record credit above.</p>
+              <form onSubmit={handleSubmit(onSubmitCustomer)} className="space-y-4">
+                <div>
+                  <input className="input-field" placeholder="Customer name *" {...register('name')} />
+                  {customerErrors.name && <p className="mt-1 text-xs text-red-600">Customer name is required.</p>}
+                </div>
+                <input className="input-field" placeholder="Phone (optional)" {...register('phone')} />
+                <textarea className="input-field" rows={2} placeholder="Notes (optional)" {...register('notes')} />
                 <div className="flex gap-2">
-                  <button className="btn-primary flex-1" type="submit" disabled={isSaving}>{isSaving ? 'Saving...' : editing ? 'Update' : 'Add'}</button>
+                  <button className="btn-primary flex-1" type="submit" disabled={isSaving}>{isSaving ? 'Saving...' : editing ? 'Update' : 'Add customer'}</button>
                   {editing && <button className="btn-secondary" type="button" onClick={() => setEditing(null)}>Cancel</button>}
                 </div>
               </form>
@@ -287,14 +375,22 @@ export default function CustomersPage() {
 
             <div className="lg:col-span-2 card overflow-x-auto">
               <h2 className="font-display text-xl font-black text-earth-950 mb-1">Customers</h2>
-              {isLoading ? <p className="text-earth-500">Loading...</p> : list.length === 0 ? (
-                <p className="text-earth-500">Add a customer first, then record credit above.</p>
+              {isLoading ? (
+                <p className="text-earth-500">Loading customers...</p>
+              ) : customersLoadError ? (
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  <p className="font-bold">Could not load customers.</p>
+                  <p className="mt-1">{customersLoadErrorMessage instanceof Error ? customersLoadErrorMessage.message : 'Unknown error.'}</p>
+                </div>
+              ) : list.length === 0 ? (
+                <p className="text-earth-500">No customers yet. Add one using the form on the left.</p>
               ) : (
-                <table className="w-full text-sm">
+                <table className="w-full min-w-[760px] text-sm">
                   <thead>
                     <tr className="table-head">
                       <th className="px-3 py-2">Name</th>
                       <th className="px-3 py-2">Phone</th>
+                      <th className="px-3 py-2">Total sales</th>
                       <th className="px-3 py-2">Ledger credit</th>
                       <th className="px-3 py-2">Sales credit</th>
                       <th className="px-3 py-2">Total owed</th>
@@ -306,6 +402,7 @@ export default function CustomersPage() {
                       <tr key={customer.id} className="table-row">
                         <td className="px-3 py-3 font-bold">{customer.name}</td>
                         <td className="px-3 py-3">{customer.phone || '—'}</td>
+                        <td className="px-3 py-3 font-semibold text-spice-700">{Number(customer.total_sales ?? 0).toFixed(2)}</td>
                         <td className="px-3 py-3">{Number(customer.ledger_balance ?? 0).toFixed(2)}</td>
                         <td className="px-3 py-3">{Number(customer.outstanding_balance).toFixed(2)}</td>
                         <td className="px-3 py-3 font-bold text-red-700">{Number(customer.total_credit ?? customer.outstanding_balance).toFixed(2)}</td>

@@ -10,6 +10,12 @@ function parseDate(value?: string) {
   return Number.isNaN(date.getTime()) ? null : date
 }
 
+function buildCreditTitle(productName: string | null, quantityKg: number, customTitle?: string) {
+  if (customTitle?.trim()) return customTitle.trim()
+  if (productName && quantityKg > 0) return `${productName} — ${quantityKg} kg on credit`
+  return 'Credit'
+}
+
 export async function GET() {
   try {
     const rows = await db
@@ -17,6 +23,9 @@ export async function GET() {
         id: schema.credit_ledgers.id,
         customer_id: schema.credit_ledgers.customer_id,
         customer_name: schema.customers.name,
+        product_id: schema.credit_ledgers.product_id,
+        product_name: schema.products.name,
+        quantity_kg: schema.credit_ledgers.quantity_kg,
         title: schema.credit_ledgers.title,
         total_amount: schema.credit_ledgers.total_amount,
         amount_paid: schema.credit_ledgers.amount_paid,
@@ -27,6 +36,7 @@ export async function GET() {
       })
       .from(schema.credit_ledgers)
       .leftJoin(schema.customers, eq(schema.credit_ledgers.customer_id, schema.customers.id))
+      .leftJoin(schema.products, eq(schema.credit_ledgers.product_id, schema.products.id))
       .orderBy(desc(schema.credit_ledgers.credit_date))
 
     return NextResponse.json(rows)
@@ -52,20 +62,46 @@ export async function POST(request: Request) {
     }
 
     const [customer] = await db
-      .select({ id: schema.customers.id })
+      .select({ id: schema.customers.id, name: schema.customers.name })
       .from(schema.customers)
       .where(eq(schema.customers.id, parsed.data.customerId))
       .limit(1)
 
     if (!customer) return NextResponse.json({ error: 'Customer not found.' }, { status: 404 })
 
+    const productId = Number(parsed.data.productId ?? 0)
+    const quantityKg = Number(parsed.data.quantityKg ?? 0)
+    let productName: string | null = null
+
+    if (productId > 0) {
+      const [product] = await db
+        .select({ id: schema.products.id, name: schema.products.name, selling_price: schema.products.selling_price })
+        .from(schema.products)
+        .where(eq(schema.products.id, productId))
+        .limit(1)
+
+      if (!product) return NextResponse.json({ error: 'Product not found.' }, { status: 404 })
+
+      productName = product.name
+      const expectedTotal = Number((quantityKg * Number(product.selling_price)).toFixed(2))
+      if (Math.abs(expectedTotal - parsed.data.totalAmount) > 0.02) {
+        return NextResponse.json(
+          { error: `Total should be ${expectedTotal.toFixed(2)} ETB (${quantityKg} kg × ${Number(product.selling_price).toFixed(2)}).` },
+          { status: 422 }
+        )
+      }
+    }
+
+    const title = buildCreditTitle(productName, quantityKg, parsed.data.title)
     const balance = parsed.data.totalAmount - amountPaid
 
     const [created] = await db
       .insert(schema.credit_ledgers)
       .values({
         customer_id: parsed.data.customerId,
-        title: parsed.data.title,
+        product_id: productId > 0 ? productId : null,
+        quantity_kg: productId > 0 ? quantityKg : null,
+        title,
         total_amount: parsed.data.totalAmount,
         amount_paid: amountPaid,
         balance,
@@ -74,16 +110,11 @@ export async function POST(request: Request) {
       })
       .returning()
 
-    const [customerRow] = await db
-      .select({ name: schema.customers.name })
-      .from(schema.customers)
-      .where(eq(schema.customers.id, parsed.data.customerId))
-      .limit(1)
-
     return NextResponse.json(
       {
         ...created,
-        customer_name: customerRow?.name ?? null
+        customer_name: customer.name,
+        product_name: productName
       },
       { status: 201 }
     )
