@@ -55,12 +55,12 @@ function KpiCard({
   tone?: 'sales' | 'purchase' | 'expense' | 'credit' | 'profit' | 'neutral'
 }) {
   const tones = {
-    sales: 'bg-rose-50 border-rose-100',
-    purchase: 'bg-emerald-50 border-emerald-100',
-    expense: 'bg-sky-50 border-sky-100',
-    credit: 'bg-amber-50 border-amber-100',
-    profit: 'bg-orange-50 border-orange-100',
-    neutral: 'bg-white border-earth-100'
+    sales: 'bg-rose-50 border-rose-200',
+    purchase: 'bg-emerald-50 border-emerald-200',
+    expense: 'bg-sky-50 border-sky-200',
+    credit: 'bg-amber-50 border-amber-200',
+    profit: 'bg-orange-50 border-orange-200',
+    neutral: 'bg-white border-earth-200'
   }
   const iconTones = {
     sales: 'bg-rose-100 text-rose-600',
@@ -196,14 +196,14 @@ export default function DashboardPage() {
                 Sales, purchases, expenses, credit, and stock at a glance for {salesPeriodLabels[period].toLowerCase()}.
               </p>
             </div>
-            <div className="flex rounded-2xl border border-earth-200 bg-white p-1 shadow-sm">
+            <div className="flex rounded-2xl border border-earth-300 bg-earth-50 p-1 shadow-sm">
               {periodOptions.map((item) => (
                 <button
                   key={item}
                   type="button"
                   onClick={() => setPeriod(item)}
                   className={`rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wide transition-colors ${
-                    period === item ? 'bg-spice-700 text-white' : 'text-earth-600 hover:bg-earth-50'
+                    period === item ? 'bg-spice-700 text-white shadow-sm' : 'text-earth-700 hover:bg-white'
                   }`}
                 >
                   {item === 'today' ? 'Today' : item === 'week' ? 'Week' : item === 'month' ? 'Month' : 'All'}
