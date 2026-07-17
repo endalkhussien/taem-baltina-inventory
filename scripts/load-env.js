@@ -48,22 +48,30 @@ function requireDatabaseUrl() {
   const url = process.env.DATABASE_URL
   if (url) return url
 
+  const cwd = process.cwd()
+  const envPath = path.join(cwd, '.env')
+  const envLocalPath = path.join(cwd, '.env.local')
+
   throw new Error(
     [
       'DATABASE_URL is not set.',
       '',
-      'Command Prompt (same window — check with: echo %DATABASE_URL%):',
-      '  set "DATABASE_URL=postgresql://USER:PASSWORD@HOST/DB?sslmode=require"',
-      '  npm run migrate:decimal-sales',
+      `Folder: ${cwd}`,
+      `.env file: ${fs.existsSync(envPath) ? 'found' : 'missing'}`,
+      `.env.local file: ${fs.existsSync(envLocalPath) ? 'found' : 'missing'}`,
       '',
-      'Or pass the URL directly:',
+      'EASIEST (no URL in CMD) — Neon SQL Editor, run:',
+      '  ALTER TABLE sales ALTER COLUMN quantity TYPE NUMERIC(14,3) USING quantity::numeric;',
+      '  ALTER TABLE products ALTER COLUMN stock_quantity TYPE NUMERIC(14,3) USING stock_quantity::numeric;',
+      '',
+      'OR paste Vercel URL in one command (Command Prompt):',
       '  node scripts/migrate-decimal-sales.js "postgresql://USER:PASSWORD@HOST/DB?sslmode=require"',
       '',
-      'Or create a .env file in the project folder:',
+      'OR create .env in the project folder (same folder as package.json):',
       '  DATABASE_URL=postgresql://USER:PASSWORD@HOST/DB?sslmode=require',
+      '  then: npm run migrate:decimal-sales',
       '',
-      'Use the same string as Vercel → Settings → Environment Variables.',
-      'Easiest skip: run the SQL in Neon SQL Editor (see project README / PR #29).'
+      'Copy DATABASE_URL from Vercel → Project → Settings → Environment Variables.'
     ].join('\n')
   )
 }
