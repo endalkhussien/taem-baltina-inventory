@@ -15,6 +15,7 @@
     "drizzle:push": "drizzle-kit push",
     "migrate:credit": "node scripts/migrate-credit.js",
     "migrate:decimal-sales": "node scripts/migrate-decimal-sales.js",
+    "migrate:decimal-sales:check": "node scripts/check-database-env.js",
     "prepare": "node scripts/prepare-husky.js"
   },
   "engines": {
