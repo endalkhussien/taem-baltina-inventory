@@ -18,7 +18,7 @@ type NavSection = {
 
 function NavIcon({ children }: { children: React.ReactNode }) {
   return (
-    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-earth-100 text-earth-600 transition-colors group-hover:bg-spice-100 group-hover:text-spice-700 [.nav-item-active_&]:bg-spice-600 [.nav-item-active_&]:text-white">
+    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-earth-200/80 text-earth-700 transition-colors group-hover:bg-earth-300 group-hover:text-earth-900 [.nav-item-active_&]:bg-white/20 [.nav-item-active_&]:text-white">
       {children}
     </span>
   )
@@ -153,7 +153,7 @@ export default function AdminNav() {
 
   return (
     <>
-      <nav className="sticky top-0 z-50 border-b border-earth-100 bg-white/95 shadow-sm backdrop-blur-xl xl:hidden">
+      <nav className="sticky top-0 z-50 border-b border-earth-300 bg-earth-50 shadow-md xl:hidden">
         <div className="mx-auto flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <Link href="/admin/dashboard" className="flex min-w-0 items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-spice-600 text-sm font-black text-white shadow-sm">
@@ -183,7 +183,7 @@ export default function AdminNav() {
                 key={link.href}
                 href={link.href}
                 className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-bold transition-colors ${
-                  active ? 'bg-spice-700 text-white' : 'bg-earth-100 text-earth-600 hover:bg-earth-200'
+                  active ? 'bg-spice-700 text-white shadow-sm' : 'border border-earth-300 bg-white text-earth-700 hover:bg-earth-100'
                 }`}
               >
                 {link.short}
@@ -195,7 +195,7 @@ export default function AdminNav() {
 
       <aside className="admin-sidebar hidden xl:flex">
         <div className="flex h-full flex-col">
-          <div className="border-b border-earth-100 px-5 py-5">
+          <div className="border-b border-earth-300 bg-white px-5 py-5 shadow-sm">
             <Link href="/admin/dashboard" className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-spice-600 text-sm font-black text-white shadow-sm">
                 TB
@@ -210,7 +210,7 @@ export default function AdminNav() {
           <div className="flex-1 space-y-6 overflow-y-auto px-4 py-5">
             {sections.map((section) => (
               <div key={section.title}>
-                <div className="mb-2 px-3 text-[11px] font-bold uppercase tracking-[0.18em] text-earth-400">
+                <div className="mb-2 px-3 text-[11px] font-bold uppercase tracking-[0.18em] text-earth-500">
                   {section.title}
                 </div>
                 <div className="space-y-1">
@@ -222,8 +222,8 @@ export default function AdminNav() {
                         href={link.href}
                         className={`nav-item group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-semibold transition-all ${
                           active
-                            ? 'nav-item-active bg-spice-50 text-spice-800 shadow-sm ring-1 ring-spice-100'
-                            : 'text-earth-600 hover:bg-earth-50 hover:text-earth-950'
+                            ? 'nav-item-active bg-spice-700 text-white shadow-md'
+                            : 'text-earth-700 hover:bg-earth-200/70 hover:text-earth-950'
                         }`}
                       >
                         <NavIcon>{link.icon}</NavIcon>
@@ -236,7 +236,7 @@ export default function AdminNav() {
             ))}
           </div>
 
-          <div className="border-t border-earth-100 p-4">
+          <div className="border-t border-earth-300 bg-earth-100/80 p-4">
             <Link
               href="/admin/account"
               className="mb-2 flex w-full items-center justify-center rounded-xl border border-earth-200 bg-white px-4 py-2.5 text-sm font-semibold text-earth-700 transition hover:border-spice-200 hover:bg-spice-50"
