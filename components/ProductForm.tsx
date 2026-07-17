@@ -1,10 +1,11 @@
 "use client"
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { productCreateSchema } from '../lib/validators/product'
 import { useProducts } from '../hooks/useProducts'
+import { useToast } from './ToastProvider'
 import { formatStockKg } from '../lib/productStock'
 
 type Props = {
@@ -13,8 +14,8 @@ type Props = {
 }
 
 export default function ProductForm({ editingId, onDone }: Props) {
+  const toast = useToast()
   const { data: products, createProduct, updateProduct, isCreatingProduct, isUpdatingProduct } = useProducts()
-  const [submitError, setSubmitError] = useState('')
   const isSaving = isCreatingProduct || isUpdatingProduct
   const editingProduct = editingId && Array.isArray(products) ? products.find((x) => x.id === editingId) : null
 
@@ -40,8 +41,6 @@ export default function ProductForm({ editingId, onDone }: Props) {
   }, [editingId, products, reset])
 
   const onSubmit = async (vals: any) => {
-    setSubmitError('')
-
     try {
       if (editingId) {
         const { stockQuantity: _ignored, ...updateVals } = vals
@@ -52,7 +51,7 @@ export default function ProductForm({ editingId, onDone }: Props) {
       reset()
       onDone?.()
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Could not save finished good.')
+      toast.error(err instanceof Error ? err.message : 'Could not save finished good.')
     }
   }
 
@@ -99,11 +98,6 @@ export default function ProductForm({ editingId, onDone }: Props) {
           <input type="number" min="0" className="input-field" {...register('alertThreshold', { valueAsNumber: true })} />
           {errors.alertThreshold && <p className="mt-1 text-xs font-semibold text-red-600">Alert level must be a whole number zero or higher.</p>}
         </div>
-        {submitError && (
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-            {submitError}
-          </div>
-        )}
         <div className="flex gap-2">
           <button className="btn-primary flex-1" type="submit" disabled={isSaving}>
             {isSaving ? 'Saving...' : editingId ? 'Update Finished Good' : 'Create Finished Good'}
@@ -114,7 +108,6 @@ export default function ProductForm({ editingId, onDone }: Props) {
               type="button"
               onClick={() => {
                 reset({ name: '', sellingPrice: 0, stockQuantity: 0, alertThreshold: 0 })
-                setSubmitError('')
                 onDone?.()
               }}
             >

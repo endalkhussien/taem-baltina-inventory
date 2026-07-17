@@ -112,6 +112,50 @@
     @apply text-sm text-earth-500;
   }
 
+  .toast-stack {
+    @apply pointer-events-none fixed right-4 top-4 z-[300] flex w-full max-w-sm flex-col gap-3 sm:right-6 sm:top-6;
+  }
+
+  .toast-card {
+    @apply pointer-events-auto flex items-start gap-3 rounded-2xl border border-earth-100 px-4 py-3 shadow-lg backdrop-blur-sm;
+  }
+
+  .toast-icon {
+    @apply mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-black;
+  }
+
+  .toast-icon.success {
+    @apply bg-emerald-100 text-emerald-700;
+  }
+
+  .toast-icon.error {
+    @apply bg-red-100 text-red-700;
+  }
+
+  .toast-icon.info {
+    @apply bg-sky-100 text-sky-700;
+  }
+
+  .toast-text {
+    @apply flex-1 text-sm font-medium leading-5 text-earth-800;
+  }
+
+  .toast-close {
+    @apply -mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xl leading-none text-earth-400 transition hover:bg-earth-100 hover:text-earth-700;
+  }
+
+  .low-stock-banner {
+    @apply pointer-events-none fixed bottom-4 right-4 z-[250] w-full max-w-md sm:bottom-6 sm:right-6;
+  }
+
+  .low-stock-banner-card {
+    @apply pointer-events-auto rounded-2xl border border-amber-200 bg-white/95 p-4 shadow-xl backdrop-blur-sm;
+  }
+
+  .low-stock-banner-icon {
+    @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-lg font-black text-amber-700;
+  }
+
   .nav-link {
     @apply rounded-xl px-3 py-2 text-sm font-semibold text-earth-200 transition-all duration-200 hover:bg-white/10 hover:text-white;
   }

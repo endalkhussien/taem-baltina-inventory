@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import AdminNav from '../../../components/AdminNav'
+import { useToast } from '../../../components/ToastProvider'
 
 type ChangePasswordValues = {
   currentPassword: string
@@ -11,12 +12,11 @@ type ChangePasswordValues = {
 }
 
 export default function AccountPage() {
+  const toast = useToast()
   const { register, handleSubmit, reset } = useForm<ChangePasswordValues>()
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [loading, setLoading] = useState(false)
 
   const onSubmit = async (data: ChangePasswordValues) => {
-    setMessage(null)
     setLoading(true)
 
     try {
@@ -30,14 +30,14 @@ export default function AccountPage() {
       const body = await res.json().catch(() => null)
 
       if (!res.ok) {
-        setMessage({ type: 'error', text: body?.error || 'Could not change password.' })
+        toast.error(body?.error || 'Could not change password.')
         return
       }
 
       reset()
-      setMessage({ type: 'success', text: body?.message || 'Password updated successfully.' })
+      toast.success(body?.message || 'Password updated successfully.')
     } catch {
-      setMessage({ type: 'error', text: 'Something went wrong. Please try again.' })
+      toast.error('Something went wrong. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -73,12 +73,6 @@ export default function AccountPage() {
                 <label className="block text-sm font-bold text-earth-700 mb-1.5">Confirm new password</label>
                 <input type="password" className="input-field" autoComplete="new-password" {...register('confirmPassword', { required: true })} />
               </div>
-
-              {message && (
-                <div className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${message.type === 'success' ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'}`}>
-                  {message.text}
-                </div>
-              )}
 
               <button className="btn-primary" type="submit" disabled={loading}>
                 {loading ? 'Updating password...' : 'Update password'}

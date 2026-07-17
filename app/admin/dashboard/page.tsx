@@ -25,6 +25,7 @@ import {
   recentSalesList,
   topSellingProducts
 } from '../../../lib/dashboardMetrics'
+import { formatEtb } from '../../../lib/formatCurrency'
 import {
   Bar,
   BarChart,
@@ -39,10 +40,6 @@ import {
 } from 'recharts'
 
 const CHART_COLORS = ['#f97316', '#22c55e', '#3b82f6', '#eab308', '#ef4444', '#8b5cf6']
-
-function formatEtb(value: number) {
-  return `${value.toFixed(2)} ETB`
-}
 
 function KpiCard({
   label,
@@ -76,7 +73,7 @@ function KpiCard({
   const icons = {
     sales: '₿',
     purchase: '↺',
-    expense: '$',
+    expense: '◆',
     credit: '!',
     profit: '▲',
     neutral: '•'
@@ -225,7 +222,7 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <KpiCard label="Estimated profit" value={formatEtb(periodNetProfit)} hint="Sales − COGS − expenses" tone="profit" />
             <KpiCard label="Net cash movement" value={formatEtb(periodNetCash)} hint="Cash in − purchases − expenses" tone="neutral" />
-            <KpiCard label="Net position" value={formatEtb(netPosition)} hint={`Cash ${latestCash.toFixed(2)} − debts ${debtsPayable.toFixed(2)}`} href="/admin/finance" tone="neutral" />
+            <KpiCard label="Net position" value={formatEtb(netPosition)} hint={`Cash ${formatEtb(latestCash, 2)} − debts ${formatEtb(debtsPayable, 2)}`} href="/admin/finance" tone="neutral" />
           </div>
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
@@ -302,7 +299,7 @@ export default function DashboardPage() {
                         <div className="font-semibold text-earth-900">{product.name}</div>
                         <div className="text-xs text-earth-500">{product.qty.toFixed(2)} kg sold</div>
                       </div>
-                      <div className="font-bold text-spice-700">{product.revenue.toFixed(2)}</div>
+                      <div className="font-bold text-spice-700">{formatEtb(product.revenue)}</div>
                     </div>
                   ))}
                 </div>
@@ -358,7 +355,7 @@ export default function DashboardPage() {
                             <div className="font-medium">{sale.product_name}</div>
                             <div className="text-xs text-earth-500">{sale.customer_name || 'Walk-in'}</div>
                           </td>
-                          <td className="py-2.5 font-bold">{Number(sale.total_amount).toFixed(2)}</td>
+                          <td className="py-2.5 font-bold">{formatEtb(Number(sale.total_amount))}</td>
                         </tr>
                       ))}
                     </tbody>

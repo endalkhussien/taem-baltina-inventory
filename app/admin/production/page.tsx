@@ -1,9 +1,11 @@
 "use client"
 
-import React, { useMemo, useState } from 'react'
+import React, { useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { useQuery } from '@tanstack/react-query'
 import AdminNav from '../../../components/AdminNav'
+import { useToast } from '../../../components/ToastProvider'
+import { formatEtb } from '../../../lib/formatCurrency'
 import { useProduction } from '../../../hooks/useModules'
 import { useProducts } from '../../../hooks/useProducts'
 import { computeBatchMaterialCost, computeBatchTotalCost, computeCostPerKg } from '../../../lib/productionCost'
@@ -13,9 +15,9 @@ import { computeEstimatedBatchProfit, computeProfitMarginPercent, computeProfitP
 const today = new Date().toISOString().slice(0, 10)
 
 export default function ProductionPage() {
+  const toast = useToast()
   const { data: products } = useProducts()
   const { data: batches, isLoading, createProduction, isCreatingProduction } = useProduction()
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const { register, handleSubmit, reset, watch } = useForm({
     defaultValues: {
       productId: 0,
@@ -76,7 +78,6 @@ export default function ProductionPage() {
   const projectedStockKg = currentStockKg + quantityProduced
 
   const onSubmit = async (values: any) => {
-    setMessage(null)
     try {
       const result = await createProduction(values)
       reset({
@@ -93,12 +94,9 @@ export default function ProductionPage() {
       const batchesRun = Number(result.batch_count ?? values.batchCount)
       const afterKg = Number(result.stock_kg_after ?? 0)
       const productName = result.product_name ?? selectedProduct?.name ?? 'Product'
-      setMessage({
-        type: 'success',
-        text: `Production recorded: ${batchesRun} batch${batchesRun === 1 ? '' : 'es'}, +${addedKg} kg for ${productName}. Stock is now ${afterKg} kg.`
-      })
+      toast.success(`Production recorded: ${batchesRun} batch${batchesRun === 1 ? '' : 'es'}, +${addedKg} kg for ${productName}. Stock is now ${afterKg} kg.`)
     } catch (err) {
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not record production batch.' })
+      toast.error(err instanceof Error ? err.message : 'Could not record production batch.')
     }
   }
 
@@ -183,26 +181,26 @@ export default function ProductionPage() {
                   <textarea className="input-field" rows={3} {...register('notes')} placeholder="Batch notes, staff names..." />
                 </div>
                 <div className="rounded-2xl border border-spice-200 bg-spice-50 p-4 text-sm">
-                  <div className="flex justify-between"><span>Raw materials ({batchCount || 0} batch{batchCount === 1 ? '' : 'es'})</span><span className="font-bold">{materialCost.toFixed(2)} ETB</span></div>
-                  <div className="flex justify-between mt-1"><span>Overhead</span><span className="font-bold">{overheadCost.toFixed(2)} ETB</span></div>
-                  <div className="flex justify-between mt-2 pt-2 border-t border-spice-200 text-base"><span className="font-black">Total batch cost</span><span className="font-black text-spice-800">{totalBatchCost.toFixed(2)} ETB</span></div>
+                  <div className="flex justify-between"><span>Raw materials ({batchCount || 0} batch{batchCount === 1 ? '' : 'es'})</span><span className="font-bold">{formatEtb(materialCost)}</span></div>
+                  <div className="flex justify-between mt-1"><span>Overhead</span><span className="font-bold">{formatEtb(overheadCost)}</span></div>
+                  <div className="flex justify-between mt-2 pt-2 border-t border-spice-200 text-base"><span className="font-black">Total batch cost</span><span className="font-black text-spice-800">{formatEtb(totalBatchCost)}</span></div>
                   {quantityProduced > 0 && (
-                    <div className="mt-1 text-xs text-earth-600">{costPerKg.toFixed(2)} ETB cost per kg produced</div>
+                    <div className="mt-1 text-xs text-earth-600">{formatEtb(costPerKg)} cost per kg produced</div>
                   )}
                   {selectedProductId > 0 && quantityProduced > 0 && sellingPricePerKg > 0 && (
                     <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/80 p-3 text-sm">
                       <p className="font-bold text-emerald-900">Estimated profit (this batch)</p>
                       <div className="mt-2 grid gap-2 sm:grid-cols-2">
                         <p className="text-earth-700">
-                          Cost to produce: <span className="font-bold">{costPerKg.toFixed(2)} ETB</span>/kg
+                          Cost to produce: <span className="font-bold">{formatEtb(costPerKg)}</span>/kg
                         </p>
                         <p className="text-earth-700">
-                          Selling price: <span className="font-bold">{sellingPricePerKg.toFixed(2)} ETB</span>/kg
+                          Selling price: <span className="font-bold">{formatEtb(sellingPricePerKg)}</span>/kg
                         </p>
                         <p className="text-earth-700">
                           Profit per kg:{' '}
                           <span className={`font-bold ${profitPerKg >= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
-                            {profitPerKg.toFixed(2)} ETB
+                            {formatEtb(profitPerKg)}
                           </span>
                         </p>
                         <p className="text-earth-700">
@@ -210,7 +208,7 @@ export default function ProductionPage() {
                         </p>
                       </div>
                       <p className="mt-2 border-t border-emerald-200 pt-2 font-bold text-emerald-900">
-                        If you sell all {quantityProduced.toLocaleString()} kg at list price: {estimatedBatchProfit.toFixed(2)} ETB profit
+                        If you sell all {quantityProduced.toLocaleString()} kg at list price: {formatEtb(estimatedBatchProfit)} profit
                       </p>
                       <p className="mt-1 text-xs text-earth-500">
                         Cost = materials + labour + machine + other overhead. Operating expenses (rent, etc.) are tracked on Expenses.
@@ -222,7 +220,6 @@ export default function ProductionPage() {
                   {isCreatingProduction ? 'Posting batch...' : 'Post production batch'}
                 </button>
               </form>
-              {message && <div className={`mt-4 rounded-2xl border px-4 py-3 text-sm font-semibold ${message.type === 'success' ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'}`}>{message.text}</div>}
             </div>
 
             <div className="card lg:col-span-2">
@@ -234,7 +231,7 @@ export default function ProductionPage() {
                   </p>
                 </div>
                 <div className="rounded-xl bg-spice-50 px-3 py-2 text-sm text-spice-800">
-                  Raw material cost: <span className="font-semibold">{materialCost.toFixed(2)} ETB</span>
+                  Raw material cost: <span className="font-semibold">{formatEtb(materialCost)}</span>
                 </div>
               </div>
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -252,8 +249,8 @@ export default function ProductionPage() {
                     <div className="text-sm text-earth-500">
                       {line.perBatch.toFixed(3)} {line.unit}/batch × {batchCount} = {line.quantity.toFixed(3)} {line.unit}
                     </div>
-                    <div className="text-xs text-earth-400 mt-1">@ {line.costPerUnit.toFixed(2)} ETB/{line.unit}</div>
-                    <div className="text-sm font-bold text-spice-700 mt-1">{(line.quantity * line.costPerUnit).toFixed(2)} ETB</div>
+                    <div className="text-xs text-earth-400 mt-1">@ {formatEtb(line.costPerUnit)}/{line.unit}</div>
+                    <div className="text-sm font-bold text-spice-700 mt-1">{formatEtb(line.quantity * line.costPerUnit)}</div>
                   </div>
                 ))}
               </div>

@@ -5,7 +5,9 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useSearchParams } from 'next/navigation'
 import { useIngredients, usePurchases } from '../../../hooks/useModules'
 import AdminNav from '../../../components/AdminNav'
+import { useToast } from '../../../components/ToastProvider'
 import { ingredientCreateSchema } from '../../../lib/validators/ingredient'
+import { formatEtb } from '../../../lib/formatCurrency'
 import {
   formatCostFormula,
   purchaseUnitCost,
@@ -17,11 +19,10 @@ const today = todayLocalKey()
 const defaultCategories = ['Spices', 'Fresh aromatics', 'Flours', 'Seasoning', 'Packaging', 'Other']
 
 function IngredientsContent() {
+  const toast = useToast()
   const { data: ingredients, isLoading, createIngredient, updateIngredient, isCreatingIngredient, isUpdatingIngredient, deleteIngredient } = useIngredients()
   const { data: purchases, createPurchase, isCreatingPurchase } = usePurchases()
   const [editing, setEditing] = useState<number | null>(null)
-  const [submitError, setSubmitError] = useState('')
-  const [purchaseMessage, setPurchaseMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [costEntryMode, setCostEntryMode] = useState<'unit' | 'total'>('unit')
   const [unitPriceInput, setUnitPriceInput] = useState('')
   const [pendingPurchase, setPendingPurchase] = useState<{
@@ -120,15 +121,14 @@ function IngredientsContent() {
   }, [editing, ingredients, reset])
 
   const onSubmit = async (vals: any) => {
-    setSubmitError('')
-
     try {
       if (editing) await updateIngredient(editing, vals)
       else await createIngredient(vals)
       reset()
       setEditing(null)
+      toast.success(editing ? 'Raw material updated.' : 'Raw material created.')
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Could not save raw material.')
+      toast.error(err instanceof Error ? err.message : 'Could not save raw material.')
     }
   }
 
@@ -141,22 +141,20 @@ function IngredientsContent() {
   }
 
   const onPurchaseSubmit = (vals: { ingredientId: number; quantity: number; costTotal: number; supplier?: string; purchaseDate: string }) => {
-    setPurchaseMessage(null)
-
     const ingredient = list.find((item) => item.id === vals.ingredientId)
     if (!ingredient) {
-      setPurchaseMessage({ type: 'error', text: 'Select an ingredient to restock.' })
+      toast.error('Select an ingredient to restock.')
       return
     }
 
     const quantity = Number(vals.quantity)
     const costTotal = resolvePurchaseCost(quantity, Number(vals.costTotal))
     if (!quantity || quantity <= 0) {
-      setPurchaseMessage({ type: 'error', text: 'Enter a quantity greater than zero.' })
+      toast.error('Enter a quantity greater than zero.')
       return
     }
     if (!costTotal || costTotal <= 0) {
-      setPurchaseMessage({ type: 'error', text: 'Enter the total cost or unit price × quantity.' })
+      toast.error('Enter the total cost or unit price × quantity.')
       return
     }
 
@@ -174,7 +172,6 @@ function IngredientsContent() {
 
   const confirmPurchase = async () => {
     if (!pendingPurchase) return
-    setPurchaseMessage(null)
     const snapshot = pendingPurchase
 
     try {
@@ -194,12 +191,9 @@ function IngredientsContent() {
       setPendingPurchase(null)
       setUnitPriceInput('')
       resetPurchase({ ingredientId: 0, quantity: 1, costTotal: 0, supplier: '', purchaseDate: today })
-      setPurchaseMessage({
-        type: 'success',
-        text: `Restock saved: +${snapshot.quantity} ${snapshot.unit} ${snapshot.ingredientName}. New average cost: ${newAvg.toFixed(2)} ETB/${snapshot.unit}.`
-      })
+      toast.success(`Restock saved: +${snapshot.quantity} ${snapshot.unit} ${snapshot.ingredientName}. New average: ${formatEtb(newAvg)}/${snapshot.unit}.`)
     } catch (err) {
-      setPurchaseMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not record purchase.' })
+      toast.error(err instanceof Error ? err.message : 'Could not record purchase.')
     }
   }
 
@@ -213,7 +207,6 @@ function IngredientsContent() {
     const unitCost = Number(lastPurchase.quantity) > 0 ? Number(lastPurchase.cost_total) / Number(lastPurchase.quantity) : 0
     setUnitPriceInput(unitCost > 0 ? String(unitCost) : '')
     setPendingPurchase(null)
-    setPurchaseMessage(null)
   }
 
   return (
@@ -278,11 +271,6 @@ function IngredientsContent() {
                   </button>
                 )}
               </div>
-              {submitError && (
-                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-                  {submitError}
-                </div>
-              )}
             </form>
           </div>
           <div className="card border-l-4 border-l-spice-500">
@@ -306,7 +294,7 @@ function IngredientsContent() {
                 </div>
                 <div>
                   <div className="text-xs text-earth-500">Current avg cost</div>
-                  <div className="font-bold">{currentAvgCost.toFixed(2)} ETB/{selectedPurchaseIngredient.unit}</div>
+                  <div className="font-bold">{formatEtb(currentAvgCost)}/{selectedPurchaseIngredient.unit}</div>
                 </div>
               </div>
             )}
@@ -378,7 +366,7 @@ function IngredientsContent() {
               <div className="rounded-2xl bg-gradient-to-br from-spice-50 to-earth-50 p-4">
                 <div className="text-xs font-bold uppercase tracking-wide text-earth-500">New average cost preview</div>
                 <div className="mt-2 text-2xl font-black text-spice-800">
-                  {weightedAverageAfterRestock.toFixed(2)} ETB/{selectedPurchaseIngredient?.unit || 'unit'}
+                  {formatEtb(weightedAverageAfterRestock)}/{selectedPurchaseIngredient?.unit || 'unit'}
                 </div>
                 <p className="mt-2 text-xs leading-5 text-earth-600">{costFormulaText}</p>
               </div>
@@ -394,14 +382,14 @@ function IngredientsContent() {
                     <div><dt className="text-earth-500">Date</dt><dd className="font-bold">{toLocalDateKey(pendingPurchase.purchaseDate)}</dd></div>
                     <div><dt className="text-earth-500">Ingredient</dt><dd className="font-bold">{pendingPurchase.ingredientName}</dd></div>
                     <div><dt className="text-earth-500">Quantity</dt><dd className="font-bold">+{pendingPurchase.quantity} {pendingPurchase.unit}</dd></div>
-                    <div><dt className="text-earth-500">Total cost</dt><dd className="font-bold">{pendingPurchase.costTotal.toFixed(2)} ETB</dd></div>
-                    <div><dt className="text-earth-500">Unit cost (this purchase)</dt><dd className="font-bold">{purchaseUnitCost(pendingPurchase.quantity, pendingPurchase.costTotal).toFixed(2)} ETB</dd></div>
-                    <div><dt className="text-earth-500">New average cost</dt><dd className="font-bold">{weightedAverageCost(
+                    <div><dt className="text-earth-500">Total cost</dt><dd className="font-bold">{formatEtb(pendingPurchase.costTotal)}</dd></div>
+                    <div><dt className="text-earth-500">Unit cost (this purchase)</dt><dd className="font-bold">{formatEtb(purchaseUnitCost(pendingPurchase.quantity, pendingPurchase.costTotal))}</dd></div>
+                    <div><dt className="text-earth-500">New average cost</dt><dd className="font-bold">{formatEtb(weightedAverageCost(
                       Number(list.find((item) => item.id === pendingPurchase.ingredientId)?.quantity ?? 0),
                       Number(list.find((item) => item.id === pendingPurchase.ingredientId)?.cost_per_unit ?? 0),
                       pendingPurchase.quantity,
                       pendingPurchase.costTotal
-                    ).toFixed(2)} ETB/{pendingPurchase.unit}</dd></div>
+                    ))}/{pendingPurchase.unit}</dd></div>
                     <div><dt className="text-earth-500">Stock after</dt><dd className="font-bold">{pendingPurchase.stockAfter.toFixed(3)} {pendingPurchase.unit}</dd></div>
                     {pendingPurchase.supplier && (
                       <div><dt className="text-earth-500">Supplier</dt><dd className="font-bold">{pendingPurchase.supplier}</dd></div>
@@ -424,17 +412,13 @@ function IngredientsContent() {
                   <ul className="mt-2 space-y-1">
                     {todayPurchases.slice(0, 5).map((purchase) => (
                       <li key={purchase.id}>
-                        {purchase.ingredient_name}: +{Number(purchase.quantity)} • {Number(purchase.cost_total).toFixed(2)} ETB
+                        {purchase.ingredient_name}: +{Number(purchase.quantity)} • {formatEtb(Number(purchase.cost_total))}
                       </li>
                     ))}
                   </ul>
                 </div>
               )}
-              {purchaseMessage && (
-                <div className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${purchaseMessage.type === 'success' ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'}`}>
-                  {purchaseMessage.text}
-                </div>
-              )}
+
             </form>
           </div>
           </div>
@@ -447,7 +431,7 @@ function IngredientsContent() {
                 </p>
               </div>
               <div className="rounded-2xl bg-spice-50 px-4 py-3 text-sm text-spice-800">
-                Stock value: <span className="font-black">{totalStockValue.toFixed(2)} ETB</span>
+                Stock value: <span className="font-black">{formatEtb(totalStockValue)}</span>
               </div>
             </div>
             <div className="mb-4 flex flex-wrap gap-2">
@@ -498,11 +482,11 @@ function IngredientsContent() {
                             className="text-red-600 hover:text-red-800"
                             onClick={async () => {
                               if (!confirm('Delete this raw material? Purchases or recipes may prevent deletion.')) return
-                              setSubmitError('')
                               try {
                                 await deleteIngredient(ingredient.id)
+                                toast.success('Raw material deleted.')
                               } catch (err) {
-                                setSubmitError(err instanceof Error ? err.message : 'Could not delete raw material.')
+                                toast.error(err instanceof Error ? err.message : 'Could not delete raw material.')
                               }
                             }}
                           >
@@ -539,7 +523,7 @@ function IngredientsContent() {
                     <td className="py-3">{new Date(purchase.purchase_date).toLocaleDateString()}</td>
                     <td className="py-3 font-medium text-earth-900">{purchase.ingredient_name}</td>
                     <td className="py-3">{Number(purchase.quantity).toFixed(3)}</td>
-                    <td className="py-3">{Number(purchase.cost_total).toFixed(2)} ETB</td>
+                    <td className="py-3">{formatEtb(Number(purchase.cost_total))}</td>
                     <td className="py-3 text-earth-500">{purchase.supplier || '-'}</td>
                   </tr>
                 ))}

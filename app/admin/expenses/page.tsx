@@ -4,14 +4,16 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useExpenses } from '../../../hooks/useModules'
 import AdminNav from '../../../components/AdminNav'
+import { useToast } from '../../../components/ToastProvider'
+import { formatEtb } from '../../../lib/formatCurrency'
 import { expenseCreateSchema } from '../../../lib/validators/expense'
 
 const today = new Date().toISOString().slice(0, 10)
 
 export default function ExpensesPage() {
+  const toast = useToast()
   const { data: expenses, isLoading, createExpense, updateExpense, isCreatingExpense, isUpdatingExpense, deleteExpense } = useExpenses()
   const [editing, setEditing] = useState<number | null>(null)
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const { register, handleSubmit, reset, formState: { errors } } = useForm({
     resolver: zodResolver(expenseCreateSchema as any),
     defaultValues: { title: '', category: 'Other', amount: 0, expenseDate: today, notes: '' }
@@ -40,16 +42,14 @@ export default function ExpensesPage() {
   const isSaving = isCreatingExpense || isUpdatingExpense
 
   const onSubmit = async (vals: any) => {
-    setMessage(null)
-
     try {
       if (editing) await updateExpense(editing, vals)
       else await createExpense(vals)
       reset()
       setEditing(null)
-      setMessage({ type: 'success', text: 'Operating cost saved.' })
+      toast.success('Operating cost saved.')
     } catch (err) {
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not save operating cost.' })
+      toast.error(err instanceof Error ? err.message : 'Could not save operating cost.')
     }
   }
 
@@ -68,7 +68,7 @@ export default function ExpensesPage() {
           </div>
           <div className="rounded-3xl bg-purple-50 px-5 py-4 border border-purple-100">
             <div className="text-xs uppercase tracking-wide text-earth-500">Total operating costs</div>
-            <div className="text-3xl font-black text-purple-800">{totalOperatingCosts.toFixed(2)} ETB</div>
+            <div className="text-3xl font-black text-purple-800">{formatEtb(totalOperatingCosts)}</div>
             <div className="mt-1 text-xs text-earth-500">{list.length} entr{list.length === 1 ? 'y' : 'ies'} recorded</div>
           </div>
         </div>
@@ -110,17 +110,12 @@ export default function ExpensesPage() {
                 </button>
               )}
             </div>
-            {message && (
-              <div className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${message.type === 'success' ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'}`}>
-                {message.text}
-              </div>
-            )}
           </form>
         </div>
         <div className="lg:col-span-2 card overflow-x-auto">
           <h2 className="font-display text-xl font-black text-earth-950 mb-1">Operating Cost Ledger</h2>
           <p className="mb-4 text-sm text-earth-500">Recent non-material business costs.</p>
-          {isLoading ? <div>Loading...</div> : <table className="w-full text-sm"><thead><tr className="table-head"><th className="pb-3">Date</th><th className="pb-3">Description</th><th className="pb-3">Category</th><th className="pb-3">Amount</th><th className="pb-3">Actions</th></tr></thead><tbody>{list.map((e: any) => (<tr key={e.id} className="table-row"><td className="py-3">{e.expense_date ? new Date(e.expense_date).toLocaleDateString() : '—'}</td><td className="py-3 font-bold text-earth-950">{e.title}</td><td className="py-3">{e.category}</td><td className="py-3">{Number(e.amount).toFixed(2)} ETB</td><td className="py-3 text-sm"><button className="text-spice-700 font-bold mr-2" onClick={() => setEditing(e.id)}>Edit</button><button className="text-red-600 font-bold" onClick={async () => { if (!confirm('Delete this operating cost?')) return; setMessage(null); try { await deleteExpense(e.id); setMessage({ type: 'success', text: 'Operating cost deleted.' }) } catch (err) { setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not delete operating cost.' }) } }}>Delete</button></td></tr>))}</tbody></table>}
+          {isLoading ? <div>Loading...</div> : <table className="w-full text-sm"><thead><tr className="table-head"><th className="pb-3">Date</th><th className="pb-3">Description</th><th className="pb-3">Category</th><th className="pb-3">Amount</th><th className="pb-3">Actions</th></tr></thead><tbody>{list.map((e: any) => (<tr key={e.id} className="table-row"><td className="py-3">{e.expense_date ? new Date(e.expense_date).toLocaleDateString() : '—'}</td><td className="py-3 font-bold text-earth-950">{e.title}</td><td className="py-3">{e.category}</td><td className="py-3">{formatEtb(Number(e.amount))}</td><td className="py-3 text-sm"><button className="text-spice-700 font-bold mr-2" onClick={() => setEditing(e.id)}>Edit</button><button className="text-red-600 font-bold" onClick={async () => { if (!confirm('Delete this operating cost?')) return; try { await deleteExpense(e.id); toast.success('Operating cost deleted.') } catch (err) { toast.error(err instanceof Error ? err.message : 'Could not delete operating cost.') } }}>Delete</button></td></tr>))}</tbody></table>}
           </div>
         </div>
       </div>

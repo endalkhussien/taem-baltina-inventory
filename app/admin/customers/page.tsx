@@ -4,6 +4,8 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import AdminNav from '../../../components/AdminNav'
+import { useToast } from '../../../components/ToastProvider'
+import { formatEtb } from '../../../lib/formatCurrency'
 import { useCreditLedgers, useCreditPayments, useCustomers } from '../../../hooks/useModules'
 import { useProducts } from '../../../hooks/useProducts'
 import { customerCreateSchema } from '../../../lib/validators/customer'
@@ -12,14 +14,13 @@ import { buildCreditLinesFromProducts, creditKgByProduct, parseCreditLinesFromTi
 const today = new Date().toISOString().slice(0, 10)
 
 export default function CustomersPage() {
+  const toast = useToast()
   const { data: products } = useProducts()
   const { data: customers, isLoading, isError: customersLoadError, error: customersLoadErrorMessage, createCustomer, updateCustomer, isCreatingCustomer, isUpdatingCustomer, deleteCustomer } = useCustomers()
   const { data: creditLedgers, isLoading: creditLoading, isError: creditLoadError, error: creditLoadErrorMessage, createCreditLedger, isCreatingCreditLedger, deleteCreditLedger, markCreditPaid } = useCreditLedgers()
   const { createCreditPayment, isCreatingCreditPayment } = useCreditPayments()
   const [editing, setEditing] = useState<number | null>(null)
   const [payCreditId, setPayCreditId] = useState<number | null>(null)
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
-
   const { register, handleSubmit, reset, formState: { errors: customerErrors } } = useForm({
     resolver: zodResolver(customerCreateSchema),
     defaultValues: { name: '', phone: '', notes: '' }
@@ -100,7 +101,6 @@ export default function CustomersPage() {
   }, [editing, list, reset])
 
   const onSubmitCustomer = async (values: { name: string; phone?: string; notes?: string }) => {
-    setMessage(null)
     try {
       const payload = {
         name: values.name.trim(),
@@ -111,9 +111,9 @@ export default function CustomersPage() {
       else await createCustomer(payload)
       setEditing(null)
       reset()
-      setMessage({ type: 'success', text: editing ? 'Customer updated.' : 'Customer added. You can record credit for them now.' })
+      toast.success(editing ? 'Customer updated.' : 'Customer added. You can record credit for them now.')
     } catch (err) {
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not save customer.' })
+      toast.error(err instanceof Error ? err.message : 'Could not save customer.')
     }
   }
 
@@ -124,28 +124,26 @@ export default function CustomersPage() {
     creditDate: string
     notes?: string
   }) => {
-    setMessage(null)
-
     const customerId = Number(values.customerId)
     if (!customerId) {
-      setMessage({ type: 'error', text: 'Select a customer first.' })
+      toast.error('Select a customer first.')
       return
     }
 
     if (selectedProductLines.length === 0) {
-      setMessage({ type: 'error', text: 'Enter kg for at least one product (e.g. Berbere = 5, Shiro = 3, Mitmita = 2).' })
+      toast.error('Enter kg for at least one product (e.g. Berbere = 5, Shiro = 3, Mitmita = 2).')
       return
     }
 
     const totalAmount = autoCreditTotal > 0 ? autoCreditTotal : Number(values.totalAmount)
     if (!totalAmount || totalAmount <= 0) {
-      setMessage({ type: 'error', text: 'Total credit must be greater than zero.' })
+      toast.error('Total credit must be greater than zero.')
       return
     }
 
     const amountPaid = Number(values.amountPaid ?? 0)
     if (amountPaid > totalAmount) {
-      setMessage({ type: 'error', text: 'Paid now cannot be more than total credit.' })
+      toast.error('Paid now cannot be more than total credit.')
       return
     }
 
@@ -165,22 +163,21 @@ export default function CustomersPage() {
 
       creditForm.reset({ customerId: 0, totalAmount: 0, amountPaid: 0, creditDate: today, notes: '' })
       setProductQtys({})
-      setMessage({ type: 'success', text: `Credit saved: ${title}` })
+      toast.success(`Credit saved: ${title}`)
     } catch (err) {
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not record credit.' })
+      toast.error(err instanceof Error ? err.message : 'Could not record credit.')
     }
   }
 
   const onSubmitPayment = async (values: any) => {
     if (!payCreditId) return
-    setMessage(null)
     try {
       await createCreditPayment({ creditId: payCreditId, ...values })
       setPayCreditId(null)
       paymentForm.reset({ amount: 0, paymentDate: today, notes: '' })
-      setMessage({ type: 'success', text: 'Payment recorded.' })
+      toast.success('Payment recorded.')
     } catch (err) {
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not record payment.' })
+      toast.error(err instanceof Error ? err.message : 'Could not record payment.')
     }
   }
 
@@ -200,24 +197,18 @@ export default function CustomersPage() {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="rounded-3xl bg-spice-50 px-5 py-4 border border-spice-100">
                 <div className="text-xs uppercase tracking-wide text-earth-500">Credit ledger owed</div>
-                <div className="text-2xl font-black text-spice-800">{totalLedgerCredit.toFixed(2)} ETB</div>
+                <div className="text-2xl font-black text-spice-800">{formatEtb(totalLedgerCredit)}</div>
               </div>
               <div className="rounded-3xl bg-amber-50 px-5 py-4 border border-amber-100">
                 <div className="text-xs uppercase tracking-wide text-earth-500">From sales (old)</div>
-                <div className="text-2xl font-black text-amber-800">{totalSalesCredit.toFixed(2)} ETB</div>
+                <div className="text-2xl font-black text-amber-800">{formatEtb(totalSalesCredit)}</div>
               </div>
               <div className="rounded-3xl bg-earth-50 px-5 py-4 border border-earth-100">
                 <div className="text-xs uppercase tracking-wide text-earth-500">Total owed to you</div>
-                <div className="text-2xl font-black text-earth-900">{totalAllCredit.toFixed(2)} ETB</div>
+                <div className="text-2xl font-black text-earth-900">{formatEtb(totalAllCredit)}</div>
               </div>
             </div>
           </div>
-
-          {message && (
-            <div className={`mt-6 rounded-2xl border px-4 py-3 text-sm font-semibold ${message.type === 'success' ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'}`}>
-              {message.text}
-            </div>
-          )}
 
           <div className="mt-6 card overflow-x-auto">
             <h2 className="font-display text-xl font-black text-earth-950 mb-1">Credit ledger</h2>
@@ -288,9 +279,9 @@ export default function CustomersPage() {
                                 if (!confirm('Mark this credit as fully paid?')) return
                                 try {
                                   await markCreditPaid(row.id)
-                                  setMessage({ type: 'success', text: 'Credit marked as paid.' })
+                                  toast.success('Credit marked as paid.')
                                 } catch (err) {
-                                  setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not mark as paid.' })
+                                  toast.error(err instanceof Error ? err.message : 'Could not mark as paid.')
                                 }
                               }}
                             >
@@ -352,9 +343,9 @@ export default function CustomersPage() {
                                   if (!confirm('Mark this credit as fully paid?')) return
                                   try {
                                     await markCreditPaid(row.id)
-                                    setMessage({ type: 'success', text: 'Credit marked as paid.' })
+                                    toast.success('Credit marked as paid.')
                                   } catch (err) {
-                                    setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not mark as paid.' })
+                                    toast.error(err instanceof Error ? err.message : 'Could not mark as paid.')
                                   }
                                 }}
                               >
@@ -369,9 +360,9 @@ export default function CustomersPage() {
                                 if (!confirm('Delete this credit entry?')) return
                                 try {
                                   await deleteCreditLedger(row.id)
-                                  setMessage({ type: 'success', text: 'Credit entry deleted.' })
+                                  toast.success('Credit entry deleted.')
                                 } catch (err) {
-                                  setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not delete.' })
+                                  toast.error(err instanceof Error ? err.message : 'Could not delete.')
                                 }
                               }}
                             >
@@ -453,7 +444,7 @@ export default function CustomersPage() {
                             }}
                           />
                           <span className="text-xs text-earth-500 whitespace-nowrap">
-                            kg {lineTotal > 0 ? `• ${lineTotal.toFixed(2)} ETB` : `• ${Number(product.selling_price).toFixed(2)}/kg`}
+                            kg {lineTotal > 0 ? `• ${formatEtb(lineTotal)}` : `• ${formatEtb(Number(product.selling_price))}/kg`}
                           </span>
                         </div>
                       )
@@ -513,7 +504,7 @@ export default function CustomersPage() {
             <div className="card max-w-xl mt-6">
               <h2 className="font-display text-xl font-black text-earth-950 mb-1">Record payment</h2>
               <p className="mb-4 text-sm text-earth-500">
-                {selectedCredit.customer_name} • {selectedCredit.title} • balance {Number(selectedCredit.balance).toFixed(2)} ETB
+                {selectedCredit.customer_name} • {selectedCredit.title} • balance {formatEtb(Number(selectedCredit.balance))}
               </p>
               <form onSubmit={paymentForm.handleSubmit(onSubmitPayment)} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3">
                 <input type="number" step="0.01" className="input-field" placeholder="Amount" {...paymentForm.register('amount', { valueAsNumber: true })} />
@@ -591,9 +582,9 @@ export default function CustomersPage() {
                               if (!confirm('Delete customer?')) return
                               try {
                                 await deleteCustomer(customer.id)
-                                setMessage({ type: 'success', text: 'Customer deleted.' })
+                                toast.success('Customer deleted.')
                               } catch (err) {
-                                setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not delete.' })
+                                toast.error(err instanceof Error ? err.message : 'Could not delete.')
                               }
                             }}
                           >
