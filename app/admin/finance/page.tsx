@@ -9,6 +9,7 @@ import {
   useCreditLedgers,
   useCustomers,
   useExpenses,
+  useIngredients,
   useLiabilities,
   useLiabilityPayments,
   usePurchases,
@@ -19,8 +20,10 @@ import { useProducts } from '../../../hooks/useProducts'
 import { useQueryClient } from '@tanstack/react-query'
 import { isInSalesPeriod, salesPeriodLabels, summarizeSales, type SalesPeriod } from '../../../lib/periods'
 import { formatCreditProductLines } from '../../../lib/credit'
+import { exportBusinessBackup } from '../../../lib/exportReport'
+import { todayLocalKey } from '../../../lib/dates'
 
-const today = new Date().toISOString().slice(0, 10)
+const today = todayLocalKey()
 
 export default function FinancePage() {
   const qc = useQueryClient()
@@ -34,6 +37,7 @@ export default function FinancePage() {
   const { data: repayments } = useRepayments()
   const { data: creditLedgers } = useCreditLedgers()
   const { data: products } = useProducts()
+  const { data: ingredients } = useIngredients()
 
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [payLiabilityId, setPayLiabilityId] = useState<number | null>(null)
@@ -63,6 +67,7 @@ export default function FinancePage() {
   const repaymentList = useMemo(() => (Array.isArray(repayments) ? repayments : []), [repayments])
   const ledgerList = useMemo(() => (Array.isArray(creditLedgers) ? creditLedgers : []), [creditLedgers])
   const productList = useMemo(() => (Array.isArray(products) ? products : []), [products])
+  const ingredientList = useMemo(() => (Array.isArray(ingredients) ? ingredients : []), [ingredients])
 
   const latestCash = cashList[0] ? Number(cashList[0].amount) : 0
   const salesCreditReceivable = salesList.reduce((sum, sale) => sum + Number(sale.balance), 0)
@@ -179,6 +184,25 @@ export default function FinancePage() {
     { key: 'month', summary: monthSummary }
   ]
 
+  const handleExport = (period: 'week' | 'month') => {
+    exportBusinessBackup({
+      period,
+      sales: salesList,
+      purchases: purchaseList,
+      ingredients: ingredientList,
+      creditLedgers: ledgerList,
+      customers: customerList,
+      expenses: expenseList,
+      repayments: repaymentList
+    })
+    setMessage({
+      type: 'success',
+      text: period === 'week'
+        ? 'Weekly backup downloaded (Excel-compatible CSV).'
+        : 'Monthly backup downloaded (Excel-compatible CSV).'
+    })
+  }
+
   return (
     <>
       <AdminNav />
@@ -204,6 +228,21 @@ export default function FinancePage() {
               {message.text}
             </div>
           )}
+
+          <div className="mb-6 card">
+            <h2 className="font-display text-xl font-black text-earth-950 mb-1">Backup reports (Excel)</h2>
+            <p className="mb-4 text-sm text-earth-500">
+              Download weekly (Mon–Sun) or monthly CSV files for sales, raw material purchases, stock snapshot, credit ledger, expenses, and summaries. Opens in Excel.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <button type="button" className="btn-primary" onClick={() => handleExport('week')}>
+                Export this week
+              </button>
+              <button type="button" className="btn-secondary" onClick={() => handleExport('month')}>
+                Export this month
+              </button>
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             {salesPeriodCards.map(({ key, summary }) => (

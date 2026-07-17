@@ -127,9 +127,9 @@ export default function SalesPage() {
     const product = productList.find((item) => item.id === values.productId)
     if (!product) return { error: 'Select a finished good to sell.' }
 
-    const qty = Math.floor(Number(values.quantity))
-    if (!Number.isFinite(qty) || qty <= 0 || !Number.isInteger(qty)) {
-      return { error: 'Quantity must be a whole number (kg) greater than zero.' }
+    const qty = Number(values.quantity)
+    if (!Number.isFinite(qty) || qty <= 0) {
+      return { error: 'Enter a quantity greater than zero (decimals allowed, e.g. 2.5 kg).' }
     }
 
     if (Number(product.stock_quantity) <= 0) {
@@ -232,7 +232,6 @@ export default function SalesPage() {
     !pendingSale &&
     selectedProductId > 0 &&
     quantity > 0 &&
-    Number.isInteger(quantity) &&
     !stockError &&
     availableStock > 0 &&
     (isCreditSale ? amountPaid <= saleTotal : true)
@@ -342,19 +341,12 @@ export default function SalesPage() {
                     <label className="block text-sm font-bold text-earth-700 mb-1.5">Quantity (kg)</label>
                     <input
                       type="number"
-                      step="1"
-                      inputMode="numeric"
-                      min={availableStock > 0 ? 1 : 0}
+                      step="0.001"
+                      inputMode="decimal"
+                      min={availableStock > 0 ? 0.001 : 0}
                       max={availableStock > 0 ? availableStock : 0}
                       className="input-field"
-                      {...register('quantity', {
-                        valueAsNumber: true,
-                        setValueAs: (value) => {
-                          const parsed = Number(value)
-                          if (!Number.isFinite(parsed)) return 0
-                          return Math.max(0, Math.floor(parsed))
-                        }
-                      })}
+                      {...register('quantity', { valueAsNumber: true })}
                       disabled={!selectedProduct || availableStock <= 0}
                     />
                     {selectedProduct && availableStock > 0 && quantity > 0 && (
@@ -415,7 +407,7 @@ export default function SalesPage() {
                     <div><dt className="text-earth-500">Date</dt><dd className="font-bold">{toLocalDateKey(pendingSale.values.saleDate || today)}</dd></div>
                     <div><dt className="text-earth-500">Product</dt><dd className="font-bold">{pendingSale.productName}</dd></div>
                     <div><dt className="text-earth-500">Customer</dt><dd className="font-bold">{pendingSale.customerName}</dd></div>
-                    <div><dt className="text-earth-500">Quantity</dt><dd className="font-bold">{pendingSale.values.quantity} kg (whole number)</dd></div>
+                    <div><dt className="text-earth-500">Quantity</dt><dd className="font-bold">{pendingSale.values.quantity} kg</dd></div>
                     <div><dt className="text-earth-500">Total</dt><dd className="font-bold">{pendingSale.totals.total.toFixed(2)} ETB</dd></div>
                     <div><dt className="text-earth-500">Paid now</dt><dd className="font-bold text-green-700">{pendingSale.totals.paid.toFixed(2)} ETB</dd></div>
                     <div><dt className="text-earth-500">Balance</dt><dd className="font-bold text-red-700">{pendingSale.totals.balance.toFixed(2)} ETB</dd></div>

@@ -3,6 +3,7 @@ import { db, schema } from '../../../lib/db'
 import { purchaseCreateSchema } from '../../../lib/validators/purchase'
 import { desc, eq, sql } from 'drizzle-orm'
 import { parseLocalDate } from '../../../lib/dates'
+import { weightedAverageCost } from '../../../lib/inventoryCost'
 import { databaseErrorResponse, parseJsonBody } from '../../../lib/apiErrors'
 
 export async function GET() {
@@ -50,9 +51,7 @@ export async function POST(request: Request) {
       if (!ingredient) return { error: 'Ingredient not found.', status: 404 as const }
 
       const oldQuantity = Number(ingredient.quantity)
-      const oldValue = oldQuantity * Number(ingredient.cost_per_unit)
-      const newQuantity = oldQuantity + quantity
-      const newCostPerUnit = newQuantity > 0 ? (oldValue + costTotal) / newQuantity : 0
+      const newCostPerUnit = weightedAverageCost(oldQuantity, Number(ingredient.cost_per_unit), quantity, costTotal)
 
       const [created] = await tx
         .insert(schema.purchases)

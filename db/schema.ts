@@ -14,7 +14,7 @@ export const products = pgTable('products', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 255 }).notNull(),
   selling_price: numeric('selling_price', { precision: 12, scale: 2, mode: 'number' }).notNull(),
-  stock_quantity: integer('stock_quantity').notNull().default(0),
+  stock_quantity: numeric('stock_quantity', { precision: 14, scale: 3, mode: 'number' }).notNull().default(0),
   alert_threshold: integer('alert_threshold').notNull().default(0),
   created_at: timestamp('created_at').defaultNow().notNull(),
   updated_at: timestamp('updated_at').defaultNow().notNull()
@@ -73,7 +73,7 @@ export const sales = pgTable('sales', {
   sale_code: varchar('sale_code', { length: 50 }).notNull(),
   product_id: integer('product_id').notNull().references(() => products.id, { onDelete: 'restrict' }),
   customer_id: integer('customer_id').references(() => customers.id, { onDelete: 'set null' }),
-  quantity: integer('quantity').notNull(),
+  quantity: numeric('quantity', { precision: 14, scale: 3, mode: 'number' }).notNull(),
   unit_price: numeric('unit_price', { precision: 12, scale: 2, mode: 'number' }).notNull(),
   total_amount: numeric('total_amount', { precision: 14, scale: 2, mode: 'number' }).notNull(),
   amount_paid: numeric('amount_paid', { precision: 14, scale: 2, mode: 'number' }).notNull().default(0),

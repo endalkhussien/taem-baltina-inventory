@@ -4,7 +4,7 @@ import { positiveInt, positiveNumber, nonNegativeNumber, nonNegativeInt } from '
 export const saleCreateSchema = z.object({
   productId: positiveInt,
   customerId: nonNegativeInt.optional().default(0),
-  quantity: positiveInt,
+  quantity: positiveNumber,
   unitPrice: positiveNumber.optional(),
   amountPaid: nonNegativeNumber.optional().default(0),
   saleDate: z.string().optional()

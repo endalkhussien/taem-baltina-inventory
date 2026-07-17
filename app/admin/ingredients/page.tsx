@@ -6,6 +6,11 @@ import { useSearchParams } from 'next/navigation'
 import { useIngredients, usePurchases } from '../../../hooks/useModules'
 import AdminNav from '../../../components/AdminNav'
 import { ingredientCreateSchema } from '../../../lib/validators/ingredient'
+import {
+  formatCostFormula,
+  purchaseUnitCost,
+  weightedAverageCost
+} from '../../../lib/inventoryCost'
 import { toLocalDateKey, todayLocalKey } from '../../../lib/dates'
 
 const today = todayLocalKey()
@@ -17,6 +22,7 @@ function IngredientsContent() {
   const [editing, setEditing] = useState<number | null>(null)
   const [submitError, setSubmitError] = useState('')
   const [purchaseMessage, setPurchaseMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [costEntryMode, setCostEntryMode] = useState<'unit' | 'total'>('unit')
   const [unitPriceInput, setUnitPriceInput] = useState('')
   const [pendingPurchase, setPendingPurchase] = useState<{
     ingredientId: number
@@ -53,11 +59,27 @@ function IngredientsContent() {
   const purchaseQuantity = Number(watchPurchase('quantity') || 0)
   const purchaseCostTotal = Number(watchPurchase('costTotal') || 0)
   const selectedPurchaseIngredient = list.find((ingredient) => ingredient.id === purchaseIngredientId)
-  const restockUnitCost = purchaseQuantity > 0 ? purchaseCostTotal / purchaseQuantity : 0
+  const restockUnitCost = purchaseUnitCost(purchaseQuantity, purchaseCostTotal)
   const stockAfterRestock = selectedPurchaseIngredient ? Number(selectedPurchaseIngredient.quantity) + purchaseQuantity : purchaseQuantity
-  const weightedAverageAfterRestock = selectedPurchaseIngredient && stockAfterRestock > 0
-    ? ((Number(selectedPurchaseIngredient.quantity) * Number(selectedPurchaseIngredient.cost_per_unit)) + purchaseCostTotal) / stockAfterRestock
+  const weightedAverageAfterRestock = selectedPurchaseIngredient
+    ? weightedAverageCost(
+        Number(selectedPurchaseIngredient.quantity),
+        Number(selectedPurchaseIngredient.cost_per_unit),
+        purchaseQuantity,
+        purchaseCostTotal
+      )
     : restockUnitCost
+  const costFormulaText = selectedPurchaseIngredient
+    ? formatCostFormula(
+        Number(selectedPurchaseIngredient.quantity),
+        Number(selectedPurchaseIngredient.cost_per_unit),
+        purchaseQuantity,
+        purchaseCostTotal,
+        selectedPurchaseIngredient.unit
+      )
+    : purchaseQuantity > 0 && purchaseCostTotal > 0
+      ? `This purchase unit cost: ${restockUnitCost.toFixed(2)} ETB per unit`
+      : 'Select ingredient and enter quantity + cost.'
 
   const todayPurchases = purchaseList.filter(
     (purchase) => toLocalDateKey(purchase.purchase_date) === today
@@ -66,9 +88,16 @@ function IngredientsContent() {
 
   useEffect(() => {
     const unitPrice = Number(unitPriceInput)
+    if (costEntryMode !== 'unit') return
     if (!Number.isFinite(unitPrice) || unitPrice <= 0 || purchaseQuantity <= 0) return
     setPurchaseValue('costTotal', Number((purchaseQuantity * unitPrice).toFixed(2)))
-  }, [purchaseQuantity, setPurchaseValue, unitPriceInput])
+  }, [costEntryMode, purchaseQuantity, setPurchaseValue, unitPriceInput])
+
+  useEffect(() => {
+    if (costEntryMode !== 'total') return
+    if (purchaseQuantity <= 0 || purchaseCostTotal <= 0) return
+    setUnitPriceInput(String(purchaseUnitCost(purchaseQuantity, purchaseCostTotal)))
+  }, [costEntryMode, purchaseCostTotal, purchaseQuantity])
 
   useEffect(() => {
     if (editing) {
@@ -219,7 +248,7 @@ function IngredientsContent() {
                 {errors.costPerUnit && <p className="mt-1 text-xs text-red-600">Cost must be zero or higher.</p>}
               </div>
               <div>
-                <label className="block text-sm font-bold text-earth-700 mb-1.5">Reorder Alert Level</label>
+                <label className="block text-sm font-bold text-earth-700 mb-1.5">Alert Stock Level</label>
                 <input type="number" step="0.001" className="input-field" {...register('alertThreshold', { valueAsNumber: true })} />
                 {errors.alertThreshold && <p className="mt-1 text-xs text-red-600">Alert threshold must be zero or higher.</p>}
               </div>
@@ -287,21 +316,35 @@ function IngredientsContent() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-earth-700 mb-1.5">Unit price (optional)</label>
+                  <label className="block text-sm font-medium text-earth-700 mb-1.5">Unit price (ETB)</label>
                   <input
                     type="number"
                     step="0.01"
                     min="0"
                     inputMode="decimal"
                     className="input-field"
-                    placeholder="ETB per unit"
+                    placeholder="Cost per kg/unit"
                     value={unitPriceInput}
-                    onChange={(event) => setUnitPriceInput(event.target.value)}
+                    onChange={(event) => {
+                      setCostEntryMode('unit')
+                      setUnitPriceInput(event.target.value)
+                    }}
                   />
+                  <p className="mt-1 text-xs text-earth-500">Total cost updates automatically: qty × unit price</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-earth-700 mb-1.5">Total cost (ETB)</label>
-                  <input type="number" step="0.01" min="0.01" className="input-field" {...registerPurchase('costTotal', { valueAsNumber: true })} />
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    className="input-field"
+                    {...registerPurchase('costTotal', {
+                      valueAsNumber: true,
+                      onChange: () => setCostEntryMode('total')
+                    })}
+                  />
+                  <p className="mt-1 text-xs text-earth-500">Or enter total directly — unit price is calculated</p>
                 </div>
               </div>
               <div>
@@ -313,10 +356,11 @@ function IngredientsContent() {
                 <input type="date" className="input-field" {...registerPurchase('purchaseDate')} />
               </div>
               <div className="rounded-2xl border border-earth-100 bg-earth-50 p-4 text-sm text-earth-700">
-                <div className="font-bold text-earth-950">Restock preview</div>
-                <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <div className="font-bold text-earth-950">Cost calculation preview</div>
+                <p className="mt-2 text-xs leading-5 text-earth-600">{costFormulaText}</p>
+                <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-earth-500">Unit cost</div>
+                    <div className="text-xs uppercase tracking-wide text-earth-500">This purchase unit cost</div>
                     <div className="font-black">{restockUnitCost.toFixed(2)} ETB</div>
                   </div>
                   <div>
@@ -324,8 +368,8 @@ function IngredientsContent() {
                     <div className="font-black">{stockAfterRestock.toFixed(3)} {selectedPurchaseIngredient?.unit || ''}</div>
                   </div>
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-earth-500">Avg cost after</div>
-                    <div className="font-black">{weightedAverageAfterRestock.toFixed(2)} ETB</div>
+                    <div className="text-xs uppercase tracking-wide text-earth-500">New average cost</div>
+                    <div className="font-black">{weightedAverageAfterRestock.toFixed(2)} ETB/{selectedPurchaseIngredient?.unit || 'unit'}</div>
                   </div>
                 </div>
               </div>
@@ -341,6 +385,13 @@ function IngredientsContent() {
                     <div><dt className="text-earth-500">Ingredient</dt><dd className="font-bold">{pendingPurchase.ingredientName}</dd></div>
                     <div><dt className="text-earth-500">Quantity</dt><dd className="font-bold">+{pendingPurchase.quantity} {pendingPurchase.unit}</dd></div>
                     <div><dt className="text-earth-500">Total cost</dt><dd className="font-bold">{pendingPurchase.costTotal.toFixed(2)} ETB</dd></div>
+                    <div><dt className="text-earth-500">Unit cost (this purchase)</dt><dd className="font-bold">{purchaseUnitCost(pendingPurchase.quantity, pendingPurchase.costTotal).toFixed(2)} ETB</dd></div>
+                    <div><dt className="text-earth-500">New average cost</dt><dd className="font-bold">{weightedAverageCost(
+                      Number(list.find((item) => item.id === pendingPurchase.ingredientId)?.quantity ?? 0),
+                      Number(list.find((item) => item.id === pendingPurchase.ingredientId)?.cost_per_unit ?? 0),
+                      pendingPurchase.quantity,
+                      pendingPurchase.costTotal
+                    ).toFixed(2)} ETB/{pendingPurchase.unit}</dd></div>
                     <div><dt className="text-earth-500">Stock after</dt><dd className="font-bold">{pendingPurchase.stockAfter.toFixed(3)} {pendingPurchase.unit}</dd></div>
                     {pendingPurchase.supplier && (
                       <div><dt className="text-earth-500">Supplier</dt><dd className="font-bold">{pendingPurchase.supplier}</dd></div>
@@ -411,7 +462,7 @@ function IngredientsContent() {
                     <th className="pb-3">On Hand</th>
                     <th className="pb-3">Unit</th>
                     <th className="pb-3">Avg Cost</th>
-                    <th className="pb-3">Reorder At</th>
+                    <th className="pb-3">Alert Stock</th>
                     <th className="pb-3">Actions</th>
                   </tr>
                 </thead>
