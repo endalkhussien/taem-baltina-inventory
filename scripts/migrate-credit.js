@@ -1,16 +1,7 @@
 const fs = require('fs')
 const path = require('path')
 const { Pool } = require('pg')
-
-function resolveDatabaseUrl() {
-  const url = process.env.DATABASE_URL
-
-  if (!url) {
-    throw new Error('DATABASE_URL is required. Example: $env:DATABASE_URL = "postgresql://..."')
-  }
-
-  return url
-}
+const { requireDatabaseUrl } = require('./load-env')
 
 function createPgPoolOptions(connectionString) {
   const requiresSsl = /sslmode=require|neon\.tech|supabase\.co/i.test(connectionString)
@@ -32,7 +23,7 @@ async function runSqlFile(client, relativePath) {
 }
 
 async function migrateCredit() {
-  const pool = new Pool(createPgPoolOptions(resolveDatabaseUrl()))
+  const pool = new Pool(createPgPoolOptions(requireDatabaseUrl()))
   const client = await pool.connect()
 
   try {
@@ -52,6 +43,6 @@ async function migrateCredit() {
 }
 
 migrateCredit().catch((err) => {
-  console.error(err)
+  console.error(err.message || err)
   process.exit(1)
 })

@@ -1,12 +1,7 @@
 const fs = require('fs')
 const path = require('path')
 const { Pool } = require('pg')
-
-function resolveDatabaseUrl() {
-  const url = process.env.DATABASE_URL
-  if (!url) throw new Error('DATABASE_URL is required.')
-  return url
-}
+const { requireDatabaseUrl } = require('./load-env')
 
 function createPgPoolOptions(connectionString) {
   const requiresSsl = /sslmode=require|neon\.tech|supabase\.co/i.test(connectionString)
@@ -18,7 +13,8 @@ function createPgPoolOptions(connectionString) {
 }
 
 async function migrateDecimalSales() {
-  const pool = new Pool(createPgPoolOptions(resolveDatabaseUrl()))
+  const databaseUrl = requireDatabaseUrl()
+  const pool = new Pool(createPgPoolOptions(databaseUrl))
   const client = await pool.connect()
 
   try {
@@ -33,6 +29,6 @@ async function migrateDecimalSales() {
 }
 
 migrateDecimalSales().catch((err) => {
-  console.error(err)
+  console.error(err.message || err)
   process.exit(1)
 })
