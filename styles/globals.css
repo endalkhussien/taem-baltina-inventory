@@ -34,7 +34,7 @@
   }
 
   .app-page {
-    @apply min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(212,120,42,0.12),transparent_28rem)] px-4 py-5 sm:px-6 lg:px-8 xl:pl-80;
+    @apply min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(212,120,42,0.12),transparent_28rem)] px-4 py-5 sm:px-6 lg:px-8 xl:pl-[17.5rem];
   }
 
   .app-container {
@@ -156,11 +156,7 @@
     @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-lg font-black text-amber-700;
   }
 
-  .nav-link {
-    @apply rounded-xl px-3 py-2 text-sm font-semibold text-earth-200 transition-all duration-200 hover:bg-white/10 hover:text-white;
-  }
-
-  .nav-link-active {
-    @apply rounded-xl bg-white px-3 py-2 text-sm font-bold text-earth-950 shadow-sm;
+  .admin-sidebar {
+    @apply fixed inset-y-0 left-0 z-40 w-[17.5rem] flex-col border-r border-earth-100 bg-white/95 shadow-sm backdrop-blur-xl;
   }
 }
