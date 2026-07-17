@@ -2,13 +2,8 @@ import { NextResponse } from 'next/server'
 import { db, schema } from '../../../lib/db'
 import { repaymentSchema } from '../../../lib/validators/sale'
 import { desc, eq } from 'drizzle-orm'
+import { parseLocalDate } from '../../../lib/dates'
 import { databaseErrorResponse, parseJsonBody } from '../../../lib/apiErrors'
-
-function parseDate(value?: string) {
-  if (!value) return new Date()
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? null : date
-}
 
 export async function GET() {
   try {
@@ -40,7 +35,7 @@ export async function POST(request: Request) {
     if (!parsed.success) return NextResponse.json({ error: parsed.error.format() }, { status: 422 })
 
     const { saleId, amount, paymentDate } = parsed.data
-    const parsedPaymentDate = parseDate(paymentDate)
+    const parsedPaymentDate = parseLocalDate(paymentDate)
     if (!parsedPaymentDate) return NextResponse.json({ error: 'Invalid payment date.' }, { status: 422 })
 
     const result = await db.transaction(async (tx) => {

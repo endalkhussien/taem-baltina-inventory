@@ -2,13 +2,8 @@ import { NextResponse } from 'next/server'
 import { db, schema } from '../../../lib/db'
 import { purchaseCreateSchema } from '../../../lib/validators/purchase'
 import { desc, eq, sql } from 'drizzle-orm'
+import { parseLocalDate } from '../../../lib/dates'
 import { databaseErrorResponse, parseJsonBody } from '../../../lib/apiErrors'
-
-function parseDate(value?: string) {
-  if (!value) return new Date()
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? null : date
-}
 
 export async function GET() {
   try {
@@ -42,7 +37,7 @@ export async function POST(request: Request) {
     if (!parsed.success) return NextResponse.json({ error: parsed.error.format() }, { status: 422 })
 
     const { ingredientId, quantity, costTotal, supplier, purchaseDate } = parsed.data
-    const parsedDate = parseDate(purchaseDate)
+    const parsedDate = parseLocalDate(purchaseDate)
     if (!parsedDate) return NextResponse.json({ error: 'Invalid purchase date.' }, { status: 422 })
 
     const result = await db.transaction(async (tx) => {

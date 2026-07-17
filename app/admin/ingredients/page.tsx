@@ -6,8 +6,9 @@ import { useSearchParams } from 'next/navigation'
 import { useIngredients, usePurchases } from '../../../hooks/useModules'
 import AdminNav from '../../../components/AdminNav'
 import { ingredientCreateSchema } from '../../../lib/validators/ingredient'
+import { toLocalDateKey, todayLocalKey } from '../../../lib/dates'
 
-const today = new Date().toISOString().slice(0, 10)
+const today = todayLocalKey()
 const defaultCategories = ['Spices', 'Fresh aromatics', 'Flours', 'Seasoning', 'Packaging', 'Other']
 
 function IngredientsContent() {
@@ -16,6 +17,17 @@ function IngredientsContent() {
   const [editing, setEditing] = useState<number | null>(null)
   const [submitError, setSubmitError] = useState('')
   const [purchaseMessage, setPurchaseMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [unitPriceInput, setUnitPriceInput] = useState('')
+  const [pendingPurchase, setPendingPurchase] = useState<{
+    ingredientId: number
+    ingredientName: string
+    quantity: number
+    costTotal: number
+    supplier: string
+    purchaseDate: string
+    unit: string
+    stockAfter: number
+  } | null>(null)
   const isSaving = isCreatingIngredient || isUpdatingIngredient
   const searchParams = useSearchParams()
   const activeCategory = searchParams.get('category') || ''
@@ -24,8 +36,8 @@ function IngredientsContent() {
     resolver: zodResolver(ingredientCreateSchema as any),
     defaultValues: { name: '', category: 'Spices', quantity: 0, unit: '', costPerUnit: 0, alertThreshold: 0 }
   })
-  const { register: registerPurchase, handleSubmit: handlePurchaseSubmit, reset: resetPurchase, watch: watchPurchase } = useForm({
-    defaultValues: { ingredientId: 0, quantity: 0, costTotal: 0, supplier: '', purchaseDate: today }
+  const { register: registerPurchase, handleSubmit: handlePurchaseSubmit, reset: resetPurchase, watch: watchPurchase, setValue: setPurchaseValue } = useForm({
+    defaultValues: { ingredientId: 0, quantity: 1, costTotal: 0, supplier: '', purchaseDate: today }
   })
 
   const list = Array.isArray(ingredients) ? ingredients : []
@@ -46,6 +58,17 @@ function IngredientsContent() {
   const weightedAverageAfterRestock = selectedPurchaseIngredient && stockAfterRestock > 0
     ? ((Number(selectedPurchaseIngredient.quantity) * Number(selectedPurchaseIngredient.cost_per_unit)) + purchaseCostTotal) / stockAfterRestock
     : restockUnitCost
+
+  const todayPurchases = purchaseList.filter(
+    (purchase) => toLocalDateKey(purchase.purchase_date) === today
+  )
+  const lastPurchase = purchaseList[0] ?? null
+
+  useEffect(() => {
+    const unitPrice = Number(unitPriceInput)
+    if (!Number.isFinite(unitPrice) || unitPrice <= 0 || purchaseQuantity <= 0) return
+    setPurchaseValue('costTotal', Number((purchaseQuantity * unitPrice).toFixed(2)))
+  }, [purchaseQuantity, setPurchaseValue, unitPriceInput])
 
   useEffect(() => {
     if (editing) {
@@ -78,16 +101,74 @@ function IngredientsContent() {
     }
   }
 
-  const onPurchaseSubmit = async (vals: any) => {
+  const onPurchaseSubmit = (vals: { ingredientId: number; quantity: number; costTotal: number; supplier?: string; purchaseDate: string }) => {
     setPurchaseMessage(null)
 
+    const ingredient = list.find((item) => item.id === vals.ingredientId)
+    if (!ingredient) {
+      setPurchaseMessage({ type: 'error', text: 'Select an ingredient to restock.' })
+      return
+    }
+
+    const quantity = Number(vals.quantity)
+    const costTotal = Number(vals.costTotal)
+    if (!quantity || quantity <= 0) {
+      setPurchaseMessage({ type: 'error', text: 'Enter a quantity greater than zero.' })
+      return
+    }
+    if (!costTotal || costTotal <= 0) {
+      setPurchaseMessage({ type: 'error', text: 'Enter the total cost or unit price × quantity.' })
+      return
+    }
+
+    setPendingPurchase({
+      ingredientId: ingredient.id,
+      ingredientName: ingredient.name,
+      quantity,
+      costTotal,
+      supplier: vals.supplier?.trim() || '',
+      purchaseDate: vals.purchaseDate || today,
+      unit: ingredient.unit,
+      stockAfter: Number(ingredient.quantity) + quantity
+    })
+  }
+
+  const confirmPurchase = async () => {
+    if (!pendingPurchase) return
+    setPurchaseMessage(null)
+    const snapshot = pendingPurchase
+
     try {
-      await createPurchase(vals)
-      resetPurchase({ ingredientId: 0, quantity: 0, costTotal: 0, supplier: '', purchaseDate: today })
-      setPurchaseMessage({ type: 'success', text: 'Raw-material purchase recorded and stock updated.' })
+      await createPurchase({
+        ingredientId: snapshot.ingredientId,
+        quantity: snapshot.quantity,
+        costTotal: snapshot.costTotal,
+        supplier: snapshot.supplier || undefined,
+        purchaseDate: snapshot.purchaseDate
+      })
+      setPendingPurchase(null)
+      setUnitPriceInput('')
+      resetPurchase({ ingredientId: 0, quantity: 1, costTotal: 0, supplier: '', purchaseDate: today })
+      setPurchaseMessage({
+        type: 'success',
+        text: `Restock recorded for ${toLocalDateKey(snapshot.purchaseDate)}: +${snapshot.quantity} ${snapshot.unit} of ${snapshot.ingredientName}.`
+      })
     } catch (err) {
       setPurchaseMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not record purchase.' })
     }
+  }
+
+  const repeatLastPurchase = () => {
+    if (!lastPurchase) return
+    setPurchaseValue('ingredientId', lastPurchase.ingredient_id)
+    setPurchaseValue('quantity', Number(lastPurchase.quantity))
+    setPurchaseValue('costTotal', Number(lastPurchase.cost_total))
+    setPurchaseValue('supplier', lastPurchase.supplier || '')
+    setPurchaseValue('purchaseDate', today)
+    const unitCost = Number(lastPurchase.quantity) > 0 ? Number(lastPurchase.cost_total) / Number(lastPurchase.quantity) : 0
+    setUnitPriceInput(unitCost > 0 ? String(unitCost) : '')
+    setPendingPurchase(null)
+    setPurchaseMessage(null)
   }
 
   return (
@@ -160,8 +241,17 @@ function IngredientsContent() {
             </form>
           </div>
           <div className="card">
-            <h2 className="font-display text-xl font-black text-earth-950 mb-1">Record Purchase / Restock</h2>
-            <p className="mb-5 text-sm text-earth-500">Adds stock and recalculates average cost per unit.</p>
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="font-display text-xl font-black text-earth-950 mb-1">Record Purchase / Restock</h2>
+                <p className="text-sm text-earth-500">Adds stock and recalculates average cost per unit. Review before posting.</p>
+              </div>
+              {lastPurchase && (
+                <button type="button" className="text-xs font-bold text-spice-700" onClick={repeatLastPurchase}>
+                  Repeat last purchase
+                </button>
+              )}
+            </div>
             <form onSubmit={handlePurchaseSubmit(onPurchaseSubmit)} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-earth-700 mb-1.5">Ingredient</label>
@@ -172,14 +262,46 @@ function IngredientsContent() {
                   ))}
                 </select>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-earth-700 mb-1.5">Quantity</label>
+                <div className="flex flex-wrap gap-2">
+                  <input
+                    type="number"
+                    step="0.001"
+                    min="0.001"
+                    inputMode="decimal"
+                    className="input-field flex-1 min-w-[120px]"
+                    {...registerPurchase('quantity', { valueAsNumber: true })}
+                  />
+                  {[1, 5, 10, 25].map((amount) => (
+                    <button
+                      key={amount}
+                      type="button"
+                      className="rounded-xl border border-earth-200 bg-earth-50 px-3 py-2 text-xs font-bold text-earth-700"
+                      onClick={() => setPurchaseValue('quantity', amount)}
+                    >
+                      +{amount}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-earth-700 mb-1.5">Quantity</label>
-                  <input type="number" step="0.001" className="input-field" {...registerPurchase('quantity', { valueAsNumber: true })} />
+                  <label className="block text-sm font-medium text-earth-700 mb-1.5">Unit price (optional)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    inputMode="decimal"
+                    className="input-field"
+                    placeholder="ETB per unit"
+                    value={unitPriceInput}
+                    onChange={(event) => setUnitPriceInput(event.target.value)}
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-earth-700 mb-1.5">Total Cost</label>
-                  <input type="number" step="0.01" className="input-field" {...registerPurchase('costTotal', { valueAsNumber: true })} />
+                  <label className="block text-sm font-medium text-earth-700 mb-1.5">Total cost (ETB)</label>
+                  <input type="number" step="0.01" min="0.01" className="input-field" {...registerPurchase('costTotal', { valueAsNumber: true })} />
                 </div>
               </div>
               <div>
@@ -207,9 +329,46 @@ function IngredientsContent() {
                   </div>
                 </div>
               </div>
-              <button className="btn-primary w-full" type="submit" disabled={isCreatingPurchase}>
-                {isCreatingPurchase ? 'Recording...' : 'Record restock'}
+              <button className="btn-primary w-full" type="submit" disabled={isCreatingPurchase || !!pendingPurchase}>
+                {isCreatingPurchase ? 'Recording...' : 'Review restock'}
               </button>
+
+              {pendingPurchase && (
+                <div className="rounded-2xl border-2 border-spice-300 bg-spice-50 p-4">
+                  <h3 className="font-display text-lg font-black text-earth-950">Confirm before posting</h3>
+                  <dl className="mt-3 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+                    <div><dt className="text-earth-500">Date</dt><dd className="font-bold">{toLocalDateKey(pendingPurchase.purchaseDate)}</dd></div>
+                    <div><dt className="text-earth-500">Ingredient</dt><dd className="font-bold">{pendingPurchase.ingredientName}</dd></div>
+                    <div><dt className="text-earth-500">Quantity</dt><dd className="font-bold">+{pendingPurchase.quantity} {pendingPurchase.unit}</dd></div>
+                    <div><dt className="text-earth-500">Total cost</dt><dd className="font-bold">{pendingPurchase.costTotal.toFixed(2)} ETB</dd></div>
+                    <div><dt className="text-earth-500">Stock after</dt><dd className="font-bold">{pendingPurchase.stockAfter.toFixed(3)} {pendingPurchase.unit}</dd></div>
+                    {pendingPurchase.supplier && (
+                      <div><dt className="text-earth-500">Supplier</dt><dd className="font-bold">{pendingPurchase.supplier}</dd></div>
+                    )}
+                  </dl>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <button className="btn-primary" type="button" onClick={confirmPurchase} disabled={isCreatingPurchase}>
+                      {isCreatingPurchase ? 'Posting...' : 'Confirm & record restock'}
+                    </button>
+                    <button className="btn-secondary" type="button" onClick={() => setPendingPurchase(null)} disabled={isCreatingPurchase}>
+                      Edit
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {todayPurchases.length > 0 && (
+                <div className="rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+                  <div className="font-bold">Today&apos;s restocks ({todayPurchases.length})</div>
+                  <ul className="mt-2 space-y-1">
+                    {todayPurchases.slice(0, 5).map((purchase) => (
+                      <li key={purchase.id}>
+                        {purchase.ingredient_name}: +{Number(purchase.quantity)} • {Number(purchase.cost_total).toFixed(2)} ETB
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               {purchaseMessage && (
                 <div className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${purchaseMessage.type === 'success' ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'}`}>
                   {purchaseMessage.text}

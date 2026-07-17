@@ -5,11 +5,18 @@ import { useForm } from 'react-hook-form'
 import { useProducts } from '../../../hooks/useProducts'
 import { useCustomers, useRepayments, useSales } from '../../../hooks/useModules'
 import AdminNav from '../../../components/AdminNav'
-import { computeSaleTotals, toLocalDateKey } from '../../../lib/sales'
+import { computeSaleTotals, toLocalDateKey, todayLocalKey } from '../../../lib/sales'
 import { formatStockKg } from '../../../lib/productStock'
-import { isInSalesPeriod, salesPeriodLabels, summarizeSales, type SalesPeriod } from '../../../lib/periods'
+import {
+  groupSalesByCalendarWeek,
+  isInSalesPeriod,
+  periodDescription,
+  salesPeriodLabels,
+  summarizeSales,
+  type SalesPeriod
+} from '../../../lib/periods'
 
-const today = new Date().toISOString().slice(0, 10)
+const today = todayLocalKey()
 
 type SaleFormValues = {
   productId: number
@@ -28,6 +35,13 @@ export default function SalesPage() {
   const [salesPeriod, setSalesPeriod] = useState<SalesPeriod>('all')
   const [openCreditOnly, setOpenCreditOnly] = useState(false)
   const [repaySaleId, setRepaySaleId] = useState<number | null>(null)
+  const [pendingSale, setPendingSale] = useState<{
+    values: SaleFormValues
+    productName: string
+    customerName: string
+    totals: ReturnType<typeof computeSaleTotals>
+    stockAfter: number
+  } | null>(null)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const previousCustomerId = useRef(0)
 
@@ -70,6 +84,11 @@ export default function SalesPage() {
   const tableSales = openCreditOnly ? openCreditSales : periodSales
   const periodSummary = useMemo(() => summarizeSales(periodSales), [periodSales])
   const allTimeSummary = useMemo(() => summarizeSales(salesList), [salesList])
+  const weeklyGroups = useMemo(
+    () => groupSalesByCalendarWeek(openCreditOnly ? openCreditSales : periodSales),
+    [openCreditOnly, openCreditSales, periodSales]
+  )
+  const periodLabel = periodDescription(salesPeriod, filterDate)
 
   const totalOutstanding = openCreditSales.reduce((sum, sale) => sum + Number(sale.balance), 0)
 
@@ -104,65 +123,91 @@ export default function SalesPage() {
     previousCustomerId.current = customerId
   }, [customerId, quantity, unitPrice, setValue])
 
-  const onSubmit = async (values: SaleFormValues) => {
-    setMessage(null)
-
+  const buildSalePayload = (values: SaleFormValues) => {
     const product = productList.find((item) => item.id === values.productId)
-    if (!product) {
-      setMessage({ type: 'error', text: 'Select a finished good to sell.' })
-      return
+    if (!product) return { error: 'Select a finished good to sell.' }
+
+    const qty = Math.floor(Number(values.quantity))
+    if (!Number.isFinite(qty) || qty <= 0 || !Number.isInteger(qty)) {
+      return { error: 'Quantity must be a whole number (kg) greater than zero.' }
     }
 
     if (Number(product.stock_quantity) <= 0) {
-      setMessage({ type: 'error', text: `${product.name} is out of stock. Produce or restock before selling.` })
-      return
+      return { error: `${product.name} is out of stock. Produce or restock before selling.` }
     }
 
-    if (values.quantity <= 0) {
-      setMessage({ type: 'error', text: 'Enter a quantity greater than zero.' })
-      return
+    if (qty > Number(product.stock_quantity)) {
+      return {
+        error: `Not enough stock. Only ${formatStockKg(product.stock_quantity)} available.`
+      }
     }
 
-    if (values.quantity > Number(product.stock_quantity)) {
-      setMessage({
-        type: 'error',
-        text: `Not enough stock. Only ${formatStockKg(product.stock_quantity)} available.`
-      })
-      return
-    }
-
-    const totals = computeSaleTotals(values.quantity, Number(product.selling_price), values.customerId > 0 ? values.amountPaid : values.quantity * Number(product.selling_price))
+    const totals = computeSaleTotals(
+      qty,
+      Number(product.selling_price),
+      values.customerId > 0 ? values.amountPaid : qty * Number(product.selling_price)
+    )
 
     if (values.customerId === 0 && totals.balance > 0) {
-      setMessage({ type: 'error', text: 'Walk-in sales must be paid in full. Select a customer for credit.' })
-      return
-    }
-
-    if (totals.balance > 0 && values.customerId === 0) {
-      setMessage({ type: 'error', text: 'Credit or partial sales must use a customer account.' })
-      return
+      return { error: 'Walk-in sales must be paid in full. Select a customer for credit.' }
     }
 
     if (totals.paid > totals.total) {
-      setMessage({ type: 'error', text: 'Amount paid cannot be more than the sale total.' })
+      return { error: 'Amount paid cannot be more than the sale total.' }
+    }
+
+    const customerName =
+      values.customerId > 0
+        ? customerList.find((customer) => customer.id === values.customerId)?.name ?? 'Customer'
+        : 'Walk-in (paid in full)'
+
+    return {
+      values: { ...values, quantity: qty },
+      product,
+      totals,
+      customerName,
+      stockAfter: Number(product.stock_quantity) - qty
+    }
+  }
+
+  const onSubmit = (values: SaleFormValues) => {
+    setMessage(null)
+    const built = buildSalePayload(values)
+    if ('error' in built) {
+      setMessage({ type: 'error', text: built.error ?? 'Could not prepare sale.' })
       return
     }
 
+    setPendingSale({
+      values: built.values,
+      productName: built.product.name,
+      customerName: built.customerName,
+      totals: built.totals,
+      stockAfter: built.stockAfter
+    })
+  }
+
+  const confirmSale = async () => {
+    if (!pendingSale) return
+    setMessage(null)
+    const snapshot = pendingSale
+
     try {
       const result = await createSale({
-        productId: values.productId,
-        customerId: values.customerId,
-        quantity: values.quantity,
-        amountPaid: totals.paid,
-        saleDate: values.saleDate
+        productId: snapshot.values.productId,
+        customerId: snapshot.values.customerId,
+        quantity: snapshot.values.quantity,
+        amountPaid: snapshot.totals.paid,
+        saleDate: snapshot.values.saleDate || today
       })
+      setPendingSale(null)
       reset({ productId: 0, customerId: 0, quantity: 1, amountPaid: 0, saleDate: today })
       previousCustomerId.current = 0
-      const afterKg = Number(result.stock_kg_after ?? 0)
-      const soldKg = Number(result.quantity_sold_kg ?? values.quantity)
+      const afterKg = Number(result.stock_kg_after ?? snapshot.stockAfter)
+      const soldKg = Number(result.quantity_sold_kg ?? snapshot.values.quantity)
       setMessage({
         type: 'success',
-        text: `Sale recorded: −${soldKg} kg sold. Remaining stock: ${afterKg} kg.`
+        text: `Sale recorded for ${toLocalDateKey(snapshot.values.saleDate || today)}: −${soldKg} kg sold. Remaining stock: ${afterKg} kg.`
       })
     } catch (err) {
       setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not record sale.' })
@@ -184,8 +229,10 @@ export default function SalesPage() {
 
   const canSubmit =
     !isCreatingSale &&
+    !pendingSale &&
     selectedProductId > 0 &&
     quantity > 0 &&
+    Number.isInteger(quantity) &&
     !stockError &&
     availableStock > 0 &&
     (isCreditSale ? amountPaid <= saleTotal : true)
@@ -295,10 +342,19 @@ export default function SalesPage() {
                     <label className="block text-sm font-bold text-earth-700 mb-1.5">Quantity (kg)</label>
                     <input
                       type="number"
+                      step="1"
+                      inputMode="numeric"
                       min={availableStock > 0 ? 1 : 0}
                       max={availableStock > 0 ? availableStock : 0}
                       className="input-field"
-                      {...register('quantity', { valueAsNumber: true })}
+                      {...register('quantity', {
+                        valueAsNumber: true,
+                        setValueAs: (value) => {
+                          const parsed = Number(value)
+                          if (!Number.isFinite(parsed)) return 0
+                          return Math.max(0, Math.floor(parsed))
+                        }
+                      })}
                       disabled={!selectedProduct || availableStock <= 0}
                     />
                     {selectedProduct && availableStock > 0 && quantity > 0 && (
@@ -347,9 +403,34 @@ export default function SalesPage() {
                   </div>
                 </div>
                 <button className="btn-primary w-full" type="submit" disabled={!canSubmit}>
-                  {isCreatingSale ? 'Posting sale...' : 'Post sale'}
+                  {isCreatingSale ? 'Posting sale...' : 'Review sale'}
                 </button>
               </form>
+
+              {pendingSale && (
+                <div className="mt-4 rounded-2xl border-2 border-spice-300 bg-spice-50 p-4">
+                  <h3 className="font-display text-lg font-black text-earth-950">Confirm before posting</h3>
+                  <p className="mt-1 text-sm text-earth-600">Check everything below, then post the sale.</p>
+                  <dl className="mt-4 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+                    <div><dt className="text-earth-500">Date</dt><dd className="font-bold">{toLocalDateKey(pendingSale.values.saleDate || today)}</dd></div>
+                    <div><dt className="text-earth-500">Product</dt><dd className="font-bold">{pendingSale.productName}</dd></div>
+                    <div><dt className="text-earth-500">Customer</dt><dd className="font-bold">{pendingSale.customerName}</dd></div>
+                    <div><dt className="text-earth-500">Quantity</dt><dd className="font-bold">{pendingSale.values.quantity} kg (whole number)</dd></div>
+                    <div><dt className="text-earth-500">Total</dt><dd className="font-bold">{pendingSale.totals.total.toFixed(2)} ETB</dd></div>
+                    <div><dt className="text-earth-500">Paid now</dt><dd className="font-bold text-green-700">{pendingSale.totals.paid.toFixed(2)} ETB</dd></div>
+                    <div><dt className="text-earth-500">Balance</dt><dd className="font-bold text-red-700">{pendingSale.totals.balance.toFixed(2)} ETB</dd></div>
+                    <div><dt className="text-earth-500">Stock after</dt><dd className="font-bold">{formatStockKg(pendingSale.stockAfter)}</dd></div>
+                  </dl>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <button className="btn-primary" type="button" onClick={confirmSale} disabled={isCreatingSale}>
+                      {isCreatingSale ? 'Posting...' : 'Confirm & post sale'}
+                    </button>
+                    <button className="btn-secondary" type="button" onClick={() => setPendingSale(null)} disabled={isCreatingSale}>
+                      Edit
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="lg:col-span-2 card overflow-x-auto">
@@ -359,7 +440,7 @@ export default function SalesPage() {
                   <p className="text-sm text-earth-500">
                     {openCreditOnly
                       ? `Showing ${tableSales.length} open credit sale${tableSales.length === 1 ? '' : 's'} (${totalOutstanding.toFixed(2)} ETB owed).`
-                      : `Showing ${tableSales.length} sale${tableSales.length === 1 ? '' : 's'} for ${salesPeriodLabels[salesPeriod].toLowerCase()}.`}
+                      : `Showing ${tableSales.length} sale${tableSales.length === 1 ? '' : 's'} — ${periodLabel}.`}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -379,9 +460,10 @@ export default function SalesPage() {
                 <div>Loading...</div>
               ) : tableSales.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-earth-200 p-6 text-sm text-earth-500">
-                  {openCreditOnly ? 'No open credit sales right now.' : `No sales recorded on ${filterDate}.`}
+                  {openCreditOnly ? 'No open credit sales right now.' : `No sales for ${periodLabel}.`}
                 </div>
               ) : (
+                <>
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-left text-xs uppercase tracking-wide text-earth-500">
@@ -445,7 +527,7 @@ export default function SalesPage() {
                   <tfoot>
                     <tr className="border-t-2 border-earth-200 bg-earth-50 font-bold text-earth-900">
                       <td className="py-3" colSpan={5}>
-                        {openCreditOnly ? 'Open credit total' : `${filterDate} totals`}
+                        {openCreditOnly ? 'Open credit total' : `${periodLabel} totals`}
                       </td>
                       <td className="py-3">{tableSales.reduce((sum, sale) => sum + Number(sale.total_amount), 0).toFixed(2)}</td>
                       <td className="py-3">{tableSales.reduce((sum, sale) => sum + Number(sale.amount_paid), 0).toFixed(2)}</td>
@@ -454,6 +536,26 @@ export default function SalesPage() {
                     </tr>
                   </tfoot>
                 </table>
+
+                {!openCreditOnly && weeklyGroups.length > 0 && (
+                  <div className="mt-6 border-t border-earth-100 pt-6">
+                    <h3 className="font-display text-lg font-black text-earth-950">Weekly sales (Mon–Sun)</h3>
+                    <p className="mt-1 text-sm text-earth-500">Grouped by calendar week, Monday through Sunday.</p>
+                    <div className="mt-4 space-y-3">
+                      {weeklyGroups.map((group) => (
+                        <div key={group.label} className="rounded-2xl border border-earth-100 bg-earth-50 px-4 py-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="font-bold text-earth-950">{group.label}</div>
+                            <div className="text-sm text-earth-600">
+                              {group.summary.count} sale{group.summary.count === 1 ? '' : 's'} • {group.summary.revenue.toFixed(2)} ETB • {group.summary.kg} kg
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                </>
               )}
             </div>
           </div>

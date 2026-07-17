@@ -7,29 +7,11 @@ import AdminNav from '../../../components/AdminNav'
 import { isLowStock } from '../../../lib/stock'
 import { formatStockKg } from '../../../lib/productStock'
 import { averageCostPerProduct, estimateSalesCogs } from '../../../lib/productionCost'
+import { isInSalesPeriod, salesPeriodLabels, type SalesPeriod } from '../../../lib/periods'
+import { toLocalDateKey, todayLocalKey } from '../../../lib/dates'
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
-type Period = 'week' | 'month' | 'all'
-
-function isWithinPeriod(value: string, period: Period) {
-  if (period === 'all') return true
-
-  const date = new Date(value)
-  const now = new Date()
-  const start = new Date(now)
-
-  if (period === 'week') start.setDate(now.getDate() - 6)
-  if (period === 'month') start.setMonth(now.getMonth() - 1)
-
-  start.setHours(0, 0, 0, 0)
-  return date >= start
-}
-
-const periodLabels: Record<Period, string> = {
-  week: 'Last 7 days',
-  month: 'Last 30 days',
-  all: 'All time'
-}
+type Period = Exclude<SalesPeriod, 'today'>
 
 export default function DashboardPage() {
   const [period, setPeriod] = useState<Period>('all')
@@ -57,14 +39,15 @@ export default function DashboardPage() {
   const liabilityList = Array.isArray(liabilities) ? liabilities : []
   const ledgerList = Array.isArray(creditLedgers) ? creditLedgers : []
   const totalLedgerCreditCreated = ledgerList.reduce((acc, row) => acc + Number(row.total_amount), 0)
-  const today = new Date().toISOString().slice(0, 10)
-  const todaySales = salesList.filter((s: any) => new Date(s.sale_date).toISOString().slice(0, 10) === today)
-  const todayProduction = productionList.filter((batch: any) => new Date(batch.produced_at).toISOString().slice(0, 10) === today)
-  const periodSales = salesList.filter((sale: any) => isWithinPeriod(sale.sale_date, period))
-  const periodExpenses = expensesList.filter((expense: any) => isWithinPeriod(expense.expense_date ?? expense.created_at, period))
-  const periodPurchases = purchaseList.filter((purchase: any) => isWithinPeriod(purchase.purchase_date, period))
-  const periodProduction = productionList.filter((batch: any) => isWithinPeriod(batch.produced_at, period))
-  const periodRepayments = repaymentList.filter((payment: any) => isWithinPeriod(payment.payment_date, period))
+  const today = todayLocalKey()
+  const todaySales = salesList.filter((s: any) => toLocalDateKey(s.sale_date) === today)
+  const todayProduction = productionList.filter((batch: any) => toLocalDateKey(batch.produced_at) === today)
+  const todayPurchases = purchaseList.filter((purchase: any) => toLocalDateKey(purchase.purchase_date) === today)
+  const periodSales = salesList.filter((sale: any) => isInSalesPeriod(sale.sale_date, period))
+  const periodExpenses = expensesList.filter((expense: any) => isInSalesPeriod(expense.expense_date ?? expense.created_at, period))
+  const periodPurchases = purchaseList.filter((purchase: any) => isInSalesPeriod(purchase.purchase_date, period))
+  const periodProduction = productionList.filter((batch: any) => isInSalesPeriod(batch.produced_at, period))
+  const periodRepayments = repaymentList.filter((payment: any) => isInSalesPeriod(payment.payment_date, period))
 
   const totalRevenue = salesList.reduce((acc, s: any) => acc + Number(s.total_amount), 0)
   const totalCashCollected = salesList.reduce((acc, s: any) => acc + Number(s.amount_paid), 0)
@@ -192,7 +175,7 @@ export default function DashboardPage() {
               <div className="mt-1 text-xs text-spice-100">{salesList.length} sale{salesList.length === 1 ? '' : 's'} in your database</div>
             </div>
             <div className="rounded-2xl bg-white/10 px-5 py-4 ring-1 ring-white/15">
-              <div className="text-xs uppercase tracking-[0.18em] text-spice-100">{periodLabels[period]} sales (filtered view)</div>
+              <div className="text-xs uppercase tracking-[0.18em] text-spice-100">{salesPeriodLabels[period]} sales (filtered view)</div>
               <div className="mt-1 text-2xl font-black">{periodRevenue.toFixed(2)} ETB</div>
             </div>
             <div className="flex rounded-2xl bg-white/10 p-1 ring-1 ring-white/15">
@@ -299,7 +282,7 @@ export default function DashboardPage() {
           </div>
         </Link>
         <Link href="/admin/sales" className="metric-card block">
-          <div className="metric-label">{periodLabels[period]} sales trace</div>
+          <div className="metric-label">{salesPeriodLabels[period]} sales trace</div>
           <div className="metric-value text-spice-700">{periodRevenue.toFixed(2)} ETB</div>
           <div className="mt-2 text-xs font-semibold text-earth-500">{periodSoldUnits} kg sold • {periodSales.length} sales. Open Sales for full list.</div>
         </Link>
@@ -397,19 +380,19 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="metric-card">
-          <div className="metric-label">{periodLabels[period]} production cost</div>
+          <div className="metric-label">{salesPeriodLabels[period]} production cost</div>
           <div className="metric-value text-amber-700">{periodProductionSpend.toFixed(2)} ETB</div>
           <div className="mt-2 text-xs font-semibold text-earth-500">
             Materials {periodMaterialSpend.toFixed(2)} + overhead {periodOverheadSpend.toFixed(2)}
           </div>
         </div>
         <div className="metric-card">
-          <div className="metric-label">{periodLabels[period]} cost of goods sold</div>
+          <div className="metric-label">{salesPeriodLabels[period]} cost of goods sold</div>
           <div className="metric-value text-orange-700">{periodCogs.toFixed(2)} ETB</div>
           <div className="mt-2 text-xs font-semibold text-earth-500">Based on average production cost per unit sold.</div>
         </div>
         <div className="metric-card">
-          <div className="metric-label">{periodLabels[period]} operating costs</div>
+          <div className="metric-label">{salesPeriodLabels[period]} operating costs</div>
           <div className="metric-value text-purple-700">{periodOperatingCosts.toFixed(2)} ETB</div>
           <div className="mt-2 text-xs font-semibold text-earth-500">Rent, transport, packaging, salaries, etc.</div>
         </div>
@@ -417,16 +400,16 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="metric-card">
-          <div className="metric-label">{periodLabels[period]} estimated net profit</div>
+          <div className="metric-label">{salesPeriodLabels[period]} estimated net profit</div>
           <div className={`metric-value ${periodNetProfit >= 0 ? 'text-spice-700' : 'text-red-700'}`}>{periodNetProfit.toFixed(2)} ETB</div>
           <div className="mt-2 text-xs font-semibold text-earth-500">Sales − production cost of goods sold − operating expenses.</div>
         </div>
         <div className="metric-card">
-          <div className="metric-label">{periodLabels[period]} margin estimate</div>
+          <div className="metric-label">{salesPeriodLabels[period]} margin estimate</div>
           <div className={`metric-value ${Number(periodProfitMargin) >= 0 ? 'text-amber-700' : 'text-red-700'}`}>{periodProfitMargin}%</div>
         </div>
         <div className="metric-card">
-          <div className="metric-label">{periodLabels[period]} raw material purchases</div>
+          <div className="metric-label">{salesPeriodLabels[period]} raw material purchases</div>
           <div className="metric-value text-earth-700">{periodPurchaseCosts.toFixed(2)} ETB</div>
           <div className="mt-2 text-xs font-semibold text-earth-500">Cash spent restocking (separate from production COGS).</div>
         </div>
@@ -473,7 +456,7 @@ export default function DashboardPage() {
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="font-display text-xl font-black text-earth-950 mb-1">Financial Transactions</h2>
-            <p className="text-sm text-earth-500">Cash in and cash out for {periodLabels[period].toLowerCase()}.</p>
+            <p className="text-sm text-earth-500">Cash in and cash out for {salesPeriodLabels[period].toLowerCase()}.</p>
           </div>
           <div className={`rounded-2xl px-4 py-2 text-sm font-black ${periodNetCash >= 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
             Net cash: {periodNetCash.toFixed(2)} ETB

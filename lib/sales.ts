@@ -1,12 +1,4 @@
-export function toLocalDateKey(value: string | Date): string {
-  const date = typeof value === 'string' ? new Date(value) : value
-  if (Number.isNaN(date.getTime())) return ''
-
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
+export { toLocalDateKey, todayLocalKey, parseLocalDate } from './dates'
 
 export function computeSaleTotals(quantity: number, unitPrice: number, amountPaid: number) {
   const total = Math.round(quantity * unitPrice * 100) / 100

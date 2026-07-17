@@ -2,14 +2,9 @@ import { NextResponse } from 'next/server'
 import { db, schema } from '../../../lib/db'
 import { saleCreateSchema } from '../../../lib/validators/sale'
 import { computeSaleTotals } from '../../../lib/sales'
+import { parseLocalDate } from '../../../lib/dates'
 import { and, desc, eq, gte, sql } from 'drizzle-orm'
-import { databaseErrorResponse } from '../../../lib/apiErrors'
-
-function parseDate(value?: string) {
-  if (!value) return new Date()
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? null : date
-}
+import { databaseErrorResponse, parseJsonBody } from '../../../lib/apiErrors'
 
 export async function GET() {
   try {
@@ -43,12 +38,17 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json()
-    const parsed = saleCreateSchema.safeParse(body)
-    if (!parsed.success) return NextResponse.json({ error: parsed.error.format() }, { status: 422 })
+    const body = await parseJsonBody(request)
+    if (!body.ok) return body.response
+
+    const parsed = saleCreateSchema.safeParse(body.data)
+    if (!parsed.success) {
+      const firstIssue = parsed.error.issues[0]
+      return NextResponse.json({ error: firstIssue?.message ?? 'Invalid sale data.' }, { status: 422 })
+    }
 
     const { productId, customerId = 0, quantity, amountPaid = 0, saleDate } = parsed.data
-    const parsedSaleDate = parseDate(saleDate)
+    const parsedSaleDate = parseLocalDate(saleDate)
     if (!parsedSaleDate) return NextResponse.json({ error: 'Invalid sale date.' }, { status: 422 })
 
     const result = await db.transaction(async (tx) => {
