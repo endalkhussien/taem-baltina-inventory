@@ -124,6 +124,20 @@ After logging in:
    - Partial/credit sales must be linked to a customer.
 8. Use **Payment** on unpaid sales when customers repay partially or fully.
 
+## Redeploy after GitHub updates
+
+When new features are merged to `main`, Vercel usually rebuilds automatically within a few minutes.
+
+If the live site still shows the old UI:
+
+1. Open [vercel.com/dashboard](https://vercel.com/dashboard) and select **taem-baltina-inventory** (or your project name).
+2. Go to **Deployments**.
+3. Confirm the latest deployment is from branch **main** and commit `feefd09` or newer.
+4. If not, click **Redeploy** on the latest `main` deployment (or **Deploy** → import from GitHub again).
+5. After status is **Ready**, open your site with a hard refresh: `Ctrl+Shift+R` (Windows) or `Cmd+Shift+R` (Mac).
+
+If numbers are all **0** but the UI looks new, the app is probably pointing at an empty database. In Vercel → **Settings** → **Environment Variables**, set `DATABASE_URL` to the Neon connection string that has your real data (the same one you use locally in `.env`), then **Redeploy**.
+
 ## Troubleshooting
 
 ### `npm run build` fails on Vercel or locally
