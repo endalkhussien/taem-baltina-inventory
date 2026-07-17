@@ -4,6 +4,8 @@ import Link from 'next/link'
 import React, { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import AdminNav from '../../../components/AdminNav'
+import { useToast } from '../../../components/ToastProvider'
+import { formatEtb } from '../../../lib/formatCurrency'
 import {
   useCashEntries,
   useCreditLedgers,
@@ -26,6 +28,7 @@ import { todayLocalKey } from '../../../lib/dates'
 const today = todayLocalKey()
 
 export default function FinancePage() {
+  const toast = useToast()
   const qc = useQueryClient()
   const { data: cashEntries, createCashEntry, isCreatingCashEntry } = useCashEntries()
   const { data: liabilities, createLiability, isCreatingLiability, deleteLiability } = useLiabilities()
@@ -39,7 +42,6 @@ export default function FinancePage() {
   const { data: products } = useProducts()
   const { data: ingredients } = useIngredients()
 
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [payLiabilityId, setPayLiabilityId] = useState<number | null>(null)
   const [resetConfirm, setResetConfirm] = useState('')
   const [isResetting, setIsResetting] = useState(false)
@@ -104,18 +106,16 @@ export default function FinancePage() {
   const selectedLiability = liabilityList.find((item) => item.id === payLiabilityId)
 
   const onCashSubmit = async (values: any) => {
-    setMessage(null)
     try {
       await createCashEntry(values)
       cashForm.reset({ amount: 0, notes: '', entryDate: today })
-      setMessage({ type: 'success', text: 'Cash on hand recorded.' })
+      toast.success('Cash on hand recorded.')
     } catch (err) {
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not record cash.' })
+      toast.error(err instanceof Error ? err.message : 'Could not record cash.')
     }
   }
 
   const onLiabilitySubmit = async (values: any) => {
-    setMessage(null)
     try {
       await createLiability(values)
       liabilityForm.reset({
@@ -127,28 +127,27 @@ export default function FinancePage() {
         liabilityDate: today,
         notes: ''
       })
-      setMessage({ type: 'success', text: 'Debt recorded.' })
+      toast.success('Debt recorded.')
     } catch (err) {
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not record debt.' })
+      toast.error(err instanceof Error ? err.message : 'Could not record debt.')
     }
   }
 
   const onPaymentSubmit = async (values: any) => {
     if (!payLiabilityId) return
-    setMessage(null)
     try {
       await createLiabilityPayment({ liabilityId: payLiabilityId, ...values })
       setPayLiabilityId(null)
       paymentForm.reset({ amount: 0, paymentDate: today, notes: '' })
-      setMessage({ type: 'success', text: 'Debt payment recorded.' })
+      toast.success('Debt payment recorded.')
     } catch (err) {
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not record payment.' })
+      toast.error(err instanceof Error ? err.message : 'Could not record payment.')
     }
   }
 
   const onReset = async () => {
     if (resetConfirm !== 'RESET ALL') {
-      setMessage({ type: 'error', text: 'Type RESET ALL exactly to confirm.' })
+      toast.error('Type RESET ALL exactly to confirm.')
       return
     }
 
@@ -157,7 +156,6 @@ export default function FinancePage() {
     }
 
     setIsResetting(true)
-    setMessage(null)
     try {
       const res = await fetch('/api/admin/reset', {
         method: 'POST',
@@ -170,9 +168,9 @@ export default function FinancePage() {
 
       setResetConfirm('')
       await qc.invalidateQueries()
-      setMessage({ type: 'success', text: body.message || 'All amounts reset to zero. You can start fresh.' })
+      toast.success(body.message || 'All amounts reset to zero. You can start fresh.')
     } catch (err) {
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not reset data.' })
+      toast.error(err instanceof Error ? err.message : 'Could not reset data.')
     } finally {
       setIsResetting(false)
     }
@@ -195,12 +193,11 @@ export default function FinancePage() {
       expenses: expenseList,
       repayments: repaymentList
     })
-    setMessage({
-      type: 'success',
-      text: period === 'week'
+    toast.success(
+      period === 'week'
         ? 'Weekly backup downloaded (Excel-compatible CSV).'
         : 'Monthly backup downloaded (Excel-compatible CSV).'
-    })
+    )
   }
 
   return (
@@ -218,16 +215,10 @@ export default function FinancePage() {
             </div>
             <div className="rounded-3xl bg-spice-50 px-5 py-4 border border-spice-100">
               <div className="text-xs uppercase tracking-wide text-earth-500">Net position estimate</div>
-              <div className={`text-3xl font-black ${netPosition >= 0 ? 'text-green-700' : 'text-red-700'}`}>{netPosition.toFixed(2)} ETB</div>
+              <div className={`text-3xl font-black ${netPosition >= 0 ? 'text-green-700' : 'text-red-700'}`}>{formatEtb(netPosition)}</div>
               <div className="mt-1 text-xs text-earth-500">Cash on hand + customer credit − your debts</div>
             </div>
           </div>
-
-          {message && (
-            <div className={`mb-6 rounded-2xl border px-4 py-3 text-sm font-semibold ${message.type === 'success' ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'}`}>
-              {message.text}
-            </div>
-          )}
 
           <div className="mb-6 card">
             <h2 className="font-display text-xl font-black text-earth-950 mb-1">Backup reports (Excel)</h2>
@@ -248,10 +239,10 @@ export default function FinancePage() {
             {salesPeriodCards.map(({ key, summary }) => (
               <div key={key} className="metric-card">
                 <div className="metric-label">{key === 'all' ? 'All-time sales' : `${salesPeriodLabels[key]} sales`}</div>
-                <div className="metric-value text-spice-700">{summary.revenue.toFixed(2)} ETB</div>
+                <div className="metric-value text-spice-700">{formatEtb(summary.revenue)}</div>
                 <div className="mt-2 grid grid-cols-3 gap-2 text-xs font-semibold text-earth-500">
-                  <span>Cash {summary.cash.toFixed(2)}</span>
-                  <span>Credit {summary.credit.toFixed(2)}</span>
+                  <span>Cash {formatEtb(summary.cash)}</span>
+                  <span>Credit {formatEtb(summary.credit)}</span>
                   <span>{summary.kg} kg</span>
                 </div>
                 <div className="mt-1 text-xs text-earth-400">{summary.count} sale{summary.count === 1 ? '' : 's'}</div>
@@ -262,24 +253,24 @@ export default function FinancePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
             <div className="metric-card">
               <div className="metric-label">Cash on hand (manual)</div>
-              <div className="metric-value text-green-700">{latestCash.toFixed(2)} ETB</div>
+              <div className="metric-value text-green-700">{formatEtb(latestCash)}</div>
               <div className="mt-2 text-xs text-earth-500">{cashList[0] ? `Last count: ${new Date(cashList[0].entry_date).toLocaleDateString()}` : 'No cash count yet'}</div>
             </div>
             <div className="metric-card">
               <div className="metric-label">Customers owe you</div>
-              <div className="metric-value text-amber-700">{creditReceivable.toFixed(2)} ETB</div>
+              <div className="metric-value text-amber-700">{formatEtb(creditReceivable)}</div>
               <div className="mt-2 text-xs text-earth-500">
-                Ledger {ledgerCreditReceivable.toFixed(2)} + sales credit {salesCreditReceivable.toFixed(2)} ETB
+                Ledger {formatEtb(ledgerCreditReceivable)} + sales credit {formatEtb(salesCreditReceivable)}
               </div>
             </div>
             <div className="metric-card">
               <div className="metric-label">Credit ledger recorded</div>
-              <div className="metric-value text-spice-700">{totalLedgerCreditCreated.toFixed(2)} ETB</div>
-              <div className="mt-2 text-xs text-earth-500">Open balance {ledgerCreditReceivable.toFixed(2)} ETB • {openCreditLedger.length} open</div>
+              <div className="metric-value text-spice-700">{formatEtb(totalLedgerCreditCreated)}</div>
+              <div className="mt-2 text-xs text-earth-500">Open balance {formatEtb(ledgerCreditReceivable)} • {openCreditLedger.length} open</div>
             </div>
             <div className="metric-card">
               <div className="metric-label">You owe others</div>
-              <div className="metric-value text-red-700">{debtsPayable.toFixed(2)} ETB</div>
+              <div className="metric-value text-red-700">{formatEtb(debtsPayable)}</div>
               <div className="mt-2 text-xs text-earth-500">
                 <a href="#record-debt" className="font-bold text-spice-700 hover:text-spice-900">Record debt ↓</a>
                 {' '}• {liabilityList.filter((item) => Number(item.balance) > 0).length} open
@@ -287,7 +278,7 @@ export default function FinancePage() {
             </div>
             <div className="metric-card">
               <div className="metric-label">Finished stock value</div>
-              <div className="metric-value text-spice-700">{stockValue.toFixed(2)} ETB</div>
+              <div className="metric-value text-spice-700">{formatEtb(stockValue)}</div>
               <div className="mt-2 text-xs text-earth-500">Inventory asset estimate</div>
             </div>
           </div>
@@ -295,11 +286,11 @@ export default function FinancePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="metric-card">
               <div className="metric-label">Lifetime sales revenue</div>
-              <div className="metric-value text-blue-700">{totalSalesRevenue.toFixed(2)} ETB</div>
+              <div className="metric-value text-blue-700">{formatEtb(totalSalesRevenue)}</div>
             </div>
             <div className="metric-card">
               <div className="metric-label">Computed cash movement</div>
-              <div className={`metric-value ${computedCashFlow >= 0 ? 'text-green-700' : 'text-red-700'}`}>{computedCashFlow.toFixed(2)} ETB</div>
+              <div className={`metric-value ${computedCashFlow >= 0 ? 'text-green-700' : 'text-red-700'}`}>{formatEtb(computedCashFlow)}</div>
               <div className="mt-2 text-xs text-earth-500">Sale cash + repayments − expenses − purchases</div>
             </div>
             <div className="metric-card">
@@ -382,7 +373,7 @@ export default function FinancePage() {
                 <div className="space-y-3">
                   {cashList.slice(0, 8).map((entry) => (
                     <div key={entry.id} className="rounded-2xl border border-earth-100 bg-earth-50 px-4 py-3">
-                      <div className="font-black text-earth-950">{Number(entry.amount).toFixed(2)} ETB</div>
+                      <div className="font-black text-earth-950">{formatEtb(Number(entry.amount))}</div>
                       <div className="text-xs text-earth-500">{new Date(entry.entry_date).toLocaleDateString()} {entry.notes ? `• ${entry.notes}` : ''}</div>
                     </div>
                   ))}
@@ -429,7 +420,7 @@ export default function FinancePage() {
                             )}
                           </div>
                         </td>
-                        <td className="px-3 py-3 font-bold text-red-700">{Number(row.balance).toFixed(2)} ETB</td>
+                        <td className="px-3 py-3 font-bold text-red-700">{formatEtb(Number(row.balance))}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -463,7 +454,7 @@ export default function FinancePage() {
                         <td className="px-3 py-3">{new Date(sale.sale_date).toLocaleDateString()}</td>
                         <td className="px-3 py-3">{sale.customer_name || 'No customer'}</td>
                         <td className="px-3 py-3">{sale.product_name}</td>
-                        <td className="px-3 py-3 font-bold text-red-700">{Number(sale.balance).toFixed(2)} ETB</td>
+                        <td className="px-3 py-3 font-bold text-red-700">{formatEtb(Number(sale.balance))}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -496,7 +487,7 @@ export default function FinancePage() {
                           <div className="text-xs text-earth-500">{item.category}</div>
                         </td>
                         <td className="px-3 py-3">{item.title}</td>
-                        <td className="px-3 py-3 font-bold text-red-700">{Number(item.balance).toFixed(2)} ETB</td>
+                        <td className="px-3 py-3 font-bold text-red-700">{formatEtb(Number(item.balance))}</td>
                         <td className="px-3 py-3 whitespace-nowrap">
                           {Number(item.balance) > 0 && (
                             <button className="text-spice-700 font-bold mr-3" onClick={() => setPayLiabilityId(item.id)}>Pay</button>
@@ -505,12 +496,11 @@ export default function FinancePage() {
                             className="text-red-600 font-bold"
                             onClick={async () => {
                               if (!confirm('Delete this debt record?')) return
-                              setMessage(null)
                               try {
                                 await deleteLiability(item.id)
-                                setMessage({ type: 'success', text: 'Debt record deleted.' })
+                                toast.success('Debt record deleted.')
                               } catch (err) {
-                                setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not delete debt.' })
+                                toast.error(err instanceof Error ? err.message : 'Could not delete debt.')
                               }
                             }}
                           >
@@ -529,7 +519,7 @@ export default function FinancePage() {
             <div className="card max-w-xl mb-6">
               <h2 className="font-display text-xl font-black text-earth-950 mb-1">Pay Debt</h2>
               <p className="mb-4 text-sm text-earth-500">
-                {selectedLiability.creditor_name} • {selectedLiability.title} • remaining {Number(selectedLiability.balance).toFixed(2)} ETB
+                {selectedLiability.creditor_name} • {selectedLiability.title} • remaining {formatEtb(Number(selectedLiability.balance))}
               </p>
               <form onSubmit={paymentForm.handleSubmit(onPaymentSubmit)} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3">
                 <input type="number" step="0.01" className="input-field" placeholder="Amount" {...paymentForm.register('amount', { valueAsNumber: true })} />
@@ -570,7 +560,7 @@ export default function FinancePage() {
                       <td className="px-3 py-3">{new Date(payment.payment_date).toLocaleDateString()}</td>
                       <td className="px-3 py-3">{payment.creditor_name}</td>
                       <td className="px-3 py-3">{payment.title}</td>
-                      <td className="px-3 py-3 font-bold text-red-700">{Number(payment.amount).toFixed(2)} ETB</td>
+                      <td className="px-3 py-3 font-bold text-red-700">{formatEtb(Number(payment.amount))}</td>
                     </tr>
                   ))}
                 </tbody>

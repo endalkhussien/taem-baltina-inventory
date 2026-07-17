@@ -5,6 +5,8 @@ import { useForm } from 'react-hook-form'
 import { useProducts } from '../../../hooks/useProducts'
 import { useCustomers, useRepayments, useSales } from '../../../hooks/useModules'
 import AdminNav from '../../../components/AdminNav'
+import { useToast } from '../../../components/ToastProvider'
+import { formatEtb } from '../../../lib/formatCurrency'
 import { computeSaleTotals, toLocalDateKey, todayLocalKey } from '../../../lib/sales'
 import { formatStockKg } from '../../../lib/productStock'
 import {
@@ -27,6 +29,7 @@ type SaleFormValues = {
 }
 
 export default function SalesPage() {
+  const toast = useToast()
   const { data: products } = useProducts()
   const { data: customers } = useCustomers()
   const { data: sales, isLoading: sLoading, createSale, isCreatingSale, deleteSale } = useSales()
@@ -42,7 +45,6 @@ export default function SalesPage() {
     totals: ReturnType<typeof computeSaleTotals>
     stockAfter: number
   } | null>(null)
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const previousCustomerId = useRef(0)
 
   const { register, handleSubmit, reset, watch, setValue } = useForm<SaleFormValues>({
@@ -171,10 +173,9 @@ export default function SalesPage() {
   }
 
   const onSubmit = (values: SaleFormValues) => {
-    setMessage(null)
     const built = buildSalePayload(values)
     if ('error' in built) {
-      setMessage({ type: 'error', text: built.error ?? 'Could not prepare sale.' })
+      toast.error(built.error ?? 'Could not prepare sale.')
       return
     }
 
@@ -189,7 +190,6 @@ export default function SalesPage() {
 
   const confirmSale = async () => {
     if (!pendingSale) return
-    setMessage(null)
     const snapshot = pendingSale
 
     try {
@@ -205,25 +205,21 @@ export default function SalesPage() {
       previousCustomerId.current = 0
       const afterKg = Number(result.stock_kg_after ?? snapshot.stockAfter)
       const soldKg = Number(result.quantity_sold_kg ?? snapshot.values.quantity)
-      setMessage({
-        type: 'success',
-        text: `Sale recorded for ${toLocalDateKey(snapshot.values.saleDate || today)}: −${soldKg} kg sold. Remaining stock: ${afterKg} kg.`
-      })
+      toast.success(`Sale recorded for ${toLocalDateKey(snapshot.values.saleDate || today)}: −${soldKg} kg sold. Remaining stock: ${afterKg} kg.`)
     } catch (err) {
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not record sale.' })
+      toast.error(err instanceof Error ? err.message : 'Could not record sale.')
     }
   }
 
   const onRepaymentSubmit = async (vals: any) => {
     if (!repaySaleId) return
-    setMessage(null)
     try {
       await createRepayment({ saleId: repaySaleId, ...vals })
       setRepaySaleId(null)
       resetRepayment({ amount: 0, paymentDate: today })
-      setMessage({ type: 'success', text: 'Payment recorded and customer balance updated.' })
+      toast.success('Payment recorded and customer balance updated.')
     } catch (err) {
-      setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not record payment.' })
+      toast.error(err instanceof Error ? err.message : 'Could not record payment.')
     }
   }
 
@@ -265,36 +261,30 @@ export default function SalesPage() {
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                 <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15 sm:col-span-2">
                   <div className="text-xs uppercase tracking-[0.16em] text-spice-100">All-time sales total</div>
-                  <div className="text-xl font-black text-white">{allTimeSummary.revenue.toFixed(2)} ETB</div>
+                  <div className="text-xl font-black text-white">{formatEtb(allTimeSummary.revenue)}</div>
                   <div className="mt-1 text-[11px] text-spice-100">{allTimeSummary.count} sale{allTimeSummary.count === 1 ? '' : 's'} recorded — your full history</div>
                 </div>
                 <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15">
                   <div className="text-xs uppercase tracking-[0.16em] text-spice-100">{salesPeriodLabels[salesPeriod]} sales</div>
-                  <div className="text-xl font-black text-white">{periodSummary.revenue.toFixed(2)} ETB</div>
+                  <div className="text-xl font-black text-white">{formatEtb(periodSummary.revenue)}</div>
                   <div className="mt-1 text-[11px] text-spice-100">{periodSummary.count} sale{periodSummary.count === 1 ? '' : 's'}</div>
                 </div>
                 <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15">
                   <div className="text-xs uppercase tracking-[0.16em] text-spice-100">Cash collected</div>
-                  <div className="text-xl font-black text-white">{periodSummary.cash.toFixed(2)} ETB</div>
+                  <div className="text-xl font-black text-white">{formatEtb(periodSummary.cash)}</div>
                 </div>
                 <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15">
                   <div className="text-xs uppercase tracking-[0.16em] text-spice-100">Credit created</div>
-                  <div className="text-xl font-black text-white">{periodSummary.credit.toFixed(2)} ETB</div>
+                  <div className="text-xl font-black text-white">{formatEtb(periodSummary.credit)}</div>
                 </div>
                 <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15">
                   <div className="text-xs uppercase tracking-[0.16em] text-spice-100">Kg sold</div>
                   <div className="text-xl font-black text-white">{periodSummary.kg} kg</div>
-                  <div className="mt-1 text-[11px] text-spice-100">Open credit all time: {totalOutstanding.toFixed(2)} ETB</div>
+                  <div className="mt-1 text-[11px] text-spice-100">Open credit all time: {formatEtb(totalOutstanding)}</div>
                 </div>
               </div>
             </div>
           </div>
-
-          {message && (
-            <div className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${message.type === 'success' ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'}`}>
-              {message.text}
-            </div>
-          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="card">
@@ -358,7 +348,7 @@ export default function SalesPage() {
                   <div>
                     <label className="block text-sm font-bold text-earth-700 mb-1.5">Price per kg (auto)</label>
                     <div className="input-field bg-earth-50 text-earth-800 font-semibold">
-                      {unitPrice > 0 ? `${unitPrice.toFixed(2)} ETB` : '—'}
+                      {unitPrice > 0 ? formatEtb(unitPrice) : '—'}
                     </div>
                   </div>
                 </div>
@@ -380,16 +370,16 @@ export default function SalesPage() {
                   <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
                     <div>
                       <div className="text-xs font-bold uppercase tracking-wide text-earth-500">Sale total</div>
-                      <div className="text-xl font-black text-earth-950">{saleTotal.toFixed(2)} ETB</div>
-                      <div className="text-xs text-earth-500">{quantity} × {unitPrice.toFixed(2)}</div>
+                      <div className="text-xl font-black text-earth-950">{formatEtb(saleTotal)}</div>
+                      <div className="text-xs text-earth-500">{quantity} × {formatEtb(unitPrice)}</div>
                     </div>
                     <div>
                       <div className="text-xs font-bold uppercase tracking-wide text-earth-500">Paid now</div>
-                      <div className="text-xl font-black text-green-700">{effectiveAmountPaid.toFixed(2)} ETB</div>
+                      <div className="text-xl font-black text-green-700">{formatEtb(effectiveAmountPaid)}</div>
                     </div>
                     <div>
                       <div className="text-xs font-bold uppercase tracking-wide text-earth-500">Balance / credit</div>
-                      <div className={`text-xl font-black ${saleBalance === 0 ? 'text-green-700' : 'text-red-700'}`}>{saleBalance.toFixed(2)} ETB</div>
+                      <div className={`text-xl font-black ${saleBalance === 0 ? 'text-green-700' : 'text-red-700'}`}>{formatEtb(saleBalance)}</div>
                       <div className={`text-xs font-bold ${saleBalance === 0 ? 'text-green-700' : 'text-amber-700'}`}>{saleStatus}</div>
                     </div>
                   </div>
@@ -408,9 +398,9 @@ export default function SalesPage() {
                     <div><dt className="text-earth-500">Product</dt><dd className="font-bold">{pendingSale.productName}</dd></div>
                     <div><dt className="text-earth-500">Customer</dt><dd className="font-bold">{pendingSale.customerName}</dd></div>
                     <div><dt className="text-earth-500">Quantity</dt><dd className="font-bold">{pendingSale.values.quantity} kg</dd></div>
-                    <div><dt className="text-earth-500">Total</dt><dd className="font-bold">{pendingSale.totals.total.toFixed(2)} ETB</dd></div>
-                    <div><dt className="text-earth-500">Paid now</dt><dd className="font-bold text-green-700">{pendingSale.totals.paid.toFixed(2)} ETB</dd></div>
-                    <div><dt className="text-earth-500">Balance</dt><dd className="font-bold text-red-700">{pendingSale.totals.balance.toFixed(2)} ETB</dd></div>
+                    <div><dt className="text-earth-500">Total</dt><dd className="font-bold">{formatEtb(pendingSale.totals.total)}</dd></div>
+                    <div><dt className="text-earth-500">Paid now</dt><dd className="font-bold text-green-700">{formatEtb(pendingSale.totals.paid)}</dd></div>
+                    <div><dt className="text-earth-500">Balance</dt><dd className="font-bold text-red-700">{formatEtb(pendingSale.totals.balance)}</dd></div>
                     <div><dt className="text-earth-500">Stock after</dt><dd className="font-bold">{formatStockKg(pendingSale.stockAfter)}</dd></div>
                   </dl>
                   <div className="mt-4 flex flex-wrap gap-2">
@@ -431,7 +421,7 @@ export default function SalesPage() {
                   <h2 className="font-display text-xl font-black text-earth-950">Sales Register</h2>
                   <p className="text-sm text-earth-500">
                     {openCreditOnly
-                      ? `Showing ${tableSales.length} open credit sale${tableSales.length === 1 ? '' : 's'} (${totalOutstanding.toFixed(2)} ETB owed).`
+                      ? `Showing ${tableSales.length} open credit sale${tableSales.length === 1 ? '' : 's'} (${formatEtb(totalOutstanding)} owed).`
                       : `Showing ${tableSales.length} sale${tableSales.length === 1 ? '' : 's'} — ${periodLabel}.`}
                   </p>
                 </div>
@@ -501,12 +491,11 @@ export default function SalesPage() {
                             className="text-red-600 font-bold"
                             onClick={async () => {
                               if (!confirm('Delete this sale? Product stock will be restored.')) return
-                              setMessage(null)
                               try {
                                 await deleteSale(sale.id)
-                                setMessage({ type: 'success', text: 'Sale deleted and stock restored.' })
+                                toast.success('Sale deleted and stock restored.')
                               } catch (err) {
-                                setMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not delete sale.' })
+                                toast.error(err instanceof Error ? err.message : 'Could not delete sale.')
                               }
                             }}
                           >
@@ -539,7 +528,7 @@ export default function SalesPage() {
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="font-bold text-earth-950">{group.label}</div>
                             <div className="text-sm text-earth-600">
-                              {group.summary.count} sale{group.summary.count === 1 ? '' : 's'} • {group.summary.revenue.toFixed(2)} ETB • {group.summary.kg} kg
+                              {group.summary.count} sale{group.summary.count === 1 ? '' : 's'} • {formatEtb(group.summary.revenue)} • {group.summary.kg} kg
                             </div>
                           </div>
                         </div>
@@ -556,7 +545,7 @@ export default function SalesPage() {
             <div className="card max-w-xl">
               <h2 className="font-display text-xl font-black text-earth-950 mb-1">Record Customer Repayment</h2>
               <p className="mb-4 text-sm text-earth-500">
-                {selectedRepaySale.sale_code} • {selectedRepaySale.customer_name || 'Customer'} • {selectedRepaySale.product_name} • remaining {Number(selectedRepaySale.balance).toFixed(2)} ETB
+                {selectedRepaySale.sale_code} • {selectedRepaySale.customer_name || 'Customer'} • {selectedRepaySale.product_name} • remaining {formatEtb(Number(selectedRepaySale.balance))}
               </p>
               <form onSubmit={handleRepaymentSubmit(onRepaymentSubmit)} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3">
                 <input type="number" step="0.01" className="input-field" {...registerRepayment('amount', { valueAsNumber: true })} placeholder="Amount" />
@@ -597,7 +586,7 @@ export default function SalesPage() {
                     <tr key={payment.id} className="border-t border-earth-100">
                       <td className="py-3">{toLocalDateKey(payment.payment_date)}</td>
                       <td className="py-3">{payment.sale_code}</td>
-                      <td className="py-3 font-semibold text-green-700">{Number(payment.amount).toFixed(2)} ETB</td>
+                      <td className="py-3 font-semibold text-green-700">{formatEtb(Number(payment.amount))}</td>
                     </tr>
                   ))}
                 </tbody>

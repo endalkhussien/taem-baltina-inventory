@@ -1,7 +1,7 @@
 import dynamic from 'next/dynamic'
 import { Suspense } from 'react'
 
-const LowStockAlertModal = dynamic(() => import('../../components/LowStockAlertModal'), {
+const LowStockAlertBanner = dynamic(() => import('../../components/LowStockAlertBanner'), {
   ssr: false
 })
 
@@ -10,7 +10,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <>
       {children}
       <Suspense fallback={null}>
-        <LowStockAlertModal />
+        <LowStockAlertBanner />
       </Suspense>
     </>
   )
