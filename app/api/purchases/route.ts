@@ -21,7 +21,7 @@ export async function GET() {
       })
       .from(schema.purchases)
       .leftJoin(schema.ingredients, eq(schema.purchases.ingredient_id, schema.ingredients.id))
-      .orderBy(desc(schema.purchases.purchase_date))
+      .orderBy(desc(schema.purchases.purchase_date), desc(schema.purchases.created_at), desc(schema.purchases.id))
 
     return NextResponse.json(purchases)
   } catch (err) {
@@ -64,20 +64,37 @@ export async function POST(request: Request) {
         })
         .returning()
 
-      await tx
+      const [updatedIngredient] = await tx
         .update(schema.ingredients)
         .set({
           quantity: sql`${schema.ingredients.quantity} + ${quantity}`,
-          cost_per_unit: Number(newCostPerUnit.toFixed(2))
+          cost_per_unit: Number(newCostPerUnit.toFixed(4))
         })
         .where(eq(schema.ingredients.id, ingredientId))
+        .returning({
+          id: schema.ingredients.id,
+          quantity: schema.ingredients.quantity,
+          cost_per_unit: schema.ingredients.cost_per_unit,
+          unit: schema.ingredients.unit
+        })
 
-      return { created }
+      return {
+        created,
+        newAverageCost: updatedIngredient?.cost_per_unit ?? newCostPerUnit,
+        unit: updatedIngredient?.unit ?? ingredient.unit
+      }
     })
 
     if ('error' in result) return NextResponse.json({ error: result.error }, { status: result.status })
 
-    return NextResponse.json(result.created, { status: 201 })
+    return NextResponse.json(
+      {
+        ...result.created,
+        new_average_cost: result.newAverageCost,
+        unit: result.unit
+      },
+      { status: 201 }
+    )
   } catch (err) {
     return databaseErrorResponse(err, 'Could not record purchase')
   }
