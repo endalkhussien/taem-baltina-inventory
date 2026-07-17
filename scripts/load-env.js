@@ -42,6 +42,9 @@ function loadProjectEnv() {
 function requireDatabaseUrl() {
   loadProjectEnv()
 
+  const cliUrl = process.argv.slice(2).find((arg) => /^postgres(ql)?:\/\//i.test(arg))
+  if (cliUrl) return cliUrl
+
   const url = process.env.DATABASE_URL
   if (url) return url
 
@@ -49,14 +52,18 @@ function requireDatabaseUrl() {
     [
       'DATABASE_URL is not set.',
       '',
-      'PowerShell (run in the same window, then migrate):',
-      '  $env:DATABASE_URL = "postgresql://USER:PASSWORD@HOST/DB?sslmode=require"',
+      'Command Prompt (same window — check with: echo %DATABASE_URL%):',
+      '  set "DATABASE_URL=postgresql://USER:PASSWORD@HOST/DB?sslmode=require"',
       '  npm run migrate:decimal-sales',
       '',
-      'Or create a .env file in the project folder with:',
+      'Or pass the URL directly:',
+      '  node scripts/migrate-decimal-sales.js "postgresql://USER:PASSWORD@HOST/DB?sslmode=require"',
+      '',
+      'Or create a .env file in the project folder:',
       '  DATABASE_URL=postgresql://USER:PASSWORD@HOST/DB?sslmode=require',
       '',
-      'Use the same connection string as Vercel → Settings → Environment Variables.'
+      'Use the same string as Vercel → Settings → Environment Variables.',
+      'Easiest skip: run the SQL in Neon SQL Editor (see project README / PR #29).'
     ].join('\n')
   )
 }
