@@ -84,6 +84,8 @@ function IngredientsContent() {
   const todayPurchases = purchaseList.filter(
     (purchase) => toLocalDateKey(purchase.purchase_date) === today
   )
+  const costTotalRegister = registerPurchase('costTotal', { valueAsNumber: true })
+  const currentAvgCost = selectedPurchaseIngredient ? Number(selectedPurchaseIngredient.cost_per_unit) : 0
   const lastPurchase = purchaseList[0] ?? null
 
   useEffect(() => {
@@ -130,6 +132,14 @@ function IngredientsContent() {
     }
   }
 
+  const resolvePurchaseCost = (quantity: number, formCostTotal: number) => {
+    const unitPrice = Number(unitPriceInput)
+    if (costEntryMode === 'unit' && Number.isFinite(unitPrice) && unitPrice > 0 && quantity > 0) {
+      return Number((quantity * unitPrice).toFixed(2))
+    }
+    return Number(formCostTotal)
+  }
+
   const onPurchaseSubmit = (vals: { ingredientId: number; quantity: number; costTotal: number; supplier?: string; purchaseDate: string }) => {
     setPurchaseMessage(null)
 
@@ -140,7 +150,7 @@ function IngredientsContent() {
     }
 
     const quantity = Number(vals.quantity)
-    const costTotal = Number(vals.costTotal)
+    const costTotal = resolvePurchaseCost(quantity, Number(vals.costTotal))
     if (!quantity || quantity <= 0) {
       setPurchaseMessage({ type: 'error', text: 'Enter a quantity greater than zero.' })
       return
@@ -168,19 +178,25 @@ function IngredientsContent() {
     const snapshot = pendingPurchase
 
     try {
-      await createPurchase({
+      const result = await createPurchase({
         ingredientId: snapshot.ingredientId,
         quantity: snapshot.quantity,
         costTotal: snapshot.costTotal,
         supplier: snapshot.supplier || undefined,
         purchaseDate: snapshot.purchaseDate
       })
+      const newAvg = Number((result as { new_average_cost?: number }).new_average_cost ?? weightedAverageCost(
+        Number(list.find((item) => item.id === snapshot.ingredientId)?.quantity ?? 0),
+        Number(list.find((item) => item.id === snapshot.ingredientId)?.cost_per_unit ?? 0),
+        snapshot.quantity,
+        snapshot.costTotal
+      ))
       setPendingPurchase(null)
       setUnitPriceInput('')
       resetPurchase({ ingredientId: 0, quantity: 1, costTotal: 0, supplier: '', purchaseDate: today })
       setPurchaseMessage({
         type: 'success',
-        text: `Restock recorded for ${toLocalDateKey(snapshot.purchaseDate)}: +${snapshot.quantity} ${snapshot.unit} of ${snapshot.ingredientName}.`
+        text: `Restock saved: +${snapshot.quantity} ${snapshot.unit} ${snapshot.ingredientName}. New average cost: ${newAvg.toFixed(2)} ETB/${snapshot.unit}.`
       })
     } catch (err) {
       setPurchaseMessage({ type: 'error', text: err instanceof Error ? err.message : 'Could not record purchase.' })
@@ -269,21 +285,35 @@ function IngredientsContent() {
               )}
             </form>
           </div>
-          <div className="card">
+          <div className="card border-l-4 border-l-spice-500">
             <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h2 className="font-display text-xl font-black text-earth-950 mb-1">Record Purchase / Restock</h2>
-                <p className="text-sm text-earth-500">Adds stock and recalculates average cost per unit. Review before posting.</p>
+                <h2 className="font-display text-xl font-black text-earth-950">Restock</h2>
+                <p className="text-sm text-earth-500">Adds stock and updates weighted average cost.</p>
               </div>
               {lastPurchase && (
-                <button type="button" className="text-xs font-bold text-spice-700" onClick={repeatLastPurchase}>
-                  Repeat last purchase
+                <button type="button" className="rounded-lg bg-earth-100 px-3 py-1.5 text-xs font-bold text-earth-700" onClick={repeatLastPurchase}>
+                  Repeat last
                 </button>
               )}
             </div>
+
+            {selectedPurchaseIngredient && (
+              <div className="mb-4 grid grid-cols-2 gap-3 rounded-2xl bg-earth-50 p-3 text-sm">
+                <div>
+                  <div className="text-xs text-earth-500">On hand now</div>
+                  <div className="font-bold">{Number(selectedPurchaseIngredient.quantity).toFixed(3)} {selectedPurchaseIngredient.unit}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-earth-500">Current avg cost</div>
+                  <div className="font-bold">{currentAvgCost.toFixed(2)} ETB/{selectedPurchaseIngredient.unit}</div>
+                </div>
+              </div>
+            )}
+
             <form onSubmit={handlePurchaseSubmit(onPurchaseSubmit)} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-earth-700 mb-1.5">Ingredient</label>
+                <label className="block text-sm font-medium text-earth-700 mb-1.5">Raw material</label>
                 <select className="input-field" {...registerPurchase('ingredientId', { valueAsNumber: true })}>
                   <option value={0}>Select ingredient</option>
                   {list.map((ingredient) => (
@@ -291,27 +321,21 @@ function IngredientsContent() {
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-earth-700 mb-1.5">Quantity</label>
-                <div className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-earth-700 mb-1.5">Quantity</label>
                   <input
                     type="number"
                     step="0.001"
                     min="0.001"
                     inputMode="decimal"
-                    className="input-field flex-1 min-w-[120px]"
+                    className="input-field"
                     {...registerPurchase('quantity', { valueAsNumber: true })}
                   />
-                  {[1, 5, 10, 25].map((amount) => (
-                    <button
-                      key={amount}
-                      type="button"
-                      className="rounded-xl border border-earth-200 bg-earth-50 px-3 py-2 text-xs font-bold text-earth-700"
-                      onClick={() => setPurchaseValue('quantity', amount)}
-                    >
-                      +{amount}
-                    </button>
-                  ))}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-earth-700 mb-1.5">Date</label>
+                  <input type="date" className="input-field" {...registerPurchase('purchaseDate')} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -323,14 +347,13 @@ function IngredientsContent() {
                     min="0"
                     inputMode="decimal"
                     className="input-field"
-                    placeholder="Cost per kg/unit"
+                    placeholder="Per kg/unit"
                     value={unitPriceInput}
                     onChange={(event) => {
                       setCostEntryMode('unit')
                       setUnitPriceInput(event.target.value)
                     }}
                   />
-                  <p className="mt-1 text-xs text-earth-500">Total cost updates automatically: qty × unit price</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-earth-700 mb-1.5">Total cost (ETB)</label>
@@ -339,42 +362,29 @@ function IngredientsContent() {
                     step="0.01"
                     min="0.01"
                     className="input-field"
-                    {...registerPurchase('costTotal', {
-                      valueAsNumber: true,
-                      onChange: () => setCostEntryMode('total')
-                    })}
+                    {...costTotalRegister}
+                    onChange={(event) => {
+                      costTotalRegister.onChange(event)
+                      setCostEntryMode('total')
+                    }}
                   />
-                  <p className="mt-1 text-xs text-earth-500">Or enter total directly — unit price is calculated</p>
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-earth-700 mb-1.5">Supplier</label>
-                <input className="input-field" {...registerPurchase('supplier')} placeholder="Market, farmer, vendor..." />
+                <label className="block text-sm font-medium text-earth-700 mb-1.5">Supplier (optional)</label>
+                <input className="input-field" {...registerPurchase('supplier')} placeholder="Market, farmer..." />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-earth-700 mb-1.5">Purchase Date</label>
-                <input type="date" className="input-field" {...registerPurchase('purchaseDate')} />
-              </div>
-              <div className="rounded-2xl border border-earth-100 bg-earth-50 p-4 text-sm text-earth-700">
-                <div className="font-bold text-earth-950">Cost calculation preview</div>
+
+              <div className="rounded-2xl bg-gradient-to-br from-spice-50 to-earth-50 p-4">
+                <div className="text-xs font-bold uppercase tracking-wide text-earth-500">New average cost preview</div>
+                <div className="mt-2 text-2xl font-black text-spice-800">
+                  {weightedAverageAfterRestock.toFixed(2)} ETB/{selectedPurchaseIngredient?.unit || 'unit'}
+                </div>
                 <p className="mt-2 text-xs leading-5 text-earth-600">{costFormulaText}</p>
-                <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                  <div>
-                    <div className="text-xs uppercase tracking-wide text-earth-500">This purchase unit cost</div>
-                    <div className="font-black">{restockUnitCost.toFixed(2)} ETB</div>
-                  </div>
-                  <div>
-                    <div className="text-xs uppercase tracking-wide text-earth-500">Stock after</div>
-                    <div className="font-black">{stockAfterRestock.toFixed(3)} {selectedPurchaseIngredient?.unit || ''}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs uppercase tracking-wide text-earth-500">New average cost</div>
-                    <div className="font-black">{weightedAverageAfterRestock.toFixed(2)} ETB/{selectedPurchaseIngredient?.unit || 'unit'}</div>
-                  </div>
-                </div>
               </div>
+
               <button className="btn-primary w-full" type="submit" disabled={isCreatingPurchase || !!pendingPurchase}>
-                {isCreatingPurchase ? 'Recording...' : 'Review restock'}
+                {isCreatingPurchase ? 'Saving...' : 'Review restock'}
               </button>
 
               {pendingPurchase && (
