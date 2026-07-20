@@ -8,6 +8,7 @@ import AdminNav from '../../../components/AdminNav'
 import { useToast } from '../../../components/ToastProvider'
 import { ingredientCreateSchema } from '../../../lib/validators/ingredient'
 import { formatEtb } from '../../../lib/formatCurrency'
+import { ingredientLineValue, sumIngredientStockValue } from '../../../lib/stockValue'
 import {
   formatCostFormula,
   purchaseUnitCost,
@@ -54,7 +55,7 @@ function IngredientsContent() {
     const matchesLowStock = lowOnly ? Number(ingredient.quantity) <= Number(ingredient.alert_threshold) : true
     return matchesCategory && matchesLowStock
   })
-  const totalStockValue = filteredList.reduce((sum, ingredient) => sum + Number(ingredient.quantity) * Number(ingredient.cost_per_unit), 0)
+  const totalStockValue = sumIngredientStockValue(filteredList)
   const purchaseList = Array.isArray(purchases) ? purchases : []
   const purchaseIngredientId = Number(watchPurchase('ingredientId') || 0)
   const purchaseQuantity = Number(watchPurchase('quantity') || 0)
@@ -456,6 +457,7 @@ function IngredientsContent() {
                     <th className="pb-3">On Hand</th>
                     <th className="pb-3">Unit</th>
                     <th className="pb-3">Avg Cost</th>
+                    <th className="pb-3">Stock Value</th>
                     <th className="pb-3">Alert Stock</th>
                     <th className="pb-3">Actions</th>
                   </tr>
@@ -471,6 +473,7 @@ function IngredientsContent() {
                         <td className="py-3 text-earth-700">{Number(ingredient.quantity).toFixed(3)}</td>
                         <td className="py-3 text-earth-700">{ingredient.unit}</td>
                         <td className="py-3 text-earth-700">{Number(ingredient.cost_per_unit).toFixed(2)}</td>
+                        <td className="py-3 font-semibold text-earth-900">{formatEtb(ingredientLineValue(ingredient))}</td>
                         <td className="py-3">
                           <span className={isLowStock ? 'text-amber-700 font-medium' : 'text-earth-700'}>
                             {Number(ingredient.alert_threshold).toFixed(3)}
@@ -497,6 +500,15 @@ function IngredientsContent() {
                     )
                   })}
                 </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-earth-200 bg-earth-50 font-bold">
+                    <td className="py-3" colSpan={5}>
+                      Total ({filteredList.length} material{filteredList.length === 1 ? '' : 's'})
+                    </td>
+                    <td className="py-3 text-spice-800">{formatEtb(totalStockValue)}</td>
+                    <td className="py-3" colSpan={2} />
+                  </tr>
+                </tfoot>
               </table>
             )}
           </div>

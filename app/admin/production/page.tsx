@@ -11,6 +11,7 @@ import { useProducts } from '../../../hooks/useProducts'
 import { computeBatchMaterialCost, computeBatchTotalCost, computeCostPerKg } from '../../../lib/productionCost'
 import { formatStockKg } from '../../../lib/productStock'
 import { computeEstimatedBatchProfit, computeProfitMarginPercent, computeProfitPerKg } from '../../../lib/profit'
+import { buildProductCostMap, sumProductCostValue, sumProductRetailValue } from '../../../lib/stockValue'
 
 const today = new Date().toISOString().slice(0, 10)
 
@@ -33,6 +34,10 @@ export default function ProductionPage() {
 
   const productList = useMemo(() => (Array.isArray(products) ? products : []), [products])
   const batchList = Array.isArray(batches) ? batches : []
+  const avgCostByProduct = useMemo(() => buildProductCostMap(batchList), [batchList])
+  const finishedRetailValue = useMemo(() => sumProductRetailValue(productList), [productList])
+  const finishedCostValue = useMemo(() => sumProductCostValue(productList, avgCostByProduct), [productList, avgCostByProduct])
+  const totalFinishedKg = productList.reduce((sum, product) => sum + Number(product.stock_quantity), 0)
   const selectedProductId = Number(watch('productId'))
   const batchCount = Number(watch('batchCount') || 0)
   const quantityProduced = Number(watch('quantityProduced') || 0)
@@ -112,6 +117,22 @@ export default function ProductionPage() {
               <p className="mt-3 text-sm leading-6 text-earth-100 sm:text-base">
                 Recipe materials are consumed per batch. Kg produced is added to finished goods stock separately.
               </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="metric-card">
+              <div className="metric-label">Finished stock on hand</div>
+              <div className="metric-value text-green-700">{formatStockKg(totalFinishedKg)}</div>
+            </div>
+            <div className="metric-card">
+              <div className="metric-label">Stock value (retail)</div>
+              <div className="metric-value text-spice-700">{formatEtb(finishedRetailValue)}</div>
+            </div>
+            <div className="metric-card">
+              <div className="metric-label">Stock value (cost)</div>
+              <div className="metric-value text-earth-800">{formatEtb(finishedCostValue)}</div>
+              <div className="mt-2 text-xs font-semibold text-earth-500">Based on recorded production batches</div>
             </div>
           </div>
 

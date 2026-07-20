@@ -26,6 +26,13 @@ import {
   topSellingProducts
 } from '../../../lib/dashboardMetrics'
 import { formatEtb } from '../../../lib/formatCurrency'
+import { formatStockKg } from '../../../lib/productStock'
+import {
+  sumIngredientStockValue,
+  sumProductCostValue,
+  sumProductRetailValue,
+  totalInventoryValue
+} from '../../../lib/stockValue'
 import {
   Bar,
   BarChart,
@@ -168,6 +175,16 @@ export default function DashboardPage() {
     [customerList, salesList, period]
   )
 
+  const rawMaterialStockValue = useMemo(() => sumIngredientStockValue(ingredientList), [ingredientList])
+  const finishedRetailValue = useMemo(() => sumProductRetailValue(productList), [productList])
+  const finishedCostValue = useMemo(
+    () => sumProductCostValue(productList, avgCostByProduct),
+    [productList, avgCostByProduct]
+  )
+  const totalStockValue = totalInventoryValue(rawMaterialStockValue, finishedRetailValue)
+  const totalFinishedKg = productList.reduce((sum, product) => sum + Number(product.stock_quantity), 0)
+  const totalRawKg = ingredientList.reduce((sum, ingredient) => sum + Number(ingredient.quantity), 0)
+
   const expenseByCategory = periodExpenses.reduce((acc: Array<{ name: string; value: number }>, expense) => {
     const existing = acc.find((row) => row.name === expense.category)
     if (existing) existing.value += Number(expense.amount)
@@ -210,6 +227,36 @@ export default function DashboardPage() {
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <KpiCard
+              label="Raw materials stock value"
+              value={formatEtb(rawMaterialStockValue)}
+              hint={`${totalRawKg.toFixed(1)} kg on hand • at average cost`}
+              href="/admin/ingredients"
+              tone="purchase"
+            />
+            <KpiCard
+              label="Finished goods (retail)"
+              value={formatEtb(finishedRetailValue)}
+              hint={`${formatStockKg(totalFinishedKg)} • selling price`}
+              href="/admin/products"
+              tone="sales"
+            />
+            <KpiCard
+              label="Finished goods (cost)"
+              value={formatEtb(finishedCostValue)}
+              hint={finishedCostValue > 0 ? 'From production batch costs' : 'Record production for cost value'}
+              href="/admin/production"
+              tone="neutral"
+            />
+            <KpiCard
+              label="Total inventory value"
+              value={formatEtb(totalStockValue)}
+              hint="Raw materials (cost) + finished goods (retail)"
+              tone="profit"
+            />
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
