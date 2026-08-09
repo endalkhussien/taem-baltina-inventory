@@ -17,6 +17,7 @@ import {
   summarizeSales,
   type SalesPeriod
 } from '../../../lib/periods'
+import { formatEthiopianDate, parseBusinessDate } from '../../../lib/ethiopian-calendar'
 
 const today = todayLocalKey()
 
@@ -205,7 +206,7 @@ export default function SalesPage() {
       previousCustomerId.current = 0
       const afterKg = Number(result.stock_kg_after ?? snapshot.stockAfter)
       const soldKg = Number(result.quantity_sold_kg ?? snapshot.values.quantity)
-      toast.success(`Sale recorded for ${toLocalDateKey(snapshot.values.saleDate || today)}: −${soldKg} kg sold. Remaining stock: ${afterKg} kg.`)
+      toast.success(`Sale recorded for ${toLocalDateKey(snapshot.values.saleDate || today)}: ?${soldKg} kg sold. Remaining stock: ${afterKg} kg.`)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not record sale.')
     }
@@ -262,7 +263,7 @@ export default function SalesPage() {
                 <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15 sm:col-span-2">
                   <div className="text-xs uppercase tracking-[0.16em] text-spice-100">All-time sales total</div>
                   <div className="text-xl font-black text-white">{formatEtb(allTimeSummary.revenue)}</div>
-                  <div className="mt-1 text-[11px] text-spice-100">{allTimeSummary.count} sale{allTimeSummary.count === 1 ? '' : 's'} recorded — your full history</div>
+                  <div className="mt-1 text-[11px] text-spice-100">{allTimeSummary.count} sale{allTimeSummary.count === 1 ? '' : 's'} recorded ? your full history</div>
                 </div>
                 <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15">
                   <div className="text-xs uppercase tracking-[0.16em] text-spice-100">{salesPeriodLabels[salesPeriod]} sales</div>
@@ -290,7 +291,7 @@ export default function SalesPage() {
             <div className="card">
               <h2 className="font-display text-xl font-black text-earth-950 mb-1">Record Product Sale</h2>
               <p className="mb-5 text-sm text-earth-500">
-                Total is calculated from quantity × selling price. For credit, choose a customer and enter how much was paid now.
+                Total is calculated from quantity ? selling price. For credit, choose a customer and enter how much was paid now.
               </p>
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
                 <div>
@@ -305,7 +306,7 @@ export default function SalesPage() {
                       const inStock = Number(product.stock_quantity) > 0
                       return (
                         <option key={product.id} value={product.id} disabled={!inStock}>
-                          {product.name} ({formatStockKg(product.stock_quantity)}){inStock ? '' : ' — OUT OF STOCK'}
+                          {product.name} ({formatStockKg(product.stock_quantity)}){inStock ? '' : ' ? OUT OF STOCK'}
                         </option>
                       )
                     })}
@@ -315,7 +316,7 @@ export default function SalesPage() {
                 <div>
                   <label className="block text-sm font-bold text-earth-700 mb-1.5">Customer Account</label>
                   <select className="input-field" {...register('customerId', { valueAsNumber: true })}>
-                    <option value={0}>Walk-in — full cash payment</option>
+                    <option value={0}>Walk-in ? full cash payment</option>
                     {customerList.map((customer) => (
                       <option key={customer.id} value={customer.id}>{customer.name}</option>
                     ))}
@@ -341,14 +342,14 @@ export default function SalesPage() {
                     />
                     {selectedProduct && availableStock > 0 && quantity > 0 && (
                       <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                        Stock: {formatStockKg(availableStock)} → <span className="font-bold">{formatStockKg(projectedStockKg)}</span> after sale
+                        Stock: {formatStockKg(availableStock)} ? <span className="font-bold">{formatStockKg(projectedStockKg)}</span> after sale
                       </div>
                     )}
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-earth-700 mb-1.5">Price per kg (auto)</label>
                     <div className="input-field bg-earth-50 text-earth-800 font-semibold">
-                      {unitPrice > 0 ? formatEtb(unitPrice) : '—'}
+                      {unitPrice > 0 ? formatEtb(unitPrice) : '?'}
                     </div>
                   </div>
                 </div>
@@ -371,7 +372,7 @@ export default function SalesPage() {
                     <div>
                       <div className="text-xs font-bold uppercase tracking-wide text-earth-500">Sale total</div>
                       <div className="text-xl font-black text-earth-950">{formatEtb(saleTotal)}</div>
-                      <div className="text-xs text-earth-500">{quantity} × {formatEtb(unitPrice)}</div>
+                      <div className="text-xs text-earth-500">{quantity} ? {formatEtb(unitPrice)}</div>
                     </div>
                     <div>
                       <div className="text-xs font-bold uppercase tracking-wide text-earth-500">Paid now</div>
@@ -422,7 +423,7 @@ export default function SalesPage() {
                   <p className="text-sm text-earth-500">
                     {openCreditOnly
                       ? `Showing ${tableSales.length} open credit sale${tableSales.length === 1 ? '' : 's'} (${formatEtb(totalOutstanding)} owed).`
-                      : `Showing ${tableSales.length} sale${tableSales.length === 1 ? '' : 's'} — ${periodLabel}.`}
+                      : `Showing ${tableSales.length} sale${tableSales.length === 1 ? '' : 's'} ? ${periodLabel}.`}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -450,6 +451,7 @@ export default function SalesPage() {
                   <thead>
                     <tr className="text-left text-xs uppercase tracking-wide text-earth-500">
                       <th className="pb-3">Date</th>
+                      <th className="pb-3">Eth. date</th>
                       <th className="pb-3">Sale Code</th>
                       <th className="pb-3">Customer</th>
                       <th className="pb-3">Product</th>
@@ -461,9 +463,12 @@ export default function SalesPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {tableSales.map((sale) => (
+                    {tableSales.map((sale) => {
+                      const ethDate = parseBusinessDate(sale.sale_date)
+                      return (
                       <tr key={sale.id} className="border-t border-earth-100">
                         <td className="py-3">{toLocalDateKey(sale.sale_date)}</td>
+                        <td className="py-3 text-earth-600">{ethDate ? formatEthiopianDate(ethDate) : '?'}</td>
                         <td className="py-3 font-medium text-earth-900">{sale.sale_code}</td>
                         <td className="py-3">{sale.customer_name || 'Walk-in'}</td>
                         <td className="py-3">{sale.product_name}</td>
@@ -503,11 +508,12 @@ export default function SalesPage() {
                           </button>
                         </td>
                       </tr>
-                    ))}
+                      )
+                    })}
                   </tbody>
                   <tfoot>
                     <tr className="border-t-2 border-earth-200 bg-earth-50 font-bold text-earth-900">
-                      <td className="py-3" colSpan={5}>
+                      <td className="py-3" colSpan={6}>
                         {openCreditOnly ? 'Open credit total' : `${periodLabel} totals`}
                       </td>
                       <td className="py-3">{tableSales.reduce((sum, sale) => sum + Number(sale.total_amount), 0).toFixed(2)}</td>
@@ -520,7 +526,7 @@ export default function SalesPage() {
 
                 {!openCreditOnly && weeklyGroups.length > 0 && (
                   <div className="mt-6 border-t border-earth-100 pt-6">
-                    <h3 className="font-display text-lg font-black text-earth-950">Weekly sales (Mon–Sun)</h3>
+                    <h3 className="font-display text-lg font-black text-earth-950">Weekly sales (Mon?Sun)</h3>
                     <p className="mt-1 text-sm text-earth-500">Grouped by calendar week, Monday through Sunday.</p>
                     <div className="mt-4 space-y-3">
                       {weeklyGroups.map((group) => (
@@ -528,7 +534,7 @@ export default function SalesPage() {
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="font-bold text-earth-950">{group.label}</div>
                             <div className="text-sm text-earth-600">
-                              {group.summary.count} sale{group.summary.count === 1 ? '' : 's'} • {formatEtb(group.summary.revenue)} • {group.summary.kg} kg
+                              {group.summary.count} sale{group.summary.count === 1 ? '' : 's'} ? {formatEtb(group.summary.revenue)} ? {group.summary.kg} kg
                             </div>
                           </div>
                         </div>
@@ -545,7 +551,7 @@ export default function SalesPage() {
             <div className="card max-w-xl">
               <h2 className="font-display text-xl font-black text-earth-950 mb-1">Record Customer Repayment</h2>
               <p className="mb-4 text-sm text-earth-500">
-                {selectedRepaySale.sale_code} • {selectedRepaySale.customer_name || 'Customer'} • {selectedRepaySale.product_name} • remaining {formatEtb(Number(selectedRepaySale.balance))}
+                {selectedRepaySale.sale_code} ? {selectedRepaySale.customer_name || 'Customer'} ? {selectedRepaySale.product_name} ? remaining {formatEtb(Number(selectedRepaySale.balance))}
               </p>
               <form onSubmit={handleRepaymentSubmit(onRepaymentSubmit)} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3">
                 <input type="number" step="0.01" className="input-field" {...registerRepayment('amount', { valueAsNumber: true })} placeholder="Amount" />

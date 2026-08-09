@@ -34,10 +34,19 @@ import {
   totalInventoryValue
 } from '../../../lib/stockValue'
 import {
+  buildEthiopianMonthlyFinancials,
+  ethiopianYearsFromMonthly,
+  filterMonthlyByEthYear,
+} from '../../../lib/monthly-financials'
+import { formatEthiopianDate, parseBusinessDate } from '../../../lib/ethiopian-calendar'
+import {
   Bar,
   BarChart,
   CartesianGrid,
   Cell,
+  ComposedChart,
+  Legend,
+  Line,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -78,12 +87,12 @@ function KpiCard({
     neutral: 'bg-earth-100 text-earth-600'
   }
   const icons = {
-    sales: '₿',
-    purchase: '↺',
-    expense: '◆',
+    sales: '?',
+    purchase: '?',
+    expense: '?',
     credit: '!',
-    profit: '▲',
-    neutral: '•'
+    profit: '?',
+    neutral: '?'
   }
 
   const body = (
@@ -200,6 +209,30 @@ export default function DashboardPage() {
 
   const periodOptions: SalesPeriod[] = ['today', 'week', 'month', 'all']
 
+  const monthlyAll = useMemo(
+    () => buildEthiopianMonthlyFinancials(salesList, expensesList),
+    [salesList, expensesList]
+  )
+  const ethYears = useMemo(() => ethiopianYearsFromMonthly(monthlyAll), [monthlyAll])
+  const [ethYear, setEthYear] = useState<number | 'all' | null>(null)
+  const activeEthYear: number | 'all' = ethYear ?? ethYears[0] ?? 'all'
+  const monthlyEth = useMemo(
+    () => filterMonthlyByEthYear(monthlyAll, activeEthYear),
+    [monthlyAll, activeEthYear]
+  )
+  const ethMonthlyChart = monthlyEth.map((row) => ({
+    name: row.label.replace(` ${row.year}`, ''),
+    fullLabel: row.label,
+    revenue: Number(row.revenue.toFixed(2)),
+    expenses: Number(row.expenses.toFixed(2)),
+    profit: Number(row.profit.toFixed(2)),
+  }))
+  const ethYearRevenue = monthlyEth.reduce((sum, row) => sum + row.revenue, 0)
+  const ethYearExpenses = monthlyEth.reduce((sum, row) => sum + row.expenses, 0)
+  const ethYearProfit = ethYearRevenue - ethYearExpenses
+  const ethYearCash = monthlyEth.reduce((sum, row) => sum + row.cashCollected, 0)
+  const ethYearLabel = activeEthYear === 'all' ? 'All years' : `Eth. year ${activeEthYear}`
+
   return (
     <>
       <AdminNav />
@@ -233,14 +266,14 @@ export default function DashboardPage() {
             <KpiCard
               label="Raw materials stock value"
               value={formatEtb(rawMaterialStockValue)}
-              hint={`${totalRawKg.toFixed(1)} kg on hand • at average cost`}
+              hint={`${totalRawKg.toFixed(1)} kg on hand ? at average cost`}
               href="/admin/ingredients"
               tone="purchase"
             />
             <KpiCard
               label="Finished goods (retail)"
               value={formatEtb(finishedRetailValue)}
-              hint={`${formatStockKg(totalFinishedKg)} • selling price`}
+              hint={`${formatStockKg(totalFinishedKg)} ? selling price`}
               href="/admin/products"
               tone="sales"
             />
@@ -267,9 +300,9 @@ export default function DashboardPage() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <KpiCard label="Estimated profit" value={formatEtb(periodNetProfit)} hint="Sales − COGS − expenses" tone="profit" />
-            <KpiCard label="Net cash movement" value={formatEtb(periodNetCash)} hint="Cash in − purchases − expenses" tone="neutral" />
-            <KpiCard label="Net position" value={formatEtb(netPosition)} hint={`Cash ${formatEtb(latestCash, 2)} − debts ${formatEtb(debtsPayable, 2)}`} href="/admin/finance" tone="neutral" />
+            <KpiCard label="Estimated profit" value={formatEtb(periodNetProfit)} hint="Sales ? COGS ? expenses" tone="profit" />
+            <KpiCard label="Net cash movement" value={formatEtb(periodNetCash)} hint="Cash in ? purchases ? expenses" tone="neutral" />
+            <KpiCard label="Net position" value={formatEtb(netPosition)} hint={`Cash ${formatEtb(latestCash, 2)} ? debts ${formatEtb(debtsPayable, 2)}`} href="/admin/finance" tone="neutral" />
           </div>
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
@@ -428,6 +461,165 @@ export default function DashboardPage() {
                   <Tooltip formatter={(value: number) => formatEtb(value)} />
                 </PieChart>
               </ResponsiveContainer>
+            </div>
+          )}
+
+          <div className="insight-panel">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 className="insight-panel-title">Monthly close (Ethiopian calendar)</h2>
+                <p className="insight-panel-subtitle">
+                  Compare sales, expenses, and profit by Ethiopian month � {ethYearLabel}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <label htmlFor="eth-year" className="text-xs font-bold uppercase tracking-wide text-earth-500">
+                  Eth. year
+                </label>
+                <select
+                  id="eth-year"
+                  className="rounded-xl border border-earth-200 bg-white px-3 py-2 text-sm font-semibold text-earth-900"
+                  value={activeEthYear === 'all' ? 'all' : String(activeEthYear)}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    setEthYear(v === 'all' ? 'all' : Number(v))
+                  }}
+                >
+                  {ethYears.map((y) => (
+                    <option key={y} value={String(y)}>
+                      {y}
+                    </option>
+                  ))}
+                  <option value="all">All years</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+              <div className="rounded-xl bg-earth-50 p-3">
+                <div className="text-xs text-earth-500">Sales</div>
+                <div className="font-bold text-earth-950">{formatEtb(ethYearRevenue)}</div>
+              </div>
+              <div className="rounded-xl bg-earth-50 p-3">
+                <div className="text-xs text-earth-500">Cash collected</div>
+                <div className="font-bold text-green-700">{formatEtb(ethYearCash)}</div>
+              </div>
+              <div className="rounded-xl bg-earth-50 p-3">
+                <div className="text-xs text-earth-500">Expenses</div>
+                <div className="font-bold text-sky-700">{formatEtb(ethYearExpenses)}</div>
+              </div>
+              <div className="rounded-xl bg-earth-50 p-3">
+                <div className="text-xs text-earth-500">Profit</div>
+                <div className={`font-bold ${ethYearProfit >= 0 ? 'text-spice-700' : 'text-red-700'}`}>
+                  {formatEtb(ethYearProfit)}
+                </div>
+              </div>
+            </div>
+
+            {ethMonthlyChart.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <ComposedChart data={ethMonthlyChart}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ece7e1" />
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip
+                    formatter={(value: number) => formatEtb(Number(value))}
+                    labelFormatter={(_, payload) => payload?.[0]?.payload?.fullLabel ?? ''}
+                  />
+                  <Legend />
+                  <Bar dataKey="revenue" name="Sales" fill="#f97316" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="expenses" name="Expenses" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                  <Line type="monotone" dataKey="profit" name="Profit" stroke="#c05e20" strokeWidth={2} dot={{ r: 3 }} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-earth-200 p-8 text-center text-sm text-earth-500">
+                No monthly data yet for Ethiopian months.
+              </div>
+            )}
+
+            {monthlyEth.length > 0 && (
+              <div className="mt-6 overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-xs uppercase tracking-wide text-earth-500 border-b border-earth-100">
+                      <th className="pb-2 pr-3">Ethiopian month</th>
+                      <th className="pb-2 pr-3 text-right">Sales</th>
+                      <th className="pb-2 pr-3 text-right">Cash</th>
+                      <th className="pb-2 pr-3 text-right">Expenses</th>
+                      <th className="pb-2 pr-3 text-right">Profit</th>
+                      <th className="pb-2 pr-3 text-right">Margin</th>
+                      <th className="pb-2 text-right"># Sales</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...monthlyEth].reverse().map((row) => (
+                      <tr key={row.key} className="border-t border-earth-50">
+                        <td className="py-2.5 pr-3 font-semibold text-earth-900">{row.label}</td>
+                        <td className="py-2.5 pr-3 text-right">{formatEtb(row.revenue)}</td>
+                        <td className="py-2.5 pr-3 text-right text-green-700">{formatEtb(row.cashCollected)}</td>
+                        <td className="py-2.5 pr-3 text-right text-sky-700">{formatEtb(row.expenses)}</td>
+                        <td className={`py-2.5 pr-3 text-right font-semibold ${row.profit >= 0 ? 'text-spice-700' : 'text-red-700'}`}>
+                          {formatEtb(row.profit)}
+                        </td>
+                        <td className="py-2.5 pr-3 text-right text-earth-600">{row.marginPct.toFixed(1)}%</td>
+                        <td className="py-2.5 text-right text-earth-600">{row.salesCount}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-earth-200 font-bold">
+                      <td className="pt-3 pr-3">Total</td>
+                      <td className="pt-3 pr-3 text-right">{formatEtb(ethYearRevenue)}</td>
+                      <td className="pt-3 pr-3 text-right">{formatEtb(ethYearCash)}</td>
+                      <td className="pt-3 pr-3 text-right">{formatEtb(ethYearExpenses)}</td>
+                      <td className={`pt-3 pr-3 text-right ${ethYearProfit >= 0 ? 'text-spice-700' : 'text-red-700'}`}>
+                        {formatEtb(ethYearProfit)}
+                      </td>
+                      <td className="pt-3 pr-3 text-right">
+                        {ethYearRevenue > 0 ? ((ethYearProfit / ethYearRevenue) * 100).toFixed(1) : '0.0'}%
+                      </td>
+                      <td className="pt-3 text-right">
+                        {monthlyEth.reduce((sum, row) => sum + row.salesCount, 0)}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {recentSales.length > 0 && (
+            <div className="insight-panel">
+              <h2 className="insight-panel-title">Recent sales (Ethiopian date)</h2>
+              <p className="insight-panel-subtitle">Same recent sales with Ethiopian calendar dates</p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-xs uppercase tracking-wide text-earth-500">
+                      <th className="pb-2">Gregorian</th>
+                      <th className="pb-2">Ethiopian</th>
+                      <th className="pb-2">Product</th>
+                      <th className="pb-2">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentSales.map((sale) => {
+                      const d = parseBusinessDate(sale.sale_date)
+                      return (
+                        <tr key={`eth-${sale.id}`} className="border-t border-earth-100">
+                          <td className="py-2.5">{toLocalDateKey(sale.sale_date)}</td>
+                          <td className="py-2.5 font-medium text-earth-800">
+                            {d ? formatEthiopianDate(d) : '?'}
+                          </td>
+                          <td className="py-2.5">{sale.product_name}</td>
+                          <td className="py-2.5 font-bold">{formatEtb(Number(sale.total_amount))}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
