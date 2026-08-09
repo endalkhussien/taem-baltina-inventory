@@ -8,32 +8,158 @@
   }
 
   body {
-    @apply font-sans antialiased;
+    @apply min-h-screen bg-earth-100 font-sans antialiased text-earth-900;
+    background:
+      radial-gradient(circle at top left, rgba(212, 120, 42, 0.14), transparent 34rem),
+      radial-gradient(circle at bottom right, rgba(58, 22, 12, 0.1), transparent 28rem),
+      #e9e2d8;
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-spice-600 px-5 py-2.5 text-sm font-semibold text-white shadow-spice transition-all duration-200 hover:bg-spice-700 hover:shadow-spice-lg active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-spice-700 px-5 py-2.5 text-sm font-semibold text-white shadow-spice transition-all duration-200 hover:-translate-y-0.5 hover:bg-spice-800 hover:shadow-spice-lg active:translate-y-0 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-earth-200 bg-white px-5 py-2.5 text-sm font-semibold text-earth-800 transition-all duration-200 hover:border-spice-300 hover:bg-spice-50 active:scale-[0.98];
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-earth-300 bg-white px-5 py-2.5 text-sm font-semibold text-earth-800 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-spice-400 hover:bg-spice-50 active:translate-y-0 active:scale-[0.98];
   }
 
   .input-field {
-    @apply w-full rounded-lg border border-earth-200 bg-white px-4 py-2.5 text-sm text-earth-900 placeholder:text-earth-400 transition-colors duration-200 focus:border-spice-400 focus:outline-none focus:ring-2 focus:ring-spice-200;
+    @apply w-full rounded-xl border border-earth-300 bg-white px-4 py-2.5 text-sm text-earth-900 shadow-sm placeholder:text-earth-400 transition-all duration-200 focus:border-spice-500 focus:outline-none focus:ring-4 focus:ring-spice-100;
   }
 
   .card {
-    @apply rounded-2xl border border-earth-100 bg-white p-6 shadow-spice;
+    @apply rounded-3xl border border-earth-200 bg-white p-6 shadow-md;
   }
 
-  .nav-link {
-    @apply rounded-lg px-3 py-2 text-sm font-medium text-earth-200 transition-colors duration-200 hover:bg-white/10 hover:text-white;
+  .app-page {
+    @apply min-h-screen bg-earth-100/90 px-4 py-5 sm:px-6 lg:px-8 xl:pl-[17.5rem];
+    background:
+      radial-gradient(circle at top right, rgba(192, 94, 32, 0.06), transparent 24rem),
+      #e9e2d8;
   }
 
-  .nav-link-active {
-    @apply rounded-lg bg-white/15 px-3 py-2 text-sm font-medium text-white;
+  .app-container {
+    @apply mx-auto max-w-7xl space-y-6;
+  }
+
+  .page-hero {
+    @apply relative overflow-hidden rounded-[2rem] border border-white/70 bg-earth-950 p-6 text-white shadow-spice-lg sm:p-8;
+    background:
+      radial-gradient(circle at top left, rgba(222, 148, 71, 0.32), transparent 24rem),
+      linear-gradient(135deg, #281c18 0%, #3a160c 46%, #83391e 100%);
+  }
+
+  .page-hero-subtle {
+    @apply relative overflow-hidden rounded-[2rem] border border-earth-200 bg-white p-6 shadow-md sm:p-8;
+  }
+
+  .eyebrow {
+    @apply text-xs font-bold uppercase tracking-[0.24em] text-spice-600;
+  }
+
+  .metric-card {
+    @apply rounded-3xl border border-earth-200 bg-white p-5 shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg;
+  }
+
+  .metric-label {
+    @apply text-xs font-bold uppercase tracking-[0.18em] text-earth-600;
+  }
+
+  .metric-value {
+    @apply mt-2 text-2xl font-black tracking-tight text-earth-950;
+  }
+
+  .table-shell {
+    @apply overflow-x-auto rounded-2xl border border-earth-200 bg-white shadow-sm;
+  }
+
+  .table-head {
+    @apply bg-earth-100 text-left text-[11px] font-bold uppercase tracking-[0.18em] text-earth-600;
+  }
+
+  .table-row {
+    @apply border-t border-earth-200 transition-colors hover:bg-spice-50/80;
+  }
+
+  .status-pill {
+    @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-bold;
+  }
+
+  .kpi-card {
+    @apply relative overflow-hidden rounded-2xl border border-earth-200 bg-white p-5 shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg;
+  }
+
+  .kpi-card-label {
+    @apply text-sm font-semibold text-earth-700;
+  }
+
+  .kpi-card-value {
+    @apply mt-2 text-2xl font-bold tracking-tight text-earth-950;
+  }
+
+  .kpi-card-icon {
+    @apply flex h-11 w-11 items-center justify-center rounded-xl text-lg;
+  }
+
+  .insight-panel {
+    @apply rounded-2xl border border-earth-200 bg-white p-5 shadow-md;
+  }
+
+  .insight-panel-title {
+    @apply text-base font-bold text-earth-950;
+  }
+
+  .insight-panel-subtitle {
+    @apply text-sm text-earth-500;
+  }
+
+  .toast-stack {
+    @apply pointer-events-none fixed right-4 top-4 z-[300] flex w-full max-w-sm flex-col gap-3 sm:right-6 sm:top-6;
+  }
+
+  .toast-card {
+    @apply pointer-events-auto flex items-start gap-3 rounded-2xl border border-earth-200 bg-white px-4 py-3 shadow-xl;
+  }
+
+  .toast-icon {
+    @apply mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-black;
+  }
+
+  .toast-icon.success {
+    @apply bg-emerald-100 text-emerald-700;
+  }
+
+  .toast-icon.error {
+    @apply bg-red-100 text-red-700;
+  }
+
+  .toast-icon.info {
+    @apply bg-sky-100 text-sky-700;
+  }
+
+  .toast-text {
+    @apply flex-1 text-sm font-medium leading-5 text-earth-800;
+  }
+
+  .toast-close {
+    @apply -mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xl leading-none text-earth-400 transition hover:bg-earth-100 hover:text-earth-700;
+  }
+
+  .low-stock-banner {
+    @apply pointer-events-none fixed bottom-4 right-4 z-[250] w-full max-w-md sm:bottom-6 sm:right-6;
+  }
+
+  .low-stock-banner-card {
+    @apply pointer-events-auto rounded-2xl border border-amber-200 bg-white/95 p-4 shadow-xl backdrop-blur-sm;
+  }
+
+  .low-stock-banner-icon {
+    @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-lg font-black text-amber-700;
+  }
+
+  .admin-sidebar {
+    @apply fixed inset-y-0 left-0 z-40 w-[17.5rem] flex-col border-r border-earth-300 bg-earth-50 shadow-[4px_0_24px_rgba(40,28,24,0.08)];
   }
 }
