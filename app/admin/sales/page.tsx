@@ -1,9 +1,10 @@
 "use client"
-import React, { useState } from 'react'
+import React from 'react'
 import { useForm } from 'react-hook-form'
 import { useProducts } from '../../../hooks/useProducts'
 import { useSales } from '../../../hooks/useModules'
 import AdminNav from '../../../components/AdminNav'
+import { formatEthiopianDate, parseBusinessDate } from '../../../lib/ethiopian-calendar'
 
 export default function SalesPage() {
   const { data: products, isLoading: pLoading } = useProducts()
@@ -36,7 +37,43 @@ export default function SalesPage() {
           </div>
           <div className="lg:col-span-2 bg-white shadow rounded p-4">
             <h2 className="text-lg font-medium mb-3">Sales List</h2>
-            {sLoading ? <div>Loading...</div> : <table className="w-full text-sm"><thead><tr className="text-left text-xs text-gray-500"><th className="pb-2">Code</th><th className="pb-2">Total</th><th className="pb-2">Paid</th><th className="pb-2">Balance</th><th className="pb-2">Status</th><th className="pb-2">Action</th></tr></thead><tbody>{salesList.map((s: any) => (<tr key={s.id} className="border-t"><td className="py-2">{s.sale_code}</td><td className="py-2">{Number(s.total_amount).toFixed(2)}</td><td className="py-2">{Number(s.amount_paid).toFixed(2)}</td><td className="py-2">{Number(s.balance).toFixed(2)}</td><td className="py-2"><span className={`px-2 py-1 rounded text-xs ${s.payment_status === 'Paid' ? 'bg-green-100 text-green-700' : s.payment_status === 'Partial' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>{s.payment_status}</span></td><td className="py-2"><button className="text-red-600 text-sm" onClick={() => deleteSale(s.id)}>Delete</button></td></tr>))}</tbody></table>}
+            {sLoading ? <div>Loading...</div> : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-gray-500">
+                    <th className="pb-2">Code</th>
+                    <th className="pb-2">Eth. date</th>
+                    <th className="pb-2">Total</th>
+                    <th className="pb-2">Paid</th>
+                    <th className="pb-2">Balance</th>
+                    <th className="pb-2">Status</th>
+                    <th className="pb-2">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {salesList.map((s: any) => {
+                    const d = parseBusinessDate(s.sale_date || s.created_at)
+                    return (
+                      <tr key={s.id} className="border-t">
+                        <td className="py-2">{s.sale_code}</td>
+                        <td className="py-2 text-gray-600">{d ? formatEthiopianDate(d) : '—'}</td>
+                        <td className="py-2">{Number(s.total_amount).toFixed(2)}</td>
+                        <td className="py-2">{Number(s.amount_paid).toFixed(2)}</td>
+                        <td className="py-2">{Number(s.balance).toFixed(2)}</td>
+                        <td className="py-2">
+                          <span className={`px-2 py-1 rounded text-xs ${s.payment_status === 'Paid' ? 'bg-green-100 text-green-700' : s.payment_status === 'Partial' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
+                            {s.payment_status}
+                          </span>
+                        </td>
+                        <td className="py-2">
+                          <button className="text-red-600 text-sm" onClick={() => deleteSale(s.id)}>Delete</button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       </div>
