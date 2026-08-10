@@ -2,11 +2,17 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { verifyToken, COOKIE_NAME } from './lib/auth'
 
+function isPublicApi(pathname: string) {
+  return pathname.startsWith('/api/public/')
+}
+
 export async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname
 
   if (pathname.startsWith('/admin') || pathname.startsWith('/api')) {
-    if (pathname.startsWith('/api/auth')) return NextResponse.next()
+    if (pathname.startsWith('/api/auth') || isPublicApi(pathname)) {
+      return NextResponse.next()
+    }
 
     const tokenCookie = req.cookies.get(COOKIE_NAME)
 

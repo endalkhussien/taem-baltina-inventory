@@ -162,4 +162,9 @@
   .admin-sidebar {
     @apply fixed inset-y-0 left-0 z-40 w-[17.5rem] flex-col border-r border-earth-300 bg-earth-50 shadow-[4px_0_24px_rgba(40,28,24,0.08)];
   }
+
+  .shop-shell {
+    background-color: #fff8f5;
+    color: #2c1600;
+  }
 }
