@@ -469,7 +469,7 @@ export default function DashboardPage() {
               <div>
                 <h2 className="insight-panel-title">Monthly close (Ethiopian calendar)</h2>
                 <p className="insight-panel-subtitle">
-                  Compare sales, expenses, and profit by Ethiopian month · {ethYearLabel}
+                  Compare sales, expenses, and profit by Ethiopian month - {ethYearLabel}
                 </p>
               </div>
               <div className="flex items-center gap-2">
