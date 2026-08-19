@@ -217,7 +217,7 @@ function IngredientsContent() {
       <div className="app-container">
         <div className="page-hero-subtle">
           <div className="eyebrow">Raw material ledger</div>
-          <h1 className="mt-2 font-display text-4xl font-black text-earth-950">Inputs, Costs, and Reorder Points</h1>
+          <h1 className="mt-2 font-display text-4xl font-bold text-earth-950">Inputs, costs, and reorder points</h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-earth-500">
             Track every raw material you buy, how much remains, weighted unit cost, and the point where you need to restock.
           </p>

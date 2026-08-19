@@ -240,48 +240,48 @@ export default function SalesPage() {
         <div className="app-container">
           <div className="page-hero flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <div className="text-xs font-bold uppercase tracking-[0.28em] text-spice-200">Sales & credit desk</div>
-              <h1 className="mt-3 font-display text-4xl font-black leading-tight sm:text-5xl">Daily Sales and Customer Credit</h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-earth-100 sm:text-base">
+              <div className="eyebrow">Sales & credit desk</div>
+              <h1 className="mt-3 font-display text-4xl font-bold leading-tight text-earth-950 sm:text-5xl">Daily Sales and Customer Credit</h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-earth-500 sm:text-base">
                 Price is taken from the product automatically. Walk-in sales are paid in full. Credit sales let you enter partial payment.
               </p>
             </div>
             <div className="space-y-3">
-              <div className="flex flex-wrap rounded-2xl bg-white/10 p-1 ring-1 ring-white/15">
+              <div className="flex flex-wrap rounded-lg border border-outline-variant/40 bg-surface-low p-1">
                 {(['today', 'week', 'month', 'all'] as SalesPeriod[]).map((item) => (
                   <button
                     key={item}
                     type="button"
                     onClick={() => setSalesPeriod(item)}
-                    className={`rounded-xl px-3 py-2 text-xs font-black uppercase tracking-wide transition-colors ${salesPeriod === item ? 'bg-white text-earth-950' : 'text-earth-100 hover:bg-white/10'}`}
+                    className={`rounded-lg px-3 py-2 text-xs font-bold uppercase tracking-wide transition-colors ${salesPeriod === item ? 'bg-white text-earth-950 shadow-card' : 'text-earth-500 hover:text-earth-900'}`}
                   >
                     {salesPeriodLabels[item]}
                   </button>
                 ))}
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15 sm:col-span-2">
-                  <div className="text-xs uppercase tracking-[0.16em] text-spice-100">All-time sales total</div>
-                  <div className="text-xl font-black text-white">{formatEtb(allTimeSummary.revenue)}</div>
-                  <div className="mt-1 text-[11px] text-spice-100">{allTimeSummary.count} sale{allTimeSummary.count === 1 ? '' : 's'} recorded ? your full history</div>
+                <div className="rounded-lg border border-outline/20 bg-surface-low p-4 sm:col-span-2">
+                  <div className="text-xs uppercase tracking-[0.16em] text-earth-500">All-time sales total</div>
+                  <div className="font-display text-xl font-bold text-earth-950">{formatEtb(allTimeSummary.revenue)}</div>
+                  <div className="mt-1 text-[11px] text-earth-500">{allTimeSummary.count} sale{allTimeSummary.count === 1 ? '' : 's'} recorded — your full history</div>
                 </div>
-                <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15">
-                  <div className="text-xs uppercase tracking-[0.16em] text-spice-100">{salesPeriodLabels[salesPeriod]} sales</div>
-                  <div className="text-xl font-black text-white">{formatEtb(periodSummary.revenue)}</div>
-                  <div className="mt-1 text-[11px] text-spice-100">{periodSummary.count} sale{periodSummary.count === 1 ? '' : 's'}</div>
+                <div className="rounded-lg border border-outline/20 bg-surface-low p-4">
+                  <div className="text-xs uppercase tracking-[0.16em] text-earth-500">{salesPeriodLabels[salesPeriod]} sales</div>
+                  <div className="font-display text-xl font-bold text-earth-950">{formatEtb(periodSummary.revenue)}</div>
+                  <div className="mt-1 text-[11px] text-earth-500">{periodSummary.count} sale{periodSummary.count === 1 ? '' : 's'}</div>
                 </div>
-                <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15">
-                  <div className="text-xs uppercase tracking-[0.16em] text-spice-100">Cash collected</div>
-                  <div className="text-xl font-black text-white">{formatEtb(periodSummary.cash)}</div>
+                <div className="rounded-lg border border-outline/20 bg-surface-low p-4">
+                  <div className="text-xs uppercase tracking-[0.16em] text-earth-500">Cash collected</div>
+                  <div className="font-display text-xl font-bold text-earth-950">{formatEtb(periodSummary.cash)}</div>
                 </div>
-                <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15">
-                  <div className="text-xs uppercase tracking-[0.16em] text-spice-100">Credit created</div>
-                  <div className="text-xl font-black text-white">{formatEtb(periodSummary.credit)}</div>
+                <div className="rounded-lg border border-outline/20 bg-surface-low p-4">
+                  <div className="text-xs uppercase tracking-[0.16em] text-earth-500">Credit created</div>
+                  <div className="font-display text-xl font-bold text-earth-950">{formatEtb(periodSummary.credit)}</div>
                 </div>
-                <div className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/15">
-                  <div className="text-xs uppercase tracking-[0.16em] text-spice-100">Kg sold</div>
-                  <div className="text-xl font-black text-white">{periodSummary.kg} kg</div>
-                  <div className="mt-1 text-[11px] text-spice-100">Open credit all time: {formatEtb(totalOutstanding)}</div>
+                <div className="rounded-lg border border-outline/20 bg-surface-low p-4">
+                  <div className="text-xs uppercase tracking-[0.16em] text-earth-500">Kg sold</div>
+                  <div className="font-display text-xl font-bold text-earth-950">{periodSummary.kg} kg</div>
+                  <div className="mt-1 text-[11px] text-earth-500">Open credit all time: {formatEtb(totalOutstanding)}</div>
                 </div>
               </div>
             </div>

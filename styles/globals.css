@@ -8,79 +8,69 @@
   }
 
   body {
-    @apply min-h-screen bg-earth-100 font-sans antialiased text-earth-900;
-    background:
-      radial-gradient(circle at top left, rgba(212, 120, 42, 0.14), transparent 34rem),
-      radial-gradient(circle at bottom right, rgba(58, 22, 12, 0.1), transparent 28rem),
-      #e9e2d8;
+    @apply min-h-screen bg-surface font-sans antialiased text-earth-900;
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-spice-700 px-5 py-2.5 text-sm font-semibold text-white shadow-spice transition-all duration-200 hover:-translate-y-0.5 hover:bg-spice-800 hover:shadow-spice-lg active:translate-y-0 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-card transition-colors duration-200 hover:bg-primary-container active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-earth-300 bg-white px-5 py-2.5 text-sm font-semibold text-earth-800 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-spice-400 hover:bg-spice-50 active:translate-y-0 active:scale-[0.98];
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-outline/40 bg-white px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-earth-900 transition-colors duration-200 hover:border-primary hover:bg-spice-100 active:scale-[0.98];
   }
 
   .input-field {
-    @apply w-full rounded-xl border border-earth-300 bg-white px-4 py-2.5 text-sm text-earth-900 shadow-sm placeholder:text-earth-400 transition-all duration-200 focus:border-spice-500 focus:outline-none focus:ring-4 focus:ring-spice-100;
+    @apply w-full rounded-lg border border-outline-variant/60 bg-surface-container/40 px-4 py-2.5 text-sm text-earth-900 placeholder:text-earth-500/60 transition-colors duration-200 focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/30;
   }
 
   .card {
-    @apply rounded-3xl border border-earth-200 bg-white p-6 shadow-md;
+    @apply rounded-lg border border-outline/20 bg-white p-6 shadow-card;
   }
 
   .app-page {
-    @apply min-h-screen bg-earth-100/90 px-4 py-5 sm:px-6 lg:px-8 xl:pl-[17.5rem];
-    background:
-      radial-gradient(circle at top right, rgba(192, 94, 32, 0.06), transparent 24rem),
-      #e9e2d8;
+    @apply relative min-h-screen bg-surface px-4 py-5 sm:px-6 lg:px-8 xl:pl-[284px];
   }
 
   .app-container {
-    @apply mx-auto max-w-7xl space-y-6;
+    @apply relative z-10 mx-auto max-w-7xl space-y-6;
   }
 
   .page-hero {
-    @apply relative overflow-hidden rounded-[2rem] border border-white/70 bg-earth-950 p-6 text-white shadow-spice-lg sm:p-8;
-    background:
-      radial-gradient(circle at top left, rgba(222, 148, 71, 0.32), transparent 24rem),
-      linear-gradient(135deg, #281c18 0%, #3a160c 46%, #83391e 100%);
+    @apply relative overflow-hidden rounded-lg border border-outline/20 bg-white p-6 shadow-card sm:p-8;
   }
 
   .page-hero-subtle {
-    @apply relative overflow-hidden rounded-[2rem] border border-earth-200 bg-white p-6 shadow-md sm:p-8;
+    @apply relative overflow-hidden rounded-lg border border-outline/20 bg-white p-6 shadow-card sm:p-8;
   }
 
   .eyebrow {
-    @apply text-xs font-bold uppercase tracking-[0.24em] text-spice-600;
+    @apply text-[11px] font-bold uppercase tracking-[0.2em] text-earth-500;
   }
 
   .metric-card {
-    @apply rounded-3xl border border-earth-200 bg-white p-5 shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg;
+    @apply rounded-lg border border-outline/20 bg-white p-5 shadow-card transition-transform duration-200 hover:-translate-y-0.5;
   }
 
   .metric-label {
-    @apply text-xs font-bold uppercase tracking-[0.18em] text-earth-600;
+    @apply text-[11px] font-bold uppercase tracking-[0.18em] text-earth-500;
   }
 
   .metric-value {
-    @apply mt-2 text-2xl font-black tracking-tight text-earth-950;
+    @apply mt-2 font-display text-2xl font-bold tracking-tight text-earth-950;
   }
 
   .table-shell {
-    @apply overflow-x-auto rounded-2xl border border-earth-200 bg-white shadow-sm;
+    @apply overflow-x-auto rounded-lg border border-outline/20 bg-white shadow-card;
   }
 
   .table-head {
-    @apply bg-earth-100 text-left text-[11px] font-bold uppercase tracking-[0.18em] text-earth-600;
+    @apply bg-surface-low text-left text-[11px] font-bold uppercase tracking-[0.18em] text-earth-500;
   }
 
   .table-row {
-    @apply border-t border-earth-200 transition-colors hover:bg-spice-50/80;
+    @apply border-t border-outline-variant/40 transition-colors hover:bg-primary/5;
   }
 
   .status-pill {
@@ -88,27 +78,27 @@
   }
 
   .kpi-card {
-    @apply relative overflow-hidden rounded-2xl border border-earth-200 bg-white p-5 shadow-md transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg;
+    @apply relative overflow-hidden rounded-lg border border-outline/20 bg-white p-6 shadow-card;
   }
 
   .kpi-card-label {
-    @apply text-sm font-semibold text-earth-700;
+    @apply text-[11px] font-bold uppercase tracking-[0.16em] text-earth-500;
   }
 
   .kpi-card-value {
-    @apply mt-2 text-2xl font-bold tracking-tight text-earth-950;
+    @apply mt-2 font-display text-[32px] font-bold leading-10 tracking-tight text-earth-950;
   }
 
   .kpi-card-icon {
-    @apply flex h-11 w-11 items-center justify-center rounded-xl text-lg;
+    @apply flex h-8 w-8 items-center justify-center rounded-full text-sm;
   }
 
   .insight-panel {
-    @apply rounded-2xl border border-earth-200 bg-white p-5 shadow-md;
+    @apply rounded-lg border border-outline/20 bg-white p-5 shadow-card;
   }
 
   .insight-panel-title {
-    @apply text-base font-bold text-earth-950;
+    @apply font-display text-xl font-bold text-earth-950;
   }
 
   .insight-panel-subtitle {
@@ -120,7 +110,7 @@
   }
 
   .toast-card {
-    @apply pointer-events-auto flex items-start gap-3 rounded-2xl border border-earth-200 bg-white px-4 py-3 shadow-xl;
+    @apply pointer-events-auto flex items-start gap-3 rounded-lg border border-outline/20 bg-white px-4 py-3 shadow-spice-lg;
   }
 
   .toast-icon {
@@ -128,7 +118,7 @@
   }
 
   .toast-icon.success {
-    @apply bg-emerald-100 text-emerald-700;
+    @apply bg-emerald-100 text-emerald-800;
   }
 
   .toast-icon.error {
@@ -144,7 +134,7 @@
   }
 
   .toast-close {
-    @apply -mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xl leading-none text-earth-400 transition hover:bg-earth-100 hover:text-earth-700;
+    @apply -mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xl leading-none text-earth-400 transition hover:bg-surface-low hover:text-earth-700;
   }
 
   .low-stock-banner {
@@ -152,15 +142,15 @@
   }
 
   .low-stock-banner-card {
-    @apply pointer-events-auto rounded-2xl border border-amber-200 bg-white/95 p-4 shadow-xl backdrop-blur-sm;
+    @apply pointer-events-auto rounded-lg border border-outline/20 bg-white/95 p-4 shadow-spice-lg backdrop-blur-sm;
   }
 
   .low-stock-banner-icon {
-    @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-lg font-black text-amber-700;
+    @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-100 text-lg font-black text-purple-800;
   }
 
   .admin-sidebar {
-    @apply fixed inset-y-0 left-0 z-40 w-[17.5rem] flex-col border-r border-earth-300 bg-earth-50 shadow-[4px_0_24px_rgba(40,28,24,0.08)];
+    @apply fixed inset-y-0 left-0 z-40 w-sidebar flex-col border-r border-outline-variant/30 bg-surface;
   }
 
   .shop-shell {

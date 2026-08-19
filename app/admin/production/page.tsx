@@ -112,9 +112,9 @@ export default function ProductionPage() {
         <div className="app-container">
           <div className="page-hero">
             <div className="relative z-10 max-w-3xl">
-              <div className="text-xs font-bold uppercase tracking-[0.28em] text-spice-200">Batch production</div>
-              <h1 className="mt-3 font-display text-4xl font-black leading-tight sm:text-5xl">Convert Raw Materials Into Finished Goods</h1>
-              <p className="mt-3 text-sm leading-6 text-earth-100 sm:text-base">
+              <div className="eyebrow">Batch production</div>
+              <h1 className="mt-3 font-display text-4xl font-bold leading-tight text-earth-950 sm:text-5xl">Convert Raw Materials Into Finished Goods</h1>
+              <p className="mt-3 text-sm leading-6 text-earth-500 sm:text-base">
                 Recipe materials are consumed per batch. Kg produced is added to finished goods stock separately.
               </p>
             </div>
