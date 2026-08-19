@@ -55,7 +55,7 @@ import {
   YAxis
 } from 'recharts'
 
-const CHART_COLORS = ['#f97316', '#22c55e', '#3b82f6', '#eab308', '#ef4444', '#8b5cf6']
+const CHART_COLORS = ['#9e3d00', '#41661a', '#944925', '#c64f00', '#587f31', '#7c2e00']
 
 function KpiCard({
   label,
@@ -70,40 +70,33 @@ function KpiCard({
   href?: string
   tone?: 'sales' | 'purchase' | 'expense' | 'credit' | 'profit' | 'neutral'
 }) {
-  const tones = {
-    sales: 'bg-rose-50 border-rose-200',
-    purchase: 'bg-emerald-50 border-emerald-200',
-    expense: 'bg-sky-50 border-sky-200',
-    credit: 'bg-amber-50 border-amber-200',
-    profit: 'bg-orange-50 border-orange-200',
-    neutral: 'bg-white border-earth-200'
-  }
   const iconTones = {
-    sales: 'bg-rose-100 text-rose-600',
-    purchase: 'bg-emerald-100 text-emerald-600',
-    expense: 'bg-sky-100 text-sky-600',
-    credit: 'bg-amber-100 text-amber-600',
-    profit: 'bg-orange-100 text-orange-600',
-    neutral: 'bg-earth-100 text-earth-600'
+    sales: 'bg-primary/10 text-primary',
+    purchase: 'bg-tertiary/10 text-tertiary',
+    expense: 'bg-secondary/10 text-secondary',
+    credit: 'bg-amber-100 text-amber-800',
+    profit: 'bg-primary/10 text-primary',
+    neutral: 'bg-surface-container text-earth-500'
   }
-  const icons = {
-    sales: '?',
-    purchase: '?',
-    expense: '?',
-    credit: '!',
-    profit: '?',
-    neutral: '?'
+  const blobs = {
+    sales: 'bg-primary/5',
+    purchase: 'bg-tertiary/5',
+    expense: 'bg-secondary/5',
+    credit: 'bg-amber-500/10',
+    profit: 'bg-primary/5',
+    neutral: 'bg-surface-container'
   }
 
   const body = (
-    <div className={`kpi-card border ${tones[tone]}`}>
-      <div className="flex items-start justify-between gap-3">
+    <div className="kpi-card group">
+      <div className={`absolute -right-8 -top-8 h-24 w-24 rounded-bl-full ${blobs[tone]} transition-transform group-hover:scale-110`} />
+      <div className="relative flex items-start justify-between gap-3">
         <div>
           <div className="kpi-card-label">{label}</div>
           <div className="kpi-card-value">{value}</div>
           {hint && <div className="mt-2 text-xs text-earth-500">{hint}</div>}
         </div>
-        <div className={`kpi-card-icon ${iconTones[tone]}`}>{icons[tone]}</div>
+        <div className={`kpi-card-icon ${iconTones[tone]}`}>•</div>
       </div>
     </div>
   )
@@ -240,20 +233,20 @@ export default function DashboardPage() {
         <div className="app-container">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <div className="eyebrow">Business insight</div>
-              <h1 className="mt-2 font-display text-3xl font-black text-earth-950 sm:text-4xl">Dashboard</h1>
+              <div className="eyebrow">Kitchen ops</div>
+              <h1 className="mt-2 font-display text-3xl font-bold text-earth-950 sm:text-4xl">Operational Overview</h1>
               <p className="mt-2 max-w-2xl text-sm text-earth-500">
                 Sales, purchases, expenses, credit, and stock at a glance for {salesPeriodLabels[period].toLowerCase()}.
               </p>
             </div>
-            <div className="flex rounded-2xl border border-earth-300 bg-earth-50 p-1 shadow-sm">
+            <div className="flex rounded-lg border border-outline-variant/40 bg-surface-low p-1">
               {periodOptions.map((item) => (
                 <button
                   key={item}
                   type="button"
                   onClick={() => setPeriod(item)}
-                  className={`rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wide transition-colors ${
-                    period === item ? 'bg-spice-700 text-white shadow-sm' : 'text-earth-700 hover:bg-white'
+                  className={`rounded-md px-4 py-2 text-xs font-bold uppercase tracking-wide transition-colors ${
+                    period === item ? 'bg-white text-earth-950 shadow-card' : 'text-earth-500 hover:text-earth-900'
                   }`}
                 >
                   {item === 'today' ? 'Today' : item === 'week' ? 'Week' : item === 'month' ? 'Month' : 'All'}
@@ -320,8 +313,8 @@ export default function DashboardPage() {
                     <XAxis dataKey="label" tick={{ fontSize: 12 }} />
                     <YAxis tick={{ fontSize: 12 }} />
                     <Tooltip formatter={(value: number) => formatEtb(value)} />
-                    <Bar dataKey="sales" name="Sales" fill="#f97316" radius={[6, 6, 0, 0]} />
-                    <Bar dataKey="purchases" name="Purchases" fill="#22c55e" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="sales" name="Sales" fill="#9e3d00" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="purchases" name="Purchases" fill="#41661a" radius={[6, 6, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
@@ -527,8 +520,8 @@ export default function DashboardPage() {
                     labelFormatter={(_, payload) => payload?.[0]?.payload?.fullLabel ?? ''}
                   />
                   <Legend />
-                  <Bar dataKey="revenue" name="Sales" fill="#f97316" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="expenses" name="Expenses" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="revenue" name="Sales" fill="#9e3d00" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="expenses" name="Expenses" fill="#944925" radius={[4, 4, 0, 0]} />
                   <Line type="monotone" dataKey="profit" name="Profit" stroke="#c05e20" strokeWidth={2} dot={{ r: 3 }} />
                 </ComposedChart>
               </ResponsiveContainer>

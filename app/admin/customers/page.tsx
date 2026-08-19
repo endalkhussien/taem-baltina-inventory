@@ -189,13 +189,13 @@ export default function CustomersPage() {
           <div className="page-hero-subtle flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <div className="eyebrow">Credit desk</div>
-              <h1 className="mt-2 font-display text-4xl font-black text-earth-950">Customer Credit Ledger</h1>
+              <h1 className="mt-2 font-display text-4xl font-bold text-earth-950">Customer credit ledger</h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-earth-500">
                 Add customers first, then record credit for one finished good or for mixed / all products. Total auto-calculates when you pick a product and kg.
               </p>
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div className="rounded-3xl bg-spice-50 px-5 py-4 border border-spice-100">
+              <div className="rounded-lg bg-surface-container px-5 py-4 border border-spice-100">
                 <div className="text-xs uppercase tracking-wide text-earth-500">Credit ledger owed</div>
                 <div className="text-2xl font-black text-spice-800">{formatEtb(totalLedgerCredit)}</div>
               </div>

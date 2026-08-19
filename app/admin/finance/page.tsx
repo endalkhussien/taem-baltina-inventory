@@ -208,12 +208,12 @@ export default function FinancePage() {
           <div className="page-hero-subtle flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <div className="eyebrow">Finance desk</div>
-              <h1 className="mt-2 font-display text-4xl font-black text-earth-950">Balances and Daily Money</h1>
+              <h1 className="mt-2 font-display text-4xl font-bold text-earth-950">Balances and daily money</h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-earth-500">
                 Record cash on hand manually, track money customers owe you, track money you owe banks/family/others, and see your net position.
               </p>
             </div>
-            <div className="rounded-3xl bg-spice-50 px-5 py-4 border border-spice-100">
+            <div className="rounded-lg bg-surface-container px-5 py-4 border border-outline/20">
               <div className="text-xs uppercase tracking-wide text-earth-500">Net position estimate</div>
               <div className={`text-3xl font-black ${netPosition >= 0 ? 'text-green-700' : 'text-red-700'}`}>{formatEtb(netPosition)}</div>
               <div className="mt-1 text-xs text-earth-500">Cash on hand + customer credit − your debts</div>

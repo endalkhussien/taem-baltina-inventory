@@ -61,14 +61,14 @@ export default function ExpensesPage() {
         <div className="page-hero-subtle flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <div className="eyebrow">Operating costs</div>
-            <h1 className="mt-2 font-display text-4xl font-black text-earth-950">Business Cost Register</h1>
+            <h1 className="mt-2 font-display text-4xl font-bold text-earth-950">Business cost register</h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-earth-500">
               Track packaging, transport, salaries, rent, utilities, and other costs that affect profit.
             </p>
           </div>
-          <div className="rounded-3xl bg-purple-50 px-5 py-4 border border-purple-100">
+          <div className="rounded-lg bg-surface-container px-5 py-4 border border-outline/20">
             <div className="text-xs uppercase tracking-wide text-earth-500">Total operating costs</div>
-            <div className="text-3xl font-black text-purple-800">{formatEtb(totalOperatingCosts)}</div>
+            <div className="text-3xl font-bold text-primary">{formatEtb(totalOperatingCosts)}</div>
             <div className="mt-1 text-xs text-earth-500">{list.length} entr{list.length === 1 ? 'y' : 'ies'} recorded</div>
           </div>
         </div>
