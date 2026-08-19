@@ -105,7 +105,7 @@ function KpiCard({
 }
 
 export default function DashboardPage() {
-  const [period, setPeriod] = useState<SalesPeriod>('week')
+  const [period, setPeriod] = useState<SalesPeriod>('today')
   const { data: products } = useProducts()
   const { data: ingredients } = useIngredients()
   const { data: customers } = useCustomers()
@@ -203,8 +203,8 @@ export default function DashboardPage() {
   const periodOptions: SalesPeriod[] = ['today', 'week', 'month', 'all']
 
   const monthlyAll = useMemo(
-    () => buildEthiopianMonthlyFinancials(salesList, expensesList),
-    [salesList, expensesList]
+    () => buildEthiopianMonthlyFinancials(salesList, expensesList, purchaseList),
+    [salesList, expensesList, purchaseList]
   )
   const ethYears = useMemo(() => ethiopianYearsFromMonthly(monthlyAll), [monthlyAll])
   const [ethYear, setEthYear] = useState<number | 'all' | null>(null)
@@ -218,10 +218,12 @@ export default function DashboardPage() {
     fullLabel: row.label,
     revenue: Number(row.revenue.toFixed(2)),
     expenses: Number(row.expenses.toFixed(2)),
+    purchases: Number(row.purchases.toFixed(2)),
     profit: Number(row.profit.toFixed(2)),
   }))
   const ethYearRevenue = monthlyEth.reduce((sum, row) => sum + row.revenue, 0)
   const ethYearExpenses = monthlyEth.reduce((sum, row) => sum + row.expenses, 0)
+  const ethYearPurchases = monthlyEth.reduce((sum, row) => sum + row.purchases, 0)
   const ethYearProfit = ethYearRevenue - ethYearExpenses
   const ethYearCash = monthlyEth.reduce((sum, row) => sum + row.cashCollected, 0)
   const ethYearLabel = activeEthYear === 'all' ? 'All years' : `Eth. year ${activeEthYear}`
@@ -233,10 +235,10 @@ export default function DashboardPage() {
         <div className="app-container">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <div className="eyebrow">Kitchen ops</div>
+              <div className="eyebrow">Internal ops</div>
               <h1 className="mt-2 font-display text-3xl font-bold text-earth-950 sm:text-4xl">Operational Overview</h1>
               <p className="mt-2 max-w-2xl text-sm text-earth-500">
-                Sales, purchases, expenses, credit, and stock at a glance for {salesPeriodLabels[period].toLowerCase()}.
+                Trace sales, cash, and costs by Ethiopian month. Shop customers never see this console.
               </p>
             </div>
             <div className="flex rounded-lg border border-outline-variant/40 bg-surface-low p-1">
@@ -257,45 +259,33 @@ export default function DashboardPage() {
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <KpiCard
-              label="Raw materials stock value"
-              value={formatEtb(rawMaterialStockValue)}
-              hint={`${totalRawKg.toFixed(1)} kg on hand ? at average cost`}
-              href="/admin/ingredients"
-              tone="purchase"
-            />
-            <KpiCard
-              label="Finished goods (retail)"
-              value={formatEtb(finishedRetailValue)}
-              hint={`${formatStockKg(totalFinishedKg)} ? selling price`}
-              href="/admin/products"
+              label="Revenue"
+              value={formatEtb(periodRevenue)}
+              hint={`${periodSales.length} sale${periodSales.length === 1 ? '' : 's'} · ${salesPeriodLabels[period].toLowerCase()}`}
+              href="/admin/sales"
               tone="sales"
             />
             <KpiCard
-              label="Finished goods (cost)"
-              value={formatEtb(finishedCostValue)}
-              hint={finishedCostValue > 0 ? 'From production batch costs' : 'Record production for cost value'}
-              href="/admin/production"
-              tone="neutral"
-            />
-            <KpiCard
-              label="Total inventory value"
-              value={formatEtb(totalStockValue)}
-              hint="Raw materials (cost) + finished goods (retail)"
+              label="Cash on hand"
+              value={formatEtb(latestCash)}
+              hint="Latest cash count"
+              href="/admin/finance"
               tone="profit"
             />
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <KpiCard label="Total sales" value={formatEtb(periodRevenue)} hint={`${periodSales.length} sale${periodSales.length === 1 ? '' : 's'}`} href="/admin/sales" tone="sales" />
-            <KpiCard label="Total purchase" value={formatEtb(periodPurchaseCosts)} hint={`${periodPurchases.length} restock${periodPurchases.length === 1 ? '' : 's'}`} href="/admin/ingredients" tone="purchase" />
-            <KpiCard label="Total expenses" value={formatEtb(periodOperatingCosts)} hint={`${periodExpenses.length} expense${periodExpenses.length === 1 ? '' : 's'}`} href="/admin/finance" tone="expense" />
-            <KpiCard label="Credit due" value={formatEtb(totalCreditOwed)} hint={`${customersSummary.creditCustomers} customer${customersSummary.creditCustomers === 1 ? '' : 's'}`} href="/admin/customers" tone="credit" />
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <KpiCard label="Estimated profit" value={formatEtb(periodNetProfit)} hint="Sales ? COGS ? expenses" tone="profit" />
-            <KpiCard label="Net cash movement" value={formatEtb(periodNetCash)} hint="Cash in ? purchases ? expenses" tone="neutral" />
-            <KpiCard label="Net position" value={formatEtb(netPosition)} hint={`Cash ${formatEtb(latestCash, 2)} ? debts ${formatEtb(debtsPayable, 2)}`} href="/admin/finance" tone="neutral" />
+            <KpiCard
+              label="Stock alerts"
+              value={String(stockAlerts.lowProducts.length + stockAlerts.lowIngredients.length)}
+              hint="Items that need restock — staff only"
+              href="/admin/ingredients?filter=low"
+              tone="credit"
+            />
+            <KpiCard
+              label="Credit due"
+              value={formatEtb(totalCreditOwed)}
+              hint={`${customersSummary.creditCustomers} customer${customersSummary.creditCustomers === 1 ? '' : 's'}`}
+              href="/admin/customers"
+              tone="expense"
+            />
           </div>
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
@@ -462,7 +452,7 @@ export default function DashboardPage() {
               <div>
                 <h2 className="insight-panel-title">Monthly close (Ethiopian calendar)</h2>
                 <p className="insight-panel-subtitle">
-                  Compare sales, expenses, and profit by Ethiopian month - {ethYearLabel}
+                  Compare sales, purchases, expenses, and profit by Ethiopian month — {ethYearLabel}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -488,7 +478,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-5">
               <div className="rounded-xl bg-earth-50 p-3">
                 <div className="text-xs text-earth-500">Sales</div>
                 <div className="font-bold text-earth-950">{formatEtb(ethYearRevenue)}</div>
@@ -496,6 +486,10 @@ export default function DashboardPage() {
               <div className="rounded-xl bg-earth-50 p-3">
                 <div className="text-xs text-earth-500">Cash collected</div>
                 <div className="font-bold text-green-700">{formatEtb(ethYearCash)}</div>
+              </div>
+              <div className="rounded-xl bg-earth-50 p-3">
+                <div className="text-xs text-earth-500">Purchases</div>
+                <div className="font-bold text-earth-950">{formatEtb(ethYearPurchases)}</div>
               </div>
               <div className="rounded-xl bg-earth-50 p-3">
                 <div className="text-xs text-earth-500">Expenses</div>
@@ -521,6 +515,7 @@ export default function DashboardPage() {
                   />
                   <Legend />
                   <Bar dataKey="revenue" name="Sales" fill="#9e3d00" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="purchases" name="Purchases" fill="#41661a" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="expenses" name="Expenses" fill="#944925" radius={[4, 4, 0, 0]} />
                   <Line type="monotone" dataKey="profit" name="Profit" stroke="#c05e20" strokeWidth={2} dot={{ r: 3 }} />
                 </ComposedChart>
@@ -539,6 +534,7 @@ export default function DashboardPage() {
                       <th className="pb-2 pr-3">Ethiopian month</th>
                       <th className="pb-2 pr-3 text-right">Sales</th>
                       <th className="pb-2 pr-3 text-right">Cash</th>
+                      <th className="pb-2 pr-3 text-right">Purchases</th>
                       <th className="pb-2 pr-3 text-right">Expenses</th>
                       <th className="pb-2 pr-3 text-right">Profit</th>
                       <th className="pb-2 pr-3 text-right">Margin</th>
@@ -551,6 +547,7 @@ export default function DashboardPage() {
                         <td className="py-2.5 pr-3 font-semibold text-earth-900">{row.label}</td>
                         <td className="py-2.5 pr-3 text-right">{formatEtb(row.revenue)}</td>
                         <td className="py-2.5 pr-3 text-right text-green-700">{formatEtb(row.cashCollected)}</td>
+                        <td className="py-2.5 pr-3 text-right">{formatEtb(row.purchases)}</td>
                         <td className="py-2.5 pr-3 text-right text-sky-700">{formatEtb(row.expenses)}</td>
                         <td className={`py-2.5 pr-3 text-right font-semibold ${row.profit >= 0 ? 'text-spice-700' : 'text-red-700'}`}>
                           {formatEtb(row.profit)}
@@ -565,6 +562,7 @@ export default function DashboardPage() {
                       <td className="pt-3 pr-3">Total</td>
                       <td className="pt-3 pr-3 text-right">{formatEtb(ethYearRevenue)}</td>
                       <td className="pt-3 pr-3 text-right">{formatEtb(ethYearCash)}</td>
+                      <td className="pt-3 pr-3 text-right">{formatEtb(ethYearPurchases)}</td>
                       <td className="pt-3 pr-3 text-right">{formatEtb(ethYearExpenses)}</td>
                       <td className={`pt-3 pr-3 text-right ${ethYearProfit >= 0 ? 'text-spice-700' : 'text-red-700'}`}>
                         {formatEtb(ethYearProfit)}

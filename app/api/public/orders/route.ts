@@ -52,7 +52,7 @@ export async function POST(request: Request) {
         }
         if (Number(product.stock_quantity) < item.quantityKg) {
           return {
-            error: `Not enough stock for ${product.name}. Only ${product.stock_quantity} kg available.`,
+            error: 'That quantity is not available right now. Please try a smaller order.',
             status: 409 as const
           }
         }

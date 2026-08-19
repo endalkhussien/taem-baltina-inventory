@@ -22,9 +22,6 @@ export default function ShopFooter() {
         <div className="flex flex-col gap-3">
           <h4 className="mb-1 text-xs font-bold uppercase tracking-widest text-[#fff8f5]/70">Support</h4>
           <p className="text-sm text-[#ffdcbd]">Orders ship from Addis Ababa. Cash on delivery or bank transfer.</p>
-          <Link href="/admin/login" className="w-fit text-[#ffdcbd] underline-offset-4 hover:text-white hover:underline">
-            Staff sign-in
-          </Link>
         </div>
       </div>
     </footer>

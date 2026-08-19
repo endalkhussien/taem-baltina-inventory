@@ -25,7 +25,7 @@ export default function ShopCatalogClient() {
         <span className="text-xs font-bold uppercase tracking-widest text-[#9e3d00]">Collection</span>
         <h1 className="mt-2 font-display text-4xl font-bold text-[#2c1600]">Spice Collection</h1>
         <p className="mt-3 text-lg text-[#594238]">
-          Dynamic catalog from kitchen stock. Add kilograms to your bag and checkout when ready.
+          Choose your blends, add kilograms, and check out when you are ready.
         </p>
       </div>
 
@@ -39,21 +39,16 @@ export default function ShopCatalogClient() {
             <ProductCard
               key={product.id}
               product={product}
-              onAdd={
-                product.in_stock
-                  ? () => {
+              onAdd={() => {
                       addItem({
                         productId: product.id,
                         name: product.name,
                         unitPrice: product.selling_price,
                         image: product.image,
-                        stock: product.stock_quantity,
                         quantityKg: 1
                       })
                       toast.success(`${product.name} added.`)
-                    }
-                  : undefined
-              }
+                    }}
             />
           ))}
         </div>

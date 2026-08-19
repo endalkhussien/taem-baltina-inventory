@@ -16,7 +16,7 @@ export default function ShopHeader() {
   const count = items.length
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-[#fff1e7]/border-b border-[#e0c0b2]/40">
+    <header className="sticky top-0 z-50 w-full border-b border-[#e0c0b2]/40 bg-[#fff1e7]/90 backdrop-blur-md">
       <div className="mx-auto flex max-w-[1280px] items-center justify-between px-5 py-3 md:px-16">
         <Link href="/" className="font-display text-2xl font-bold tracking-tight text-[#9e3d00]">
           Taem Baltina
@@ -39,26 +39,18 @@ export default function ShopHeader() {
           })}
         </nav>
 
-        <div className="flex items-center gap-3">
-          <Link
-            href="/cart"
-            className="relative rounded-md px-3 py-2 text-sm font-semibold text-[#9e3d00] transition hover:bg-white/70"
-            aria-label="Cart"
-          >
-            Cart
-            {count > 0 && (
-              <span className="ml-1 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-[#9e3d00] px-1.5 text-[11px] font-bold text-white">
-                {count}
-              </span>
-            )}
-          </Link>
-          <Link
-            href="/admin/dashboard"
-            className="hidden rounded-md border border-[#8c7166]/40 px-3 py-2 text-xs font-bold uppercase tracking-wider text-[#594238] transition hover:border-[#9e3d00] hover:text-[#9e3d00] sm:inline-flex"
-          >
-            Ops
-          </Link>
-        </div>
+        <Link
+          href="/cart"
+          className="relative rounded-md px-3 py-2 text-sm font-semibold text-[#9e3d00] transition hover:bg-white/70"
+          aria-label="Cart"
+        >
+          Cart
+          {count > 0 && (
+            <span className="ml-1 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-[#9e3d00] px-1.5 text-[11px] font-bold text-white">
+              {count}
+            </span>
+          )}
+        </Link>
       </div>
     </header>
   )

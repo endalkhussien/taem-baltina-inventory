@@ -146,7 +146,7 @@ export default function AdminNav() {
             </div>
             <div className="min-w-0">
               <div className="truncate font-display text-lg font-bold text-primary">Taem Baltina</div>
-              <div className="truncate text-xs text-earth-500">Spice Production</div>
+              <div className="truncate text-xs text-earth-500">Internal ops</div>
             </div>
           </Link>
           <div className="flex shrink-0 items-center gap-2">
@@ -184,7 +184,7 @@ export default function AdminNav() {
             </div>
             <div>
               <div className="font-display text-xl font-bold leading-tight text-primary">Taem Baltina</div>
-              <div className="text-sm text-earth-500">Spice Production</div>
+              <div className="text-sm text-earth-500">Internal ops</div>
             </div>
           </Link>
 

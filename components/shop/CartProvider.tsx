@@ -8,7 +8,6 @@ export type CartItem = {
   unitPrice: number
   quantityKg: number
   image: string
-  stock: number
 }
 
 type CartContextValue = {
@@ -49,9 +48,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       setItems((prev) => {
         const existing = prev.find((row) => row.productId === item.productId)
         if (existing) {
-          const nextQty = Math.min(item.stock, Number((existing.quantityKg + qty).toFixed(3)))
+          const nextQty = Number((existing.quantityKg + qty).toFixed(3))
           return prev.map((row) =>
-            row.productId === item.productId ? { ...row, quantityKg: nextQty, stock: item.stock, unitPrice: item.unitPrice } : row
+            row.productId === item.productId ? { ...row, quantityKg: nextQty, unitPrice: item.unitPrice } : row
           )
         }
         return [
@@ -60,9 +59,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             productId: item.productId,
             name: item.name,
             unitPrice: item.unitPrice,
-            quantityKg: Math.min(item.stock, qty),
-            image: item.image,
-            stock: item.stock
+            quantityKg: qty,
+            image: item.image
           }
         ]
       })
@@ -78,7 +76,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           prev
             .map((row) => {
               if (row.productId !== productId) return row
-              const next = Math.min(row.stock, Math.max(0, Number(quantityKg.toFixed(3))))
+              const next = Math.max(0, Number(quantityKg.toFixed(3)))
               return { ...row, quantityKg: next }
             })
             .filter((row) => row.quantityKg > 0)

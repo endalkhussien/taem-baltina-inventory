@@ -1,4 +1,4 @@
-/** Display helpers for public marketplace (images/copy are curated, stock/price are live). */
+/** Display helpers for the public shop (images/copy are curated). Stock amounts stay in ops. */
 
 const PRODUCT_IMAGES: { match: RegExp; image: string; blurb: string; tags: string[] }[] = [
   {
@@ -48,23 +48,15 @@ export function marketplaceProductPayload(product: {
   name: string
   selling_price: number
   stock_quantity: number
-  alert_threshold?: number
 }) {
   const presentation = productPresentation(product.name)
-  const stock = Number(product.stock_quantity)
-  const inStock = stock > 0
-  const lowStock =
-    inStock &&
-    product.alert_threshold != null &&
-    stock <= Number(product.alert_threshold)
+  const available = Number(product.stock_quantity) > 0
 
   return {
     id: product.id,
     name: product.name,
     selling_price: Number(product.selling_price),
-    stock_quantity: stock,
-    in_stock: inStock,
-    low_stock: Boolean(lowStock),
+    available,
     image: presentation.image,
     blurb: presentation.blurb,
     tags: presentation.tags
