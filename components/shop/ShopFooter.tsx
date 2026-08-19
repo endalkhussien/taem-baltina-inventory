@@ -1,27 +1,32 @@
+'use client'
+
 import Link from 'next/link'
+import { useShopLang } from './ShopLang'
+import { t } from './shopCopy'
 
 export default function ShopFooter() {
+  const { lang } = useShopLang()
+
   return (
-    <footer className="mt-16 w-full border-t border-[#e0c0b2]/20 bg-[#472a06] text-[#ffdbcd]">
-      <div className="mx-auto grid max-w-[1280px] grid-cols-1 gap-10 px-5 py-16 md:grid-cols-3 md:px-16">
-        <div className="space-y-4">
-          <div className="font-display text-2xl font-semibold text-[#fff8f5]">Taem Baltina</div>
-          <p className="max-w-xs text-sm text-[#ffdcbd]">
-            Artisanal Ethiopian pantry blends — sourced with care, milled in small batches, ready for your kitchen.
-          </p>
+    <footer className="mt-12 w-full bg-[#3a160c] text-[#ffdbcd]">
+      <div className="mx-auto grid max-w-[1200px] grid-cols-1 gap-10 px-4 py-12 sm:px-6 md:grid-cols-3">
+        <div className="space-y-3">
+          <div className="font-display text-2xl font-semibold text-[#fff8f5]">{t(lang, 'brand')}</div>
+          <p className="max-w-xs text-sm leading-6">{t(lang, 'footerAbout')}</p>
         </div>
-        <div className="flex flex-col gap-3">
-          <h4 className="mb-1 text-xs font-bold uppercase tracking-widest text-[#fff8f5]/70">Explore</h4>
-          <Link href="/shop" className="w-fit text-[#ffdcbd] underline-offset-4 hover:text-white hover:underline">
-            Shop all blends
+        <div className="flex flex-col gap-2">
+          <h4 className="text-xs font-bold uppercase tracking-widest text-white/70">{t(lang, 'explore')}</h4>
+          <Link href="/shop" className="w-fit hover:text-white">
+            {t(lang, 'navShop')}
           </Link>
-          <Link href="/#story" className="w-fit text-[#ffdcbd] underline-offset-4 hover:text-white hover:underline">
-            Our heritage
+          <Link href="/#story" className="w-fit hover:text-white">
+            {t(lang, 'navStory')}
           </Link>
         </div>
-        <div className="flex flex-col gap-3">
-          <h4 className="mb-1 text-xs font-bold uppercase tracking-widest text-[#fff8f5]/70">Support</h4>
-          <p className="text-sm text-[#ffdcbd]">Orders ship from Addis Ababa. Cash on delivery or bank transfer.</p>
+        <div className="flex flex-col gap-2 text-sm">
+          <h4 className="text-xs font-bold uppercase tracking-widest text-white/70">{t(lang, 'support')}</h4>
+          <p>{t(lang, 'announce')}</p>
+          <p>Addis Ababa · ETB</p>
         </div>
       </div>
     </footer>

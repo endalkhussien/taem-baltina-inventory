@@ -1,6 +1,6 @@
 import '../styles/globals.css'
 import Providers from '../components/Providers'
-import { Playfair_Display, DM_Sans } from 'next/font/google'
+import { Noto_Sans_Ethiopic, Playfair_Display, DM_Sans } from 'next/font/google'
 
 const playfair = Playfair_Display({
   subsets: ['latin'],
@@ -14,17 +14,24 @@ const dmSans = DM_Sans({
   display: 'swap'
 })
 
+const notoEthiopic = Noto_Sans_Ethiopic({
+  subsets: ['ethiopic'],
+  variable: '--font-ethiopic',
+  display: 'swap',
+  weight: ['400', '700']
+})
+
 export const metadata = {
   title: {
     default: 'Taem Baltina',
     template: '%s · Taem Baltina'
   },
-  description: 'Artisanal Ethiopian spices — shop public pantry blends or run the kitchen ops console.'
+  description: 'ጣዕም ባልቲና — Ethiopian spice marketplace. Order berbere, shiro and mitmita in ETB.'
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${playfair.variable} ${dmSans.variable}`}>
+    <html lang="am" className={`${playfair.variable} ${dmSans.variable} ${notoEthiopic.variable}`}>
       <body>
         <Providers>{children}</Providers>
       </body>
