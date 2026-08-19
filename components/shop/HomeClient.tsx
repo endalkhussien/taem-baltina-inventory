@@ -32,7 +32,6 @@ export default function HomeClient() {
       name: product.name,
       unitPrice: product.selling_price,
       image: product.image,
-      stock: product.stock_quantity,
       quantityKg: 1
     })
     toast.success(`${product.name} added to your pantry bag.`)
@@ -82,7 +81,7 @@ export default function HomeClient() {
         <div className="mb-12 space-y-2 text-center">
           <h2 className="font-display text-3xl font-semibold text-[#2c1600]">Curated Essentials</h2>
           <p className="mx-auto max-w-2xl text-lg text-[#594238]">
-            Live stock and pricing — small-batch blends ready to order for delivery.
+            Small-batch Ethiopian blends, ready to order for your kitchen.
           </p>
         </div>
 
@@ -90,7 +89,7 @@ export default function HomeClient() {
           <div className="rounded-lg bg-[#fff1e7] p-12 text-center text-[#594238]">Loading the pantry…</div>
         ) : products.length === 0 ? (
           <div className="rounded-lg border border-[#e0c0b2]/40 bg-[#fff1e7] p-12 text-center text-[#594238]">
-            No blends are in stock right now. Check back after the next production run.
+            No blends are listed right now. Please check back soon.
           </div>
         ) : (
           <div className="grid auto-rows-[minmax(300px,auto)] grid-cols-1 gap-6 md:grid-cols-12">
@@ -108,8 +107,7 @@ export default function HomeClient() {
               <div className="flex flex-col items-start justify-center rounded border border-[#e0c0b2]/30 bg-[#fff1e7] p-8 transition hover:border-[#9e3d00]/30 md:col-span-8 md:p-12">
                 <h3 className="mb-4 font-display text-2xl font-semibold text-[#2c1600]">See the full collection</h3>
                 <p className="mb-8 max-w-xl text-lg text-[#594238]">
-                  Every product updates from the same kitchen stock used by our operations console — order only what is
-                  ready today.
+                  Browse every blend we currently offer — stories, heat, and heritage in one pantry.
                 </p>
                 <Link href="/shop" className="inline-flex items-center gap-2 font-bold text-[#9e3d00] hover:text-[#c64f00]">
                   Browse all blends →

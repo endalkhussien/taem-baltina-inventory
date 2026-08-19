@@ -13,6 +13,7 @@ export type MonthlyFinancialRow = {
   revenue: number
   cashCollected: number
   expenses: number
+  purchases: number
   profit: number
   salesCount: number
   marginPct: number
@@ -40,13 +41,20 @@ function num(v: number | string | null | undefined): number {
   return Number.isFinite(n) ? n : 0
 }
 
+type PurchaseLike = {
+  purchase_date?: string | Date | null
+  created_at?: string | Date | null
+  cost_total?: number | string | null
+}
+
 /**
- * Group sales + expenses into Ethiopian calendar months for comparison.
- * Profit for a month = revenue (sales total) − expenses in that Ethiopian month.
+ * Group sales, operating expenses, and raw-material purchases by Ethiopian month.
+ * Profit = sales revenue − operating expenses (purchases shown separately).
  */
 export function buildEthiopianMonthlyFinancials(
   sales: SaleLike[],
-  expenses: ExpenseLike[]
+  expenses: ExpenseLike[],
+  purchases: PurchaseLike[] = []
 ): MonthlyFinancialRow[] {
   const map = new Map<string, MonthlyFinancialRow>()
 
@@ -62,6 +70,7 @@ export function buildEthiopianMonthlyFinancials(
         revenue: 0,
         cashCollected: 0,
         expenses: 0,
+        purchases: 0,
         profit: 0,
         salesCount: 0,
         marginPct: 0,
@@ -85,6 +94,13 @@ export function buildEthiopianMonthlyFinancials(
     if (!eth) continue
     const row = ensure(eth)
     row.expenses += num(e.amount)
+  }
+
+  for (const p of purchases) {
+    const eth = ethFromRecord(p.purchase_date, p.created_at)
+    if (!eth) continue
+    const row = ensure(eth)
+    row.purchases += num(p.cost_total)
   }
 
   const rows = Array.from(map.values()).sort((a, b) => a.key.localeCompare(b.key))

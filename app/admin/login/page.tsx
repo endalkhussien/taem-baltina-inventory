@@ -65,7 +65,7 @@ export default function LoginPage() {
               </svg>
             </div>
             <h1 className="font-display text-4xl font-bold text-primary md:text-5xl">Taem Baltina</h1>
-            <p className="mt-2 text-sm text-earth-500">Admin Portal Login</p>
+            <p className="mt-2 text-sm text-earth-500">Staff portal — not the public shop</p>
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">

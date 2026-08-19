@@ -10,7 +10,7 @@ export default function CartClient() {
   return (
     <div className="mx-auto max-w-[960px] px-5 py-12 md:px-16">
       <h1 className="font-display text-4xl font-bold text-[#2c1600]">Your pantry bag</h1>
-      <p className="mt-2 text-[#594238]">Adjust kilograms before checkout. Prices match kitchen stock.</p>
+      <p className="mt-2 text-[#594238]">Adjust kilograms, then checkout for delivery.</p>
 
       {items.length === 0 ? (
         <div className="mt-10 rounded-lg bg-[#fff1e7] p-10 text-center">
@@ -38,7 +38,6 @@ export default function CartClient() {
                   type="number"
                   min={0.25}
                   step={0.25}
-                  max={item.stock}
                   value={item.quantityKg}
                   onChange={(e) => setQuantity(item.productId, Number(e.target.value))}
                   className="ml-2 w-24 rounded bg-[#fff1e7] px-2 py-2 text-sm"

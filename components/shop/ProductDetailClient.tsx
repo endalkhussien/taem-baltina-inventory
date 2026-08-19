@@ -57,26 +57,14 @@ export default function ProductDetailClient({ productId }: { productId: string }
         <h1 className="font-display text-4xl font-bold text-[#2c1600]">{product.name}</h1>
         <p className="text-lg text-[#594238]">{product.blurb}</p>
         <p className="text-2xl font-medium text-[#9e3d00]">{formatEtb(product.selling_price)} / kg</p>
-        <p className="text-sm text-[#594238]">
-          {product.in_stock ? (
-            <>
-              In stock: <strong>{product.stock_quantity} kg</strong>
-              {product.low_stock ? ' · limited' : ''}
-            </>
-          ) : (
-            'Currently out of stock'
-          )}
-        </p>
 
-        {product.in_stock && (
-          <div className="flex flex-wrap items-end gap-4">
+        <div className="flex flex-wrap items-end gap-4">
             <label className="block text-xs font-bold uppercase tracking-widest text-[#594238]">
               Quantity (kg)
               <input
                 type="number"
                 min={0.25}
                 step={0.25}
-                max={product.stock_quantity}
                 value={qty}
                 onChange={(e) => setQty(Number(e.target.value))}
                 className="mt-2 block w-32 rounded border-b-2 border-transparent bg-[#fff1e7] px-3 py-2 text-base text-[#2c1600] outline-none focus:border-[#9e3d00]"
@@ -87,13 +75,11 @@ export default function ProductDetailClient({ productId }: { productId: string }
               className="rounded bg-[#9e3d00] px-8 py-3 font-bold text-white transition hover:bg-[#c64f00]"
               onClick={() => {
                 if (qty <= 0) return toast.error('Enter a quantity.')
-                if (qty > product.stock_quantity) return toast.error('Not enough stock.')
                 addItem({
                   productId: product.id,
                   name: product.name,
                   unitPrice: product.selling_price,
                   image: product.image,
-                  stock: product.stock_quantity,
                   quantityKg: qty
                 })
                 toast.success('Added to cart.')
@@ -102,7 +88,6 @@ export default function ProductDetailClient({ productId }: { productId: string }
               Add to pantry
             </button>
           </div>
-        )}
 
         <Link href="/cart" className="text-sm font-semibold text-[#9e3d00] hover:underline">
           View cart →

@@ -5,9 +5,7 @@ export type ShopProduct = {
   id: number
   name: string
   selling_price: number
-  stock_quantity: number
-  in_stock: boolean
-  low_stock?: boolean
+  available: boolean
   image: string
   blurb: string
   tags: string[]
@@ -45,16 +43,6 @@ export function ProductCard({
               {tag}
             </span>
           ))}
-          {!product.in_stock && (
-            <span className="rounded bg-[#ffdad6] px-2 py-1 text-[11px] font-bold uppercase tracking-widest text-[#93000a]">
-              Out of stock
-            </span>
-          )}
-          {product.low_stock && product.in_stock && (
-            <span className="rounded bg-[#ffdbcd] px-2 py-1 text-[11px] font-bold uppercase tracking-widest text-[#7c2e00]">
-              Low stock
-            </span>
-          )}
         </div>
         <Link href={`/shop/${product.id}`}>
           <h3 className="font-display text-2xl font-semibold text-[#2c1600] transition-colors group-hover:text-[#9e3d00]">
@@ -64,7 +52,7 @@ export function ProductCard({
         {featured && <p className="max-w-md text-base text-[#594238]">{product.blurb}</p>}
         <div className="mt-3 flex items-center justify-between gap-3">
           <span className="text-lg font-medium text-[#2c1600]">{formatEtb(product.selling_price)} / kg</span>
-          {onAdd && product.in_stock ? (
+          {onAdd ? (
             <button
               type="button"
               onClick={(e) => {

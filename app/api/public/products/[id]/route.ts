@@ -16,8 +16,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
         id: schema.products.id,
         name: schema.products.name,
         selling_price: schema.products.selling_price,
-        stock_quantity: schema.products.stock_quantity,
-        alert_threshold: schema.products.alert_threshold
+        stock_quantity: schema.products.stock_quantity
       })
       .from(schema.products)
       .where(eq(schema.products.id, id))
@@ -25,6 +24,10 @@ export async function GET(_request: Request, { params }: { params: { id: string 
 
     if (!product) {
       return NextResponse.json({ error: 'Product not found.' }, { status: 404 })
+    }
+
+    if (Number(product.stock_quantity) <= 0) {
+      return NextResponse.json({ error: 'This blend is not available.' }, { status: 404 })
     }
 
     return NextResponse.json(marketplaceProductPayload(product))
