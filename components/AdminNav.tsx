@@ -83,6 +83,19 @@ const sections: NavSection[] = [
     title: 'Sales',
     items: [
       {
+        href: '/admin/orders',
+        label: 'Web Orders',
+        short: 'Orders',
+        icon: (
+          <svg viewBox="0 0 24 24" {...iconProps}>
+            <path d="M4 7h16" />
+            <path d="M4 12h16" />
+            <path d="M4 17h10" />
+            <path d="M17 15l2 2 3-4" />
+          </svg>
+        )
+      },
+      {
         href: '/admin/sales',
         label: 'Sales & Credit',
         short: 'Sales',
@@ -202,7 +215,7 @@ export default function AdminNav() {
               </div>
               <div>
                 <div className="font-display text-lg font-bold leading-tight text-earth-950">Taem Baltina</div>
-                <div className="text-xs font-medium text-earth-500">Inventory & finance</div>
+                <div className="text-xs font-medium text-earth-500">Ops console</div>
               </div>
             </Link>
           </div>

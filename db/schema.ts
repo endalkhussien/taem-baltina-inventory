@@ -205,3 +205,40 @@ export const credit_ledger_items = pgTable('credit_ledger_items', {
   creditIdx: index('idx_credit_ledger_items_credit_id').on(table.credit_id),
   productIdx: index('idx_credit_ledger_items_product_id').on(table.product_id)
 }))
+
+/** Public marketplace orders (pending fulfillment by ops). */
+export const market_orders = pgTable('market_orders', {
+  id: serial('id').primaryKey(),
+  order_code: varchar('order_code', { length: 50 }).notNull().unique(),
+  customer_id: integer('customer_id').references(() => customers.id, { onDelete: 'set null' }),
+  customer_name: varchar('customer_name', { length: 255 }).notNull(),
+  customer_phone: varchar('customer_phone', { length: 50 }).notNull(),
+  customer_email: varchar('customer_email', { length: 255 }),
+  delivery_address: text('delivery_address').notNull(),
+  city: varchar('city', { length: 120 }).notNull().default('Addis Ababa'),
+  notes: text('notes'),
+  payment_method: varchar('payment_method', { length: 30 }).notNull().default('cod'),
+  status: varchar('status', { length: 30 }).notNull().default('pending'),
+  subtotal: numeric('subtotal', { precision: 14, scale: 2, mode: 'number' }).notNull().default(0),
+  total_amount: numeric('total_amount', { precision: 14, scale: 2, mode: 'number' }).notNull().default(0),
+  created_at: timestamp('created_at').defaultNow().notNull(),
+  updated_at: timestamp('updated_at').defaultNow().notNull()
+}, (table) => ({
+  orderCodeIdx: index('idx_market_orders_order_code').on(table.order_code),
+  statusIdx: index('idx_market_orders_status').on(table.status),
+  createdAtIdx: index('idx_market_orders_created_at').on(table.created_at)
+}))
+
+export const market_order_items = pgTable('market_order_items', {
+  id: serial('id').primaryKey(),
+  order_id: integer('order_id').notNull().references(() => market_orders.id, { onDelete: 'cascade' }),
+  product_id: integer('product_id').notNull().references(() => products.id, { onDelete: 'restrict' }),
+  product_name: varchar('product_name', { length: 255 }).notNull(),
+  quantity_kg: numeric('quantity_kg', { precision: 14, scale: 3, mode: 'number' }).notNull(),
+  unit_price: numeric('unit_price', { precision: 12, scale: 2, mode: 'number' }).notNull(),
+  line_total: numeric('line_total', { precision: 14, scale: 2, mode: 'number' }).notNull(),
+  created_at: timestamp('created_at').defaultNow().notNull()
+}, (table) => ({
+  orderIdx: index('idx_market_order_items_order_id').on(table.order_id),
+  productIdx: index('idx_market_order_items_product_id').on(table.product_id)
+}))

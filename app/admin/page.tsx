@@ -3,13 +3,14 @@ import AdminNav from '../../components/AdminNav'
 
 const modules = [
   { href: '/admin/dashboard', label: 'Dashboard', desc: 'Sales, cash, credit, production, and stock alerts.', code: '01', color: 'from-blue-500 to-blue-700' },
-  { href: '/admin/products', label: 'Stock', desc: 'Finished products, selling prices, recipes, and stock levels.', code: '02', color: 'from-spice-500 to-spice-700' },
-  { href: '/admin/ingredients', label: 'Raw Materials', desc: 'Raw stock by category, restocks, costs, and reorder points.', code: '03', color: 'from-green-500 to-green-700' },
-  { href: '/admin/production', label: 'Production', desc: 'Use raw materials to produce finished products repeatedly.', code: '04', color: 'from-amber-500 to-amber-700' },
-  { href: '/admin/sales', label: 'Sales', desc: 'Record daily sales and trace every partial customer payment.', code: '05', color: 'from-purple-500 to-purple-700' },
-  { href: '/admin/customers', label: 'Credit', desc: 'Monitor credit customers, balances, and cash repayments.', code: '06', color: 'from-cyan-500 to-cyan-700' },
-  { href: '/admin/finance', label: 'Finance', desc: 'Cash on hand, debts owed, customer credit, and net position.', code: '07', color: 'from-emerald-500 to-emerald-700' },
-  { href: '/admin/expenses', label: 'Expenses', desc: 'Track packaging, transport, rent, salaries, and utilities.', code: '08', color: 'from-red-500 to-red-700' }
+  { href: '/admin/orders', label: 'Web Orders', desc: 'Public marketplace orders waiting to pack and fulfill.', code: '02', color: 'from-orange-500 to-orange-700' },
+  { href: '/admin/products', label: 'Stock', desc: 'Finished products, selling prices, recipes, and stock levels.', code: '03', color: 'from-spice-500 to-spice-700' },
+  { href: '/admin/ingredients', label: 'Raw Materials', desc: 'Raw stock by category, restocks, costs, and reorder points.', code: '04', color: 'from-green-500 to-green-700' },
+  { href: '/admin/production', label: 'Production', desc: 'Use raw materials to produce finished products repeatedly.', code: '05', color: 'from-amber-500 to-amber-700' },
+  { href: '/admin/sales', label: 'Sales', desc: 'Record daily sales and trace every partial customer payment.', code: '06', color: 'from-purple-500 to-purple-700' },
+  { href: '/admin/customers', label: 'Credit', desc: 'Monitor credit customers, balances, and cash repayments.', code: '07', color: 'from-cyan-500 to-cyan-700' },
+  { href: '/admin/finance', label: 'Finance', desc: 'Cash on hand, debts owed, customer credit, and net position.', code: '08', color: 'from-emerald-500 to-emerald-700' },
+  { href: '/admin/expenses', label: 'Expenses', desc: 'Track packaging, transport, rent, salaries, and utilities.', code: '09', color: 'from-red-500 to-red-700' }
 ]
 
 export default function AdminRootPage() {
