@@ -18,7 +18,7 @@ export const marketOrderCreateSchema = z.object({
   deliveryAddress: z.string().trim().min(5, 'Delivery address is required.'),
   city: z.string().trim().min(2, 'City is required.').default('Addis Ababa'),
   notes: z.string().trim().max(1000).optional().or(z.literal('')),
-  paymentMethod: z.enum(['cod', 'transfer']).default('cod'),
+  paymentMethod: z.enum(['cod', 'telebirr', 'cbe', 'transfer']).default('cod'),
   items: z.array(marketOrderItemSchema).min(1, 'Add at least one product.')
 })
 

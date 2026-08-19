@@ -2,8 +2,8 @@ import ShopShell from '../components/shop/ShopShell'
 import HomeClient from '../components/shop/HomeClient'
 
 export const metadata = {
-  title: 'Taem Baltina — Artisanal Ethiopian Pantry',
-  description: 'Shop authentic Ethiopian spice blends. Order online for delivery.'
+  title: 'ጣዕም ባልቲና · Ethiopian spice market',
+  description: 'Order berbere, shiro and mitmita. Addis delivery. Telebirr or cash on delivery.'
 }
 
 export default function HomePage() {

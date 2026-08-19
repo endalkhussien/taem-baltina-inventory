@@ -154,7 +154,8 @@
   }
 
   .shop-shell {
-    background-color: #fff8f5;
-    color: #2c1600;
+    background-color: #fdf6ee;
+    color: #2a170f;
+    font-family: var(--font-ethiopic), var(--font-dm-sans), system-ui, sans-serif;
   }
 }
