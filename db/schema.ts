@@ -209,7 +209,7 @@ export const credit_ledger_items = pgTable('credit_ledger_items', {
 /** Public marketplace orders (pending fulfillment by ops). */
 export const market_orders = pgTable('market_orders', {
   id: serial('id').primaryKey(),
-  order_code: varchar('order_code', { length: 50 }).notNull(),
+  order_code: varchar('order_code', { length: 50 }).notNull().unique(),
   customer_id: integer('customer_id').references(() => customers.id, { onDelete: 'set null' }),
   customer_name: varchar('customer_name', { length: 255 }).notNull(),
   customer_phone: varchar('customer_phone', { length: 50 }).notNull(),
