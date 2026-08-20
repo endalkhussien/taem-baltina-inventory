@@ -4,6 +4,7 @@ import AdminNav from '../../components/AdminNav'
 const modules = [
   { href: '/admin/dashboard', label: 'Overview', desc: 'Sales, cash, credit, production, and stock alerts.' },
   { href: '/admin/orders', label: 'Web orders', desc: 'Public marketplace orders waiting to pack and fulfill.' },
+  { href: '/admin/branches', label: 'Branch shops', desc: 'Independent shops that buy prepared goods and sell from their own stock.' },
   { href: '/admin/products', label: 'Inventory', desc: 'Finished products, selling prices, recipes, and stock levels.' },
   { href: '/admin/ingredients', label: 'Raw materials', desc: 'Raw stock by category, restocks, costs, and reorder points.' },
   { href: '/admin/production', label: 'Production', desc: 'Use raw materials to produce finished products.' },

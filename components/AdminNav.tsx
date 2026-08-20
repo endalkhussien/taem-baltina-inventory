@@ -64,6 +64,17 @@ const items: NavItem[] = [
     )
   },
   {
+    href: '/admin/branches',
+    label: 'Branch shops',
+    short: 'Shops',
+    icon: (
+      <svg viewBox="0 0 24 24" {...iconProps}>
+        <path d="M4 10h16l-1 10H5L4 10Z" />
+        <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+      </svg>
+    )
+  },
+  {
     href: '/admin/orders',
     label: 'Web orders',
     short: 'Orders',

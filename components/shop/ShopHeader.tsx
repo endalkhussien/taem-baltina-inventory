@@ -28,7 +28,8 @@ export default function ShopHeader() {
         <nav className="hidden items-center gap-6 text-sm text-[#5c3a28] md:flex">
           {[
             { href: '/shop', label: t(lang, 'navShop') },
-            { href: '/#story', label: t(lang, 'navStory') }
+            { href: '/#story', label: t(lang, 'navStory') },
+            { href: '/branch/register', label: t(lang, 'openShop') }
           ].map((link) => (
             <Link
               key={link.href}

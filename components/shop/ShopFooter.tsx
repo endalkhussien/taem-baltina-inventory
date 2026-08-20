@@ -22,6 +22,9 @@ export default function ShopFooter() {
           <Link href="/#story" className="w-fit hover:text-white">
             {t(lang, 'navStory')}
           </Link>
+          <Link href="/branch/register" className="w-fit hover:text-white">
+            {t(lang, 'openShop')}
+          </Link>
         </div>
         <div className="flex flex-col gap-2 text-sm">
           <h4 className="text-xs font-bold uppercase tracking-widest text-white/70">{t(lang, 'support')}</h4>
