@@ -1,9 +1,7 @@
 import { and, eq, sql } from 'drizzle-orm'
-import { schema } from './db'
+import { db, schema } from './db'
 
-// Drizzle transaction client is structurally compatible with these queries.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type StockTx = any
+type StockTx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 export async function addPartnerStock(
   tx: StockTx,
