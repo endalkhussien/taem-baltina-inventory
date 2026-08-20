@@ -12,6 +12,7 @@ export const shopCopy = {
   navOrder: { am: 'ትዕዛዝ', en: 'Order' },
   navCart: { am: 'ጋሪ', en: 'Cart' },
   navHome: { am: 'መነሻ', en: 'Home' },
+  openShop: { am: 'ሱቅ ይክፈቱ', en: 'Open a shop' },
   heroKicker: { am: 'እንኳን በደህና መጡ', en: 'Welcome home' },
   heroTitle: { am: 'የባልቲና ጣዕም ወደ ቤትዎ', en: 'Baltina flavor, to your kitchen' },
   heroBody: {

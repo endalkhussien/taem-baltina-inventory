@@ -242,3 +242,91 @@ export const market_order_items = pgTable('market_order_items', {
   orderIdx: index('idx_market_order_items_order_id').on(table.order_id),
   productIdx: index('idx_market_order_items_product_id').on(table.product_id)
 }))
+
+/** Independent reseller shops: they buy prepared goods from HQ and sell their own stock. */
+export const partner_shops = pgTable('partner_shops', {
+  id: serial('id').primaryKey(),
+  shop_name: varchar('shop_name', { length: 255 }).notNull(),
+  owner_name: varchar('owner_name', { length: 255 }).notNull(),
+  phone: varchar('phone', { length: 50 }).notNull().unique(),
+  password_hash: text('password_hash').notNull(),
+  city: varchar('city', { length: 120 }).notNull().default('Addis Ababa'),
+  address: text('address'),
+  status: varchar('status', { length: 30 }).notNull().default('active'),
+  created_at: timestamp('created_at').defaultNow().notNull(),
+  updated_at: timestamp('updated_at').defaultNow().notNull()
+}, (table) => ({
+  phoneIdx: index('idx_partner_shops_phone').on(table.phone),
+  statusIdx: index('idx_partner_shops_status').on(table.status)
+}))
+
+export const partner_stock = pgTable('partner_stock', {
+  id: serial('id').primaryKey(),
+  shop_id: integer('shop_id').notNull().references(() => partner_shops.id, { onDelete: 'cascade' }),
+  product_id: integer('product_id').notNull().references(() => products.id, { onDelete: 'restrict' }),
+  quantity_kg: numeric('quantity_kg', { precision: 14, scale: 3, mode: 'number' }).notNull().default(0),
+  avg_cost: numeric('avg_cost', { precision: 12, scale: 2, mode: 'number' }).notNull().default(0),
+  created_at: timestamp('created_at').defaultNow().notNull(),
+  updated_at: timestamp('updated_at').defaultNow().notNull()
+}, (table) => ({
+  shopProductUnq: unique().on(table.shop_id, table.product_id),
+  shopIdx: index('idx_partner_stock_shop_id').on(table.shop_id)
+}))
+
+export const partner_buy_orders = pgTable('partner_buy_orders', {
+  id: serial('id').primaryKey(),
+  shop_id: integer('shop_id').notNull().references(() => partner_shops.id, { onDelete: 'cascade' }),
+  order_code: varchar('order_code', { length: 50 }).notNull().unique(),
+  status: varchar('status', { length: 30 }).notNull().default('pending'),
+  total_amount: numeric('total_amount', { precision: 14, scale: 2, mode: 'number' }).notNull().default(0),
+  notes: text('notes'),
+  created_at: timestamp('created_at').defaultNow().notNull(),
+  updated_at: timestamp('updated_at').defaultNow().notNull()
+}, (table) => ({
+  shopIdx: index('idx_partner_buy_orders_shop_id').on(table.shop_id),
+  statusIdx: index('idx_partner_buy_orders_status').on(table.status)
+}))
+
+export const partner_buy_order_items = pgTable('partner_buy_order_items', {
+  id: serial('id').primaryKey(),
+  order_id: integer('order_id').notNull().references(() => partner_buy_orders.id, { onDelete: 'cascade' }),
+  product_id: integer('product_id').notNull().references(() => products.id, { onDelete: 'restrict' }),
+  product_name: varchar('product_name', { length: 255 }).notNull(),
+  quantity_kg: numeric('quantity_kg', { precision: 14, scale: 3, mode: 'number' }).notNull(),
+  unit_price: numeric('unit_price', { precision: 12, scale: 2, mode: 'number' }).notNull(),
+  line_total: numeric('line_total', { precision: 14, scale: 2, mode: 'number' }).notNull(),
+  created_at: timestamp('created_at').defaultNow().notNull()
+}, (table) => ({
+  orderIdx: index('idx_partner_buy_order_items_order_id').on(table.order_id)
+}))
+
+export const partner_sales = pgTable('partner_sales', {
+  id: serial('id').primaryKey(),
+  shop_id: integer('shop_id').notNull().references(() => partner_shops.id, { onDelete: 'cascade' }),
+  sale_code: varchar('sale_code', { length: 50 }).notNull(),
+  product_id: integer('product_id').notNull().references(() => products.id, { onDelete: 'restrict' }),
+  product_name: varchar('product_name', { length: 255 }).notNull(),
+  quantity_kg: numeric('quantity_kg', { precision: 14, scale: 3, mode: 'number' }).notNull(),
+  unit_price: numeric('unit_price', { precision: 12, scale: 2, mode: 'number' }).notNull(),
+  total_amount: numeric('total_amount', { precision: 14, scale: 2, mode: 'number' }).notNull(),
+  amount_paid: numeric('amount_paid', { precision: 14, scale: 2, mode: 'number' }).notNull().default(0),
+  customer_name: varchar('customer_name', { length: 255 }),
+  sale_date: timestamp('sale_date').defaultNow().notNull(),
+  created_at: timestamp('created_at').defaultNow().notNull()
+}, (table) => ({
+  shopIdx: index('idx_partner_sales_shop_id').on(table.shop_id),
+  saleDateIdx: index('idx_partner_sales_sale_date').on(table.sale_date)
+}))
+
+export const partner_expenses = pgTable('partner_expenses', {
+  id: serial('id').primaryKey(),
+  shop_id: integer('shop_id').notNull().references(() => partner_shops.id, { onDelete: 'cascade' }),
+  title: varchar('title', { length: 255 }).notNull(),
+  category: varchar('category', { length: 100 }).notNull().default('other'),
+  amount: numeric('amount', { precision: 14, scale: 2, mode: 'number' }).notNull(),
+  expense_date: timestamp('expense_date').defaultNow().notNull(),
+  notes: text('notes'),
+  created_at: timestamp('created_at').defaultNow().notNull()
+}, (table) => ({
+  shopIdx: index('idx_partner_expenses_shop_id').on(table.shop_id)
+}))
