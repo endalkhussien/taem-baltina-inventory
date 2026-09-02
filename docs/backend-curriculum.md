@@ -1,661 +1,618 @@
-# Backend curriculum — Taem Baltina (one week)
+# Node.js backend concepts — one-week course
 
-This is a one-week, project-first backend course. You will not build a toy Express API on the side. You will learn backend by reading, tracing, querying, and then changing **this** app.
+A seven-day course on the ideas every JavaScript backend framework shares: **HTTP, routes, middleware, validation, sessions, and auth**. You will learn them in a small Express lab (the common dialect), then **transfer** each idea into Taem Baltina so the current project becomes practice, not the textbook.
 
-Taem Baltina is an inventory and sales tracker for a spice business. The “backend” is not a separate server. It lives inside a Next.js 14 App Router app:
+Express, Fastify, Koa, Nest, and Next.js Route Handlers look different on disk. They all do the same job: take an HTTP request, run a pipeline, return a response.
 
-- HTTP handlers: `app/api/**/route.ts`
-- Gatekeeping: `middleware.ts`
-- Database model: `db/schema.ts`
-- Domain logic: `lib/*.ts`
-- Input rules: `lib/validators/*.ts`
-- Postgres via Drizzle: `lib/db.ts`
+```text
+Request  →  middleware pipeline  →  route handler  →  Response
+              (log, parse, auth…)     (your logic)
+```
 
-By the end of the week you should be able to follow a request from cookie to SQL, explain why stock cannot go negative, and make a small, correct backend change without breaking money or inventory.
+**By Friday** you should be able to explain that pipeline in your own words, implement a toy version of it, and point to where Taem Baltina does the same thing with different syntax.
 
 ---
 
-## How to use this
+## How to use this week
 
-**Audience.** You already write some frontend. You are new to backend. You learn fastest when a concept is attached to a file you can open.
-
-**Pace.** Seven days, **90–150 minutes each**. Do not skip labs to “finish the reading.” The labs *are* the course.
+**Time.** 90–150 minutes a day. Labs are the course; skimming the prose is not.
 
 **Daily rhythm.**
 
-1. **Read** the listed files in order (20–40 min).
-2. **Trace** one real request with curl or the browser Network tab (20–30 min).
-3. **Do** the lab (30–50 min).
-4. **Write** 5–10 lines in a notebook answering that day’s “exit ticket.”
+1. **Concept** (read this file for that day).
+2. **Lab** in `docs/backend-lab` on port **3001** (type, run, break, fix).
+3. **Transfer** — 15–25 minutes in Taem Baltina (port **3000**) applying the same idea.
+4. **Exit ticket** — five to ten lines in a notebook.
 
-**Tools.** Node 18+, this repo, Postgres, `curl`, and `psql` (or any SQL client). Login is `ADMIN_USER` / `ADMIN_PASS` from `.env` (local default is `admin` / `password`).
-
-**Start the stack each session.**
+**Setup (once).**
 
 ```bash
-sudo pg_ctlcluster 16 main start   # this environment; locally: docker compose up -d
-npm run dev                        # http://localhost:3000
+cd docs/backend-lab
+npm install
 ```
 
-**Rules that keep the week honest.**
-
-- Every concept starts in this repo. External articles are optional and listed last.
-- Prefer `curl` over clicking when you study APIs. You want to see status codes and JSON.
-- Do not rewrite the architecture. Your job this week is to *understand and extend* it.
-- When something fails, read the JSON `error` field and the server log. That is backend debugging.
-
-**What “done” looks like on Friday.** You can:
-
-1. Draw the request path for admin, partner, and public shop.
-2. Explain `db.schema.ts` tables involved in “buy raw material → produce → sell on credit → collect payment.”
-3. Name the HTTP status this app uses for bad JSON (400), bad shape (422), missing row (404), business conflict (409), and auth (401).
-4. Explain why sales and production use `db.transaction`.
-5. Change one small backend behavior and prove it with curl.
-
----
-
-## Map of the classroom
-
-Three products share one database:
-
-| Surface | Who | Auth | API prefix | Example |
-| --- | --- | --- | --- | --- |
-| Admin ops | Internal staff | Cookie `taem_token` | `/api/...` (most routes) | Record a sale, produce a batch |
-| Partner shop | Independent reseller | Cookie `taem_partner_token` | `/api/partner/...` | Buy stock from HQ, sell locally |
-| Public shop | End customer | None | `/api/public/...` | Place a marketplace order |
-
-**Request path (commit this to memory on Day 1):**
-
-```text
-Browser / curl
-  → Next.js middleware.ts          (cookie? role? public?)
-    → app/api/.../route.ts         (GET/POST/PATCH/DELETE)
-      → parseJsonBody              (lib/apiErrors.ts)
-        → Zod schema               (lib/validators/)
-          → db.transaction / db    (lib/db.ts → Postgres)
-            → NextResponse.json    (status + body)
-```
-
-**Folder cheat sheet.**
-
-| Path | Role |
-| --- | --- |
-| `middleware.ts` | Auth gate for `/admin`, `/branch`, `/api` |
-| `app/api/` | Route handlers (the HTTP layer) |
-| `db/schema.ts` | Tables, columns, FKs, indexes |
-| `docs/erd.md` | Picture of the same model |
-| `lib/db.ts` | Drizzle client + `pg` pool |
-| `lib/auth.ts` / `lib/partnerAuth.ts` / `lib/password.ts` | Sessions and hashes |
-| `lib/validators/` | What a request body is allowed to be |
-| `lib/sales.ts`, `lib/productionCost.ts`, `lib/credit.ts`, `lib/profit.ts` | Money and inventory math (no HTTP) |
-| `scripts/seed.js` | Idempotent starter data |
-| `DEPLOYMENT.md` | Neon + Vercel, env vars, pooling |
-
-There are **no automated tests** in this repo today. That is a gap you will notice on Day 7, and a good place to practice.
-
----
-
-## Day 1 — What a backend is in this app
-
-**Goal.** Stop thinking “backend = another framework.” See HTTP handlers, status codes, and JSON as the product.
-
-### Concepts
-
-- A **route handler** is a function named after an HTTP verb (`GET`, `POST`, …) that receives a `Request` and returns a `Response`.
-- **REST-ish** here means: collections at `/api/customers`, one row at `/api/customers/[id]`. Not every resource is a perfect REST noun (see `/api/production`).
-- Status codes this codebase actually uses:
-  - `200` / `201` success (create often returns `201`)
-  - `400` malformed JSON (`parseJsonBody`)
-  - `401` missing/invalid session (`middleware.ts`)
-  - `404` row not found
-  - `409` business rule failed (not enough stock, no recipe, …)
-  - `422` body failed Zod
-  - `500` unexpected / database (`databaseErrorResponse`)
-  - `503` admin login when no users exist yet
-
-### Read (in this order)
-
-1. `middleware.ts` — what is public, what needs admin, what needs partner.
-2. `lib/apiErrors.ts` — JSON parse + database error shape.
-3. `app/api/customers/route.ts` — simplest useful collection: list + create.
-4. `app/api/expenses/[id]/route.ts` — GET / PATCH / DELETE by id.
-5. `lib/db.ts` and `lib/pgConnection.ts` — how the process talks to Postgres.
-
-### Trace
-
-Log in, then use cookies for later calls:
+Keep the real app available for transfer work:
 
 ```bash
+# repo root, separate terminal
+sudo pg_ctlcluster 16 main start    # this environment; locally: docker compose up -d
+npm run dev                         # http://localhost:3000
+```
+
+Admin login for the real app is `ADMIN_USER` / `ADMIN_PASS` (local default `admin` / `password`).
+
+**Rules.**
+
+- Type the first version of each lab by hand at least once. Muscle memory matters.
+- When a lab works, **change it**. Add a route, fail a request, log a header. Reading green output is not practice.
+- Do not try to learn Next.js, Drizzle, and Postgres as the primary subject this week. They are the place you *apply* Node backend ideas.
+- Framework docs at the bottom of each day are optional. Finish the lab first.
+
+**Scratch cookie jar** (reuse all week):
+
+```bash
+# lab (port 3001)
+curl -i -c /tmp/lab-cookies.txt -b /tmp/lab-cookies.txt http://localhost:3001/health
+
+# app (port 3000) — after Day 5
 curl -i -c /tmp/taem-cookies.txt -X POST http://localhost:3000/api/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"username":"admin","password":"password"}'
 ```
 
-You should see `Set-Cookie: taem_token=...` and `{ "ok": true, ... }`.
+---
 
-```bash
-curl -i -b /tmp/taem-cookies.txt http://localhost:3000/api/customers
-```
+## The shared mental model
 
-Then create one:
+Every Node backend framework gives you four objects and a pipeline.
 
-```bash
-curl -i -b /tmp/taem-cookies.txt -X POST http://localhost:3000/api/customers \
-  -H 'Content-Type: application/json' \
-  -d '{"name":"Curriculum Lab","phone":"0911000000"}'
-```
+| Piece | What it is | Express | Next.js App Router (this repo) |
+| --- | --- | --- | --- |
+| Incoming HTTP | Method, URL, headers, body | `req` | `Request` (Fetch API) |
+| Outgoing HTTP | Status, headers, body | `res.status().json()` | `NextResponse.json()` |
+| Route | “If method + path match, run this function” | `app.get('/x', fn)` | `app/api/x/route.ts` → `export function GET` |
+| Middleware | Code that runs *around* many routes | `app.use(fn)` | `middleware.ts` plus helpers inside handlers |
+| Params | `/spices/:id` | `req.params.id` | folder `[id]` → `params.id` |
+| Query | `?kg=2` | `req.query.kg` | `new URL(request.url).searchParams` |
+| Body | JSON payload | `req.body` after `express.json()` | `await request.json()` |
 
-Now break it on purpose:
+You are not learning “how Express is different from Next.” You are learning **this table**. After that, any Node framework is a new column.
 
-```bash
-curl -i -b /tmp/taem-cookies.txt -X POST http://localhost:3000/api/customers \
-  -H 'Content-Type: application/json' \
-  -d 'not-json'
+---
 
-curl -i http://localhost:3000/api/customers
-```
+## Day 1 — Node, HTTP, and a process that listens
 
-Write down the status codes. The last call has **no cookie**. That is middleware, not the route.
+**Goal.** See a backend as a long-running Node process that reads bytes from a socket and writes bytes back. Frameworks only organize that.
 
-### Lab
+### Concept
 
-On paper (or a note file outside git), fill this table for `POST /api/customers` and `GET /api/expenses/99999`:
+**Node.js** is a JavaScript runtime (V8 + libuv). It is not a backend framework. Express/Fastify/Next *run on* Node (or, for some Next middleware, on the Edge runtime — you will meet that distinction on Day 3).
 
-| Step | File | What happens if it fails |
+An HTTP **request** is:
+
+- a **method** (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`) — the verb
+- a **path** (`/health`, `/api/sales`) — the noun
+- **headers** (metadata: `Content-Type`, `Cookie`, `Authorization`)
+- an optional **body** (usually JSON for APIs)
+
+An HTTP **response** is a **status code**, headers, and a body.
+
+Status codes you must know this week:
+
+| Code | Meaning | Typical cause |
 | --- | --- | --- |
-| middleware | | |
-| parse JSON | | |
-| Zod | | |
-| database | | |
-| JSON response | | |
+| 200 | OK | Successful read or update |
+| 201 | Created | Successful insert |
+| 400 | Bad request | Body is not JSON, malformed |
+| 401 | Unauthorized | Not logged in / bad credentials |
+| 403 | Forbidden | Logged in, not allowed |
+| 404 | Not found | No such route *or* no such row |
+| 409 | Conflict | Valid request, business rule refuses |
+| 422 | Unprocessable | JSON parsed, fields invalid |
+| 500 | Server error | Unhandled exception |
+
+**JSON APIs** set `Content-Type: application/json` and send objects. The browser, curl, and your admin UI are all just HTTP clients.
+
+**Async.** Node handles many connections by not blocking the thread. `await db.query(...)` pauses *that function*, not the whole server. You do not need the event loop internals this week; you do need to `await` every I/O.
+
+### Lab (port 3001)
+
+Open `docs/backend-lab/01-http.js`. Type a mental picture: `app` is the server, `app.get` is one route, `app.listen` opens a port.
+
+```bash
+npm run day1
+curl -i http://localhost:3001/health
+```
+
+Then change the program:
+
+1. Add `GET /time` that returns `{ now: new Date().toISOString() }`.
+2. Add `POST /echo` with `app.use(express.json())` and respond with the body you received. If the client sends invalid JSON, observe Express’s default error (often 400).
+3. Return `res.status(201).json(...)` from POST. Confirm curl prints `201`.
+4. Stop the process (`Ctrl+C`). Curl should fail with “connection refused.” A backend is just a process holding a port.
+
+### Transfer (15 min)
+
+You will not read the whole app. Answer two questions in your notes:
+
+1. Taem Baltina does not have `app.listen`. Who listens? (Next.js, via `npm run dev` / `next start`.)
+2. Open **one** file: `app/api/customers/route.ts`. Find the function that is the moral equivalent of `app.get` and `app.post`. What does it return instead of `res.json()`?
 
 ### Exit ticket
 
-In your own words: *Where does backend work happen in a Next.js App Router app, and how is that different from a React page in `app/admin/`?*
+*What is the difference between Node.js and Express? What does a client actually send on the wire when it “calls an API”?*
 
-### Optional reading
+### Optional
 
-- MDN: [HTTP response status codes](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status)
-- Next.js: [Route Handlers](https://nextjs.org/docs/app/building-your-application/routing/route-handlers)
+- MDN: [HTTP overview](https://developer.mozilla.org/en-US/docs/Web/HTTP/Overview)
+- Node: [What is Node.js](https://nodejs.org/en/learn/getting-started/introduction-to-nodejs)
 
 ---
 
-## Day 2 — Postgres, schema, and Drizzle
+## Day 2 — Routes: mapping URLs to functions
 
-**Goal.** Treat the database as the source of truth. The UI is a client of tables.
+**Goal.** Design and implement routes the way every Node framework does: method + path → handler.
 
-### Concepts
+### Concept
 
-- **Table / row / column** — one kind of thing, one instance, one field.
-- **Primary key** — `serial('id')` here.
-- **Foreign key** — `product_id` references `products.id`. `onDelete: 'cascade' | 'restrict' | 'set null'` is a business decision, not decoration.
-- **Index** — speeds lookup (`idx_sales_customer_id`); unique indexes also enforce rules (`product_id + ingredient_id` on recipes).
-- **`numeric` vs `integer`** — money and kg are decimals (`precision` / `scale`). Counts of batches are integers. Mixing these is a classic inventory bug.
-- **ORM vs SQL** — Drizzle writes SQL for you from TypeScript. You still need to understand the SQL.
-- **`drizzle:push` vs migration files** — this project treats `db/schema.ts` as source of truth and pushes the schema. `drizzle/` SQL files are reference.
+A **route** is a declaration: “when a request matches this method and path pattern, run this function.”
 
-### Read
+**REST** (as used in real APIs, not the dissertation) treats paths as **resources** and methods as **actions**:
 
-1. `docs/erd.md` (the picture).
-2. `db/schema.ts` all the way through — products, ingredients, recipes, purchases, sales, production, credit, market orders, partner shops.
-3. `drizzle.config.ts` — how Drizzle finds the database.
-4. `scripts/seed.js` (skim) — what “starter data” actually inserts.
+| Method | Usually means | Example |
+| --- | --- | --- |
+| GET | Read, no side effects | `GET /spices`, `GET /spices/3` |
+| POST | Create | `POST /spices` |
+| PATCH | Partial update | `PATCH /spices/3` |
+| PUT | Replace | less common in this style |
+| DELETE | Remove | `DELETE /spices/3` |
 
-### Trace (SQL)
+**Path parameters** (`/spices/:id`) are part of the path. **Query strings** (`/spices?category=hot`) are filters. **Bodies** carry data that does not belong in the URL (passwords, large JSON).
 
-```bash
-psql postgresql://postgres:postgres@localhost:5432/taem_baltina_dev
-```
+**404 has two meanings.** No route matched, or the route ran and the row does not exist. Clients cannot always tell. Your error JSON should.
 
-Run:
+**Routers.** Express (and Nest, Fastify plugins) let you mount a group: `app.use('/api', apiRouter)`. Next.js does the same with folders: `app/api/sales/route.ts`. File-based routing is still routing.
 
-```sql
-\dt
-\d products
-\d product_ingredients
-\d sales
-
-SELECT id, name, selling_price, stock_quantity FROM products;
-SELECT id, name, quantity, unit, cost_per_unit FROM ingredients;
-
-SELECT p.name, i.name, pi.quantity_per_unit
-FROM product_ingredients pi
-JOIN products p ON p.id = pi.product_id
-JOIN ingredients i ON i.id = pi.ingredient_id
-ORDER BY p.name;
-```
-
-Then ask the database a business question:
-
-```sql
-SELECT c.name, COALESCE(SUM(s.balance), 0) AS outstanding
-FROM customers c
-LEFT JOIN sales s ON s.customer_id = c.id
-GROUP BY c.id, c.name
-ORDER BY outstanding DESC;
-```
-
-Compare that to `GET /api/customers` in `app/api/customers/route.ts` (it also adds credit-ledger balances).
+**Idempotency (light).** `GET` should not create records. `POST /sales` creating a sale twice if the user double-clicks is a real backend bug. You do not need a full idempotency-key design this week; you do need to notice side effects.
 
 ### Lab
 
-Draw the **spice lifecycle** as a chain of tables (boxes + arrows):
+Run `npm run day2`. Then, in `02-routes.js`:
 
-`ingredients` ← `purchases`  
-`ingredients` + `products` ← `product_ingredients` (recipe)  
-`production_batches` consumes ingredients and increases `products.stock_quantity`  
-`sales` decreases product stock  
-`repayments` decrease `sales.balance`  
-`credit_ledgers` / `credit_payments` are a parallel credit book  
-`market_orders` are public shop orders waiting for ops  
-`partner_stock` is a *separate* warehouse for a reseller
+1. `GET /spices?minKg=5` — filter with `req.query`. Query values are **strings**.
+2. `POST /spices` — `{ name, kg }` → push onto the array, return **201** and the new object.
+3. `PATCH /spices/:id` — update `kg` only; **404** if missing.
+4. `DELETE /spices/:id` — **404** if missing; **200** `{ ok: true }` if deleted.
+5. Add a nested resource: `GET /spices/:id/label` that returns `{ name, label: name.toUpperCase() }`. Nested routes are still just strings.
 
-For each arrow, write the **foreign key column** and whether delete is cascade or restrict.
+Prove with curl:
+
+```bash
+curl -s http://localhost:3001/spices
+curl -s http://localhost:3001/spices/2
+curl -s -X POST http://localhost:3001/spices -H 'Content-Type: application/json' -d '{"name":"Korerima","kg":1}'
+curl -s http://localhost:3001/spices/99
+```
+
+Restart the server and `GET /spices` again. Your POST is gone. **Memory is not a database.** Day 4 will make that discomfort useful.
+
+### Transfer
+
+Compare **syntax only** (do not study business rules yet):
+
+- Collection + create: `app/api/customers/route.ts` (`GET` + `POST`)
+- Item by id: `app/api/expenses/[id]/route.ts` (`GET`, `PATCH`, `DELETE`)
+- Nested resource: `app/api/products/[id]/recipe/route.ts`
+
+In notes: rewrite one of those as three Express lines (`app.get`, `app.post`, `app.patch`). If you can, you understand routes.
 
 ### Exit ticket
 
-*Why does `sales.product_id` use `onDelete: 'restrict'` while `product_ingredients` uses `cascade`? What would break if those were swapped?*
+*Why is `GET /spices?id=2` a worse design than `GET /spices/2` for fetching one item? When is a query string the right tool?*
 
-### Optional reading
+### Optional
 
-- Postgres tutorial: [Table basics](https://www.postgresql.org/docs/current/tutorial-table.html)
-- Drizzle: [PostgreSQL schema](https://orm.drizzle.team/docs/sql-schema-declaration)
+- MDN: [HTTP request methods](https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods)
+- Express: [Routing](https://expressjs.com/en/guide/routing.html)
 
 ---
 
-## Day 3 — Validation and CRUD patterns
+## Day 3 — Middleware: the pipeline around routes
 
-**Goal.** Never trust the client. Learn the house style for a Taem route.
+**Goal.** See middleware as “functions that run before (and sometimes after) the handler,” not as a Next.js-only file.
 
-### Concepts
+### Concept
 
-- **Validation** happens *before* SQL. Zod schemas in `lib/validators/` are the contract.
-- `safeParse` → `success: false` → **422**, not 500.
-- Path params (`[id]`) are strings. This app converts with `Number` and rejects non-integers as **400**.
-- **List vs item routes**: `app/api/expenses/route.ts` (collection) vs `app/api/expenses/[id]/route.ts` (item).
-- Coercion: `lib/validators/numeric.ts` accepts `"12.5"` or `12.5` because HTML forms and JSON clients are messy.
-- Partial updates: `expensePatchSchema` + building `updateData` only for provided fields.
+**Middleware** is a function that receives the request, may mutate it, may send a response, or may pass control along.
 
-### Read
+Express signature:
 
-1. `lib/validators/numeric.ts`
-2. `lib/validators/customer.ts`, `lib/validators/expense.ts`, `lib/validators/sale.ts`
-3. `app/api/customers/route.ts` (POST) again — now focusing on Zod.
-4. `app/api/expenses/route.ts` and `app/api/expenses/[id]/route.ts`
-5. `app/api/products/[id]/route.ts` and `app/api/products/[id]/recipe/route.ts`
-
-### Trace
-
-Send bodies that should fail:
-
-```bash
-# missing required fields
-curl -i -b /tmp/taem-cookies.txt -X POST http://localhost:3000/api/expenses \
-  -H 'Content-Type: application/json' \
-  -d '{}'
-
-# invalid id
-curl -i -b /tmp/taem-cookies.txt http://localhost:3000/api/expenses/abc
-
-# patch a real id (use an id from GET /api/expenses)
-curl -i -b /tmp/taem-cookies.txt -X PATCH http://localhost:3000/api/expenses/1 \
-  -H 'Content-Type: application/json' \
-  -d '{"amount":-5}'
+```js
+function middleware(req, res, next) {
+  // 1. do work
+  // 2. either next()  → continue pipeline
+  // 3. or res.status(...).json(...) and do not call next()  → stop
+}
 ```
 
-Note whether the error body is `parsed.error.format()` (nested Zod) or a single `issues[0].message`. The app is **inconsistent** here. That is a real-world lesson: house style drifts; you should pick one when you add a route.
+This is the same idea as:
+
+- Koa: `async (ctx, next) => { await next() }`
+- Fastify: `onRequest` / `preHandler` hooks
+- Nest: middleware, guards, interceptors (same pipeline, more classes)
+- Next.js: `middleware.ts` (runs on the **Edge** runtime, before Node route handlers)
+
+**Order is behavior.** `app.use(log)` then `app.use(auth)` then `app.get('/secret', ...)` means every request is logged, then auth runs, then the route. If auth sends 401, the route never runs.
+
+**Built-in middleware you already used:** `express.json()` is middleware that reads the body and sets `req.body`. Without it, POST JSON is just a stream of bytes.
+
+**Error middleware** in Express has four arguments `(err, req, res, next)`. `next(err)` jumps there. Uncaught `throw` inside async handlers does **not** always reach it unless you wrap them — a classic Express footgun. Fastify and Next are stricter about catching.
+
+**Two layers in production apps:**
+
+1. **Global** — CORS, logging, JSON parse, cookie parse, auth gate for `/api/*`.
+2. **Per-route** — “only admins,” “only the shop that owns this id.”
+
+Next.js `middleware.ts` is layer 1 (and it cannot use the Postgres pool — Edge vs Node). Per-route checks stay inside `route.ts` (layer 2). That split is a **middleware concept**, not a Next quirk.
 
 ### Lab
 
-Pick **one** existing POST route you did not read yesterday. Write its contract:
+Run `npm run day3`. In `03-middleware.js`:
+
+1. Keep `requestLog`. Confirm every curl prints a line.
+2. Write `requireApiKey(req, res, next)` that checks `req.header('x-api-key') === 'lab'`. If missing, `401` and **do not** call `next()`.
+3. Apply it only to `/secret`: `app.get('/secret', requireApiKey, handler)`. `/open` must still work without the header.
+4. Mount it on a prefix: `app.use('/admin', requireApiKey)` and add `GET /admin/stats`. Everything under `/admin` is now gated — that is how people protect `/api`.
+5. **Order experiment:** register `requireApiKey` globally *before* `/open`. Watch `/open` break. Then move it. Middleware order is a debug skill.
+6. Throw `throw new Error('boom')` in a route. What status do you get? Add a four-argument error handler that returns `{ error: err.message }` with 500.
+
+```bash
+curl -i http://localhost:3001/open
+curl -i http://localhost:3001/secret
+curl -i http://localhost:3001/secret -H 'x-api-key: lab'
+```
+
+### Transfer
+
+Open **only** `middleware.ts` in the real app. Do not read every API file.
+
+Map it onto today’s vocabulary:
+
+- What is the “matcher” (which paths enter this pipeline)?
+- Where does it **call next** (allow through) vs **send a response** (redirect or 401)?
+- Which prefixes are public (skip the auth gate)?
+- Why would a partner route still check the cookie *again* inside the handler? (Layer 1 vs layer 2.)
+
+### Exit ticket
+
+*If logging middleware runs after a handler that already sent 401, what do you lose? Why must `next()` be called at most once?*
+
+### Optional
+
+- Express: [Using middleware](https://expressjs.com/en/guide/using-middleware.html)
+- Next.js: [Middleware](https://nextjs.org/docs/app/building-your-application/routing/middleware) — read *after* the lab, looking for Edge limitations
+
+---
+
+## Day 4 — Bodies, validation, errors, and state
+
+**Goal.** Treat input as hostile. Separate “HTTP shape is wrong” from “business rule refused.” See why handlers talk to a database instead of an array.
+
+### Concept
+
+**Parsing ≠ validating.** `express.json()` / `request.json()` only turn bytes into an object. `{ kg: -3 }` is valid JSON and an invalid sale.
+
+**Validation libraries** (Zod, Valibot, Joi, Yup, Fastify JSON Schema) answer: “does this value match the contract?” Common Node pattern:
 
 ```text
-POST /api/<thing>
-Auth: admin cookie | partner cookie | public
-Body fields:
-  field     type     required?    extra rules
-Success: status ____  body contains ____
-Failures: 400 / 401 / 404 / 409 / 422 — when?
-SQL: INSERT into ____, also UPDATE ____ ?
+parse body → 400 if not JSON
+schema.safeParse(body) → 422 if fields wrong
+handler logic → 404 / 409 if the world disagrees
+try/catch → 500 for unexpected failures
 ```
 
-Then implement the same contract as **pseudocode only** (no commit required) for a fictional `POST /api/notes` with `{ title, body }` — using `parseJsonBody`, a Zod schema, `db.insert`, `201`. The point is to memorize the sequence, not to ship notes.
+**Keep that mapping stable.** Mixing them (Zod failure as 500, missing row as 400) makes clients impossible to write.
+
+**Layering** (names vary; the split matters):
+
+```text
+Route handler    HTTP: status codes, cookies, JSON
+Service / domain Money, stock, “can this sale happen?”
+Data access      SQL / ORM
+```
+
+Fat handlers (all three in one function) are how apps start. Pulling **pure functions** (`computeTotals(kg, price, paid)`) out of handlers is how they stay testable. You do not need a full “service layer” this week; you do need to notice when math does not belong in HTTP.
+
+**State.** Yesterday’s POST vanished on restart because it lived in RAM. A **database** is a separate process that keeps data. Node talks to it over a TCP connection, usually through a **pool** (a few reused connections, not one per request).
+
+**ORM / query builder** (Drizzle, Prisma, Kysely, Knex) writes SQL for you. You still own **transactions**: several writes that must all succeed or all fail (`BEGIN` … `COMMIT` / `ROLLBACK`). Classic example: insert a sale and decrement stock. If only one happens, the books lie.
+
+**409 vs 422.** 422 = the payload is nonsense (`kg: -1`). 409 = the payload is fine but stock is 0. Frameworks will not choose this for you.
+
+### Lab
+
+Run `npm run day4`. In `04-validation.js`:
+
+1. Reject `kg` as a string that is not numeric, zero, or negative — all **422**.
+2. Add `productId` required positive integer. Unknown `productId` (pretend only `1` and `2` exist) → **404**.
+3. Give each product a `stock` in memory. If `kg > stock` → **409**. If OK, decrement stock **and** push the sale in the same function. You are simulating a transaction.
+4. Add a second request that decrements stock without checking. Then fix it so both writes happen only if both succeed (for an array this is just “check, then write”; say out loud what would go wrong with two concurrent requests).
+5. Optional: copy the idea of a schema — a `function validateSale(body)` that returns `{ ok: true, data }` or `{ ok: false, error }`. That function is Zod’s job in real apps.
+
+```bash
+curl -i -X POST http://localhost:3001/sales -H 'Content-Type: application/json' -d '{"kg":-1}'
+curl -i -X POST http://localhost:3001/sales -H 'Content-Type: application/json' -d '{"kg":2}'
+```
+
+### Transfer
+
+Pick **one** create endpoint in the app and label each step with today’s words (parse / validate / 404 / 409 / write):
+
+- Simpler: `app/api/customers/route.ts`
+- Richer: `app/api/sales/route.ts` (transaction + stock)
+
+Also glance at `lib/validators/` — those modules are Day 4, independent of Next. And `lib/sales.ts` is domain math with no `Request` object. That is the layering idea.
 
 ### Exit ticket
 
-*What is the difference between 400, 422, and 409 in this codebase? Give one real example of each from a file you opened.*
+*Write the status code you would return for: invalid JSON; `quantity: -1`; product id 99999; quantity larger than stock; database connection down.*
 
-### Optional reading
+### Optional
 
 - Zod: [Basic usage](https://zod.dev/?id=basic-usage)
-- [RFC 9110 — HTTP semantics](https://www.rfc-editor.org/rfc/rfc9110) (skim status code sections only)
+- Postgres: [Transactions](https://www.postgresql.org/docs/current/tutorial-transactions.html) (concept; SQL syntax is enough)
 
 ---
 
-## Day 4 — Transactions and inventory invariants
+## Day 5 — Auth: identity, passwords, sessions, tokens
 
-**Goal.** This is the heart of the backend. A sale is not “insert a row.” It is “insert a sale **and** decrement stock, or do neither.”
+**Goal.** Separate **authentication** (who are you?) from **authorization** (what may you do?). Implement both a **server session** and a **signed token**, and know when each is used.
 
-### Concepts
+### Concept
 
-- **Invariant**: a rule the database must still satisfy after every request (stock ≥ 0, amount_paid ≤ total, credit sales have a customer).
-- **Transaction**: `db.transaction(async (tx) => { ... })`. If you `throw` or the process dies, Postgres rolls back.
-- **Check-then-act race**: two sales can both read stock = 1. The code defends with  
-  `UPDATE ... WHERE stock_quantity >= quantity RETURNING ...`  
-  If no row returns → **409** “another sale may have used the remaining kg.”
-- **Money**: `computeSaleTotals` rounds to cents. Never accumulate floats without rounding.
-- **Weighted average cost**: a purchase does not replace `cost_per_unit`; it blends old and new (`lib/inventoryCost.ts`).
+**Authentication** proves identity. **Authorization** uses that identity to allow or deny (admin vs partner shop vs public).
 
-### Read (slowly)
+**Never store passwords.** Store a **hash** with a **salt** (`scrypt`, `argon2`, `bcrypt`). Use a **constant-time compare** so attackers cannot time the check. The lab still uses a plaintext password so you can see the *session* clearly; the real app must not.
 
-1. `lib/sales.ts` — totals, paid, balance, status.
-2. `app/api/sales/route.ts` — the full POST transaction.
-3. `app/api/purchases/route.ts` — stock up + average cost.
-4. `lib/productionCost.ts`
-5. `app/api/production/route.ts` — recipe check, deduct ingredients, add product kg, store costs.
-6. `lib/inventoryCost.ts`
+Three common ways to remember a login:
 
-### Trace
+| Style | What the browser stores | What the server stores | Strength | Typical use |
+| --- | --- | --- | --- | --- |
+| Server session | Opaque cookie (`abc123`) | Map `abc123` → `{ userId }` in memory/Redis/DB | Revocable instantly (delete the map entry) | Traditional apps |
+| Signed JWT / similar | Cookie or `Authorization: Bearer` with claims + signature | Secret (or public key) only | No lookup; hard to revoke before expiry | APIs, horizontally scaled apps |
+| API key | Header | Key (hashed) in DB | Simple machines | Webhooks, scripts |
 
-Use the UI or curl to:
+**Cookies vs `Authorization` header.** Browsers automatically send cookies to the same site. JavaScript SPAs often send `Bearer` tokens. **httpOnly** cookies cannot be read by `document.cookie` (helps against XSS stealing sessions). **`SameSite=Lax`** reduces CSRF. **`Secure`** means HTTPS-only (production).
 
-1. `GET /api/products` and note `stock_quantity` for one product.
-2. `POST /api/sales` with a quantity **larger than stock**. Expect **409**.
-3. `POST /api/sales` with a walk-in (`customerId` 0) and `amountPaid` less than total. Expect **422** (walk-ins must pay in full).
-4. Record a **valid** paid sale. Confirm stock dropped.
+A **JWT** is not magic. It is `base64(payload) + signature`. Anyone can *decode* the payload; the signature proves it was not forged. Do not put passwords in a JWT. Set an **expiry**.
 
-Then in `psql`:
+**Session cookie flow:**
 
-```sql
-SELECT id, sale_code, quantity, total_amount, amount_paid, balance, payment_status
-FROM sales
-ORDER BY id DESC
-LIMIT 5;
-
-SELECT id, name, stock_quantity FROM products;
+```text
+POST /login (credentials)
+  → verify password hash
+  → create session id
+  → Set-Cookie: session=…; HttpOnly
+GET /me
+  → Cookie: session=…
+  → lookup session → user
 ```
 
-For production, try producing a product **after** imagining a missing recipe: read the `recipe.length === 0` branch. Optionally `GET /api/products/:id/recipe`.
+**Token flow:**
+
+```text
+POST /login
+  → verify password
+  → sign { userId, exp } with secret
+  → Set-Cookie or return token in JSON
+GET /me
+  → verify signature + exp → user (no database lookup required)
+```
+
+Taem Baltina uses the token-in-httpOnly-cookie style (JWT via `jose`), which is a **hybrid**: JWT properties, cookie transport. Partner and admin are different cookies so two roles cannot be confused.
+
+**Logout.** Session style: delete server record + clear cookie. JWT style: clear cookie (and/or a denylist). You cannot “delete” a JWT the client still holds until it expires, unless you track revocation.
 
 ### Lab
 
-Write a numbered sequence for **one production batch** as if you were Postgres:
+Run `npm run day5`. `05-auth.js` already has both styles. Your job is to **use and then break** them.
 
-1. Lock / read product.
-2. Read recipe lines + ingredient quantities.
-3. Reject if any ingredient short.
-4. Compute material / labor / equipment / overhead / cost per kg.
-5. `UPDATE ingredients SET quantity = quantity - required`.
-6. `UPDATE products SET stock_quantity = stock_quantity + kg`.
-7. `INSERT production_batches`.
+```bash
+# session
+curl -i -c /tmp/lab-cookies.txt -X POST http://localhost:3001/login-session \
+  -H 'Content-Type: application/json' -d '{"username":"admin","password":"password"}'
+curl -i -b /tmp/lab-cookies.txt http://localhost:3001/me-session
 
-Mark which steps must share a transaction. Then answer: *If step 5 succeeded and step 6 failed without a transaction, what lie would the dashboard tell?*
+# token
+curl -i -c /tmp/lab-token.txt -X POST http://localhost:3001/login-token \
+  -H 'Content-Type: application/json' -d '{"username":"admin","password":"wrong"}'
+curl -i -c /tmp/lab-token.txt -X POST http://localhost:3001/login-token \
+  -H 'Content-Type: application/json' -d '{"username":"admin","password":"password"}'
+curl -i -b /tmp/lab-token.txt http://localhost:3001/me-token
+```
 
-**Stretch (still Day 4 if you have time):** Read `app/api/public/orders/route.ts`. Public orders check stock but may not decrement it the same way as admin sales. Decide whether that is intentional (reservation vs fulfillment) and write your verdict. Disagreement with the code is allowed if you can justify it.
+Then:
+
+1. Add `POST /logout-session` that `sessions.delete(...)` and `res.clearCookie('lab_session')`. Confirm `/me-session` is 401.
+2. Restart the server. Session logins die (memory map is empty). Token logins still verify **if** you kept the cookie — that is the JWT tradeoff.
+3. Tamper with the token cookie (change one character in the payload part). You should get 401 Bad signature.
+4. Add `requireSession` middleware and mount it on `GET /me-session` instead of inline code. Auth *is* middleware.
+5. Optional: add `role: 'admin'` into the signed payload and a `GET /admin-only` that returns 403 if role !== admin. That is authorization.
+
+### Transfer
+
+Read these as **illustrations of Day 5**, not as a feature tour:
+
+1. `lib/password.ts` — salt, scrypt, `timingSafeEqual` (what the lab skipped).
+2. `lib/auth.ts` — sign/verify JWT, cookie name.
+3. `app/api/auth/login/route.ts` — Set-Cookie flags (`httpOnly`, `sameSite`, `secure` in production).
+4. `lib/partnerAuth.ts` — second cookie, `typ: 'partner'` claim so an admin token cannot pretend to be a shop.
+
+Curl the real app: login, `GET /api/customers` with cookie, then without. That is the same experiment as `/me-session`.
 
 ### Exit ticket
 
-*Why is `WHERE stock_quantity >= quantity` safer than reading stock into JavaScript and then updating? When would that still not be enough?*
+*A JWT is stored in an httpOnly cookie. Is that “sessions” or “tokens”? What can you revoke immediately, and what must wait for expiry?*
 
-### Optional reading
+### Optional
 
-- Postgres: [Transactions](https://www.postgresql.org/docs/current/tutorial-transactions.html)
-- “Lost update” / check-then-act (any short article on race conditions in web apps)
+- OWASP: [Session Management](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html) (skim cookie flags)
+- MDN: [Set-Cookie](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie)
+- `jose` / JWT intro of your choice — after you understand HMAC in the lab
 
 ---
 
-## Day 5 — Auth, cookies, and three audiences
+## Day 6 — Authorization, tenancy, and the rest of the stack
 
-**Goal.** Backend security here is cookies + middleware + a second check on partner routes. Understand *what* is protected and *what is not*.
+**Goal.** Finish the picture: once you know *who*, you still must scope *what*. Plus the boring production pieces every Node API needs.
 
-### Concepts
+### Concept
 
-- **Authentication** — who are you? (`authenticateAdmin`, `requirePartner`)
-- **Authorization** — what may you touch? Admin sees all shops; a partner query is always `.where(eq(shop_id, session.shopId))`.
-- **JWT** (`jose`) signed with `JWT_SECRET`, stored in **httpOnly** cookies (`taem_token`, `taem_partner_token`). JavaScript on the page cannot read them. That is deliberate.
-- **Password storage** — `scrypt` + salt in `lib/password.ts`. `timingSafeEqual` avoids leaking hash comparison time. You never store `ADMIN_PASS` in the users table after bootstrap.
-- **Bootstrap** — first login can create the admin from env (`bootstrapAdminFromEnv`) if the table is empty.
-- **Public routes** — `/api/public/*` and `/api/partner/auth/*` skip admin middleware. Public does **not** mean “no validation.”
-- Cookie flags: `httpOnly`, `sameSite: 'lax'`, `secure` in production.
+**Authorization patterns** you will see everywhere:
 
-### Read
+- **Role** — `admin` vs `user`. Coarse.
+- **Ownership** — `WHERE shop_id = session.shopId`. A partner must not `GET` another shop’s rows even with a valid cookie.
+- **Public vs authenticated vs privileged** — three stacks of middleware, not one boolean.
 
-1. `lib/password.ts`
-2. `lib/auth.ts`
-3. `lib/adminUsers.ts`
-4. `app/api/auth/login/route.ts`, `logout`, `change-password`, `reset-password`
-5. `lib/partnerAuth.ts`
-6. `app/api/partner/auth/login/route.ts`, `register`, `app/api/partner/me/route.ts`
-7. `middleware.ts` again — now you will actually see the branches.
-8. `app/api/partner/purchases/route.ts` — `requirePartner` **and** filter by `shopId`.
+If you only check “is logged in” and then `SELECT * FROM sales`, you have authentication without authorization. That is a data leak.
 
-### Trace
+**CORS.** Browsers block a web page on origin A from reading responses from origin B unless the server sends `Access-Control-Allow-Origin`. Same-site Next.js (UI + `/api` on one origin) often needs little CORS. A separate frontend on Vite talking to Express on 3001 **does**. `Access-Control-Allow-Credentials: true` is required if cookies should cross origins, and then `*` is not allowed as the origin.
 
-```bash
-# no cookie — should 401
-curl -i http://localhost:3000/api/products
+**Env vars.** Secrets (`JWT_SECRET`, database URLs) do not belong in source control. `process.env` is how Node frameworks configure prod vs local. Never log secrets.
 
-# public catalog — should 200 without cookie
-curl -i http://localhost:3000/api/public/products
+**Connection pooling.** Serverless (Vercel) plus hosted Postgres (Neon) will run out of connections if each invocation opens a pool of 20. Tiny pools are a backend concern, not a cloud mystery.
 
-# login as admin, then hit a partner API with the admin cookie — should 401
-curl -i -b /tmp/taem-cookies.txt http://localhost:3000/api/partner/me
-```
+**Idempotency and concurrency (light).** Two `POST /sales` at the same time can both read stock = 1. The fix is in the data layer (`UPDATE ... WHERE stock >= kg`), not in middleware. You already simulated this on Day 4; name it **lost update**.
 
-Register or log in as a partner (UI at `/branch/register` or `/branch/login`), save `taem_partner_token`, then:
+**Defense in depth.** Middleware rejects missing cookies. The handler still checks `shopId`. The query still filters by `shopId`. One forgotten layer should not dump the table.
 
-```bash
-curl -i -b /tmp/partner-cookies.txt http://localhost:3000/api/partner/me
-curl -i -b /tmp/partner-cookies.txt http://localhost:3000/api/partner/stock
-```
+### Lab (no new starter file — extend Day 5)
 
-Open `lib/password.ts` and `app/api/auth/login/route.ts`. Confirm the password never appears in the JSON response.
+Add to `05-auth.js` (or a copy `06-tenancy.js` if you prefer a clean file):
 
-### Lab
+1. In-memory `orders = [{ id: 1, shopId: 1, total: 10 }, { id: 2, shopId: 2, total: 99 }]`.
+2. Login that puts `{ username, shopId: 1 }` in the session or token.
+3. `GET /orders` returns **only** that shop’s orders (filter in the handler).
+4. `GET /orders/:id` returns 404 (not 403) if the order exists but belongs to another shop — a common choice so you do not leak ids. Then try 403 instead and notice the difference.
+5. Add `GET /cors-demo` with `res.setHeader('Access-Control-Allow-Origin', 'http://localhost:3000')`. Optional: open the browser console on the real app and `fetch('http://localhost:3001/cors-demo')` — read the error if CORS is missing, then with the header.
 
-Write a **threat model of three sentences** for each audience:
+If time remains, add `process.env.LAB_API_KEY` instead of the hardcoded `'lab'` from Day 3.
 
-1. Someone who stole an admin cookie.
-2. A partner calling `/api/sales` (HQ sales) with their partner cookie.
-3. A stranger posting to `/api/public/orders` with a huge `quantityKg`.
+### Transfer
 
-For (3), read the public order handler and say whether stock is actually reserved. If not, that is an authorization/integrity issue, not just a UX issue.
+Answer in notes, with file names:
+
+1. Where does the app enforce **admin vs anonymous** (global middleware)?
+2. Where does it enforce **partner vs admin** (different cookie / `typ` claim)?
+3. Where does it enforce **this shop’s data only** (query `shop_id`)? Start at `app/api/partner/purchases/route.ts` or `lib/partnerAuth.ts`.
+4. Where do env secrets live conceptually? (`DEPLOYMENT.md` env table is enough; do not commit `.env`.)
 
 ### Exit ticket
 
-*Middleware returns 401 for `/api/*` without a cookie, except some prefixes. List those prefixes. Why must partner routes still call `requirePartner` inside the handler?*
+*A logged-in partner calls `GET /api/sales` (HQ sales). Should that be 401, 403, or 200 with filtered rows? What does this app actually do, and which concept is that?*
 
-### Optional reading
+### Optional
 
-- OWASP: [Session Management cheat sheet](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html) (skim)
-- Node `crypto`: [scrypt](https://nodejs.org/api/crypto.html#cryptoscryptpassword-salt-keylen-options-callback)
-
----
-
-## Day 6 — Domain logic: credit, cost, and reports
-
-**Goal.** Backend is also *business rules* that do not look like CRUD. This app’s value is spice math: recipes, COGS, credit, cash vs debt.
-
-### Concepts
-
-- **Keep HTTP handlers thin** when possible: `computeSaleTotals`, `computeBatchMaterialCost`, `weightedAverageCost` are testable functions with no `Request`.
-- **Derived data**: customer `total_credit` is not a column. `GET /api/customers` aggregates `sales.balance` and `credit_ledgers.balance`.
-- **Two credit systems** exist: sale-level credit (`sales.balance` + `repayments`) and the credit ledger (`credit_ledgers` + `credit_payments` + line items). You must know which screen talks to which.
-- **COGS**: production batches store `total_cost` / `cost_per_unit`; `estimateSalesCogs` uses average cost per product.
-- **Finance identity** (from README): net position ≈ cash on hand + customer credit − liabilities.
-- **Aggregation in SQL** (`sum`, `groupBy`) vs aggregation in JS (`lib/dashboardMetrics.ts`, `lib/monthly-financials.ts`). Both appear. SQL is better for large tables; JS is fine when the handler already loaded the rows.
-
-### Read
-
-1. `lib/credit.ts`
-2. `app/api/credit-ledgers/route.ts` and `app/api/credit-payments/route.ts`
-3. `app/api/repayments/route.ts`
-4. `lib/profit.ts`, `lib/productionCost.ts` (again), `lib/stock.ts`, `lib/stockValue.ts`
-5. `lib/dashboardMetrics.ts` — charts and “top products” are backend-ish even if called from a page
-6. `lib/monthly-financials.ts` — Ethiopian calendar periods
-7. `app/api/cash-entries/route.ts`, `app/api/liabilities/route.ts`, `app/api/liability-payments/route.ts`
-
-### Trace
-
-1. Create a credit sale (customer + partial `amountPaid`).
-2. `POST /api/repayments` for that sale. Watch `balance` and `payment_status` change in `GET /api/sales`.
-3. Open `/admin/finance` and `/admin/dashboard`. For each number you care about, hunt the function that produced it.
-
-In `psql`, rebuild dashboard-ish numbers yourself:
-
-```sql
-SELECT SUM(total_amount) AS revenue, SUM(amount_paid) AS collected, SUM(balance) AS outstanding
-FROM sales;
-```
-
-### Lab (workbook, not a feature)
-
-Take **one seeded product**. On paper compute:
-
-1. Recipe material cost for 1 batch (`quantity_per_unit × cost_per_unit`, summed).
-2. Add fictional labor/equipment.
-3. Cost per kg.
-4. Selling price minus cost per kg = profit per kg (`lib/profit.ts`).
-5. After a 2 kg paid sale: revenue, COGS, remaining stock.
-
-Then compare to a real `production_batches` row if you record a batch in the UI.
-
-### Exit ticket
-
-*If you stored `customers.outstanding_balance` as a cached column, what would you have to update on every sale, repayment, and credit payment? Why does this app compute it on read instead?*
-
-### Optional reading
-
-- “Derived vs stored aggregates” (any short accounting/CS note)
-- Postgres: [Aggregate functions](https://www.postgresql.org/docs/current/tutorial-agg.html)
+- MDN: [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)
+- OWASP: [Broken Access Control](https://owasp.org/www-community/Broken_Access_Control)
 
 ---
 
-## Day 7 — Production, gaps, and a small real change
+## Day 7 — Fluency check and apply it in the real app
 
-**Goal.** See how this backend is deployed, what is fragile, and prove you can change it safely.
+**Goal.** Prove the concepts are in your head, then do **one** small piece of work on Taem Baltina using this week’s vocabulary.
 
-### Concepts
+### Concept review (30–40 min, no laptop if possible)
 
-- **Env vars** are part of the backend: `DATABASE_URL`, `JWT_SECRET`, `PASSWORD_RESET_SECRET`, `ADMIN_USER` / `ADMIN_PASS`, `PG_POOL_MAX`.
-- **Connection pooling**: `createPgPoolOptions` caps pool size (default `3`) because serverless/Vercel + Neon cannot open dozens of connections per instance.
-- **SSL**: Neon URLs get `ssl: { rejectUnauthorized: false }`. Local does not.
-- **Build vs runtime**: `resolveDatabaseUrl` allows a dummy URL during `next build` so CI can compile without Postgres.
-- **Idempotent seed vs destructive reset**: `npm run seed` vs `npm run reset` / `POST /api/admin/reset`.
-- **Observability** today is `console.error` inside `databaseErrorResponse`. There is no test suite.
+Explain each aloud. If you stall, re-run that day’s lab.
 
-### Read
+1. Node vs framework vs HTTP.
+2. Route = method + path → function. Params vs query vs body.
+3. Middleware = pipeline; order matters; `next()` vs send-and-stop.
+4. 400 / 401 / 403 / 404 / 409 / 422 / 500.
+5. Session cookie vs signed JWT vs JWT-in-cookie.
+6. Authn vs authz vs tenancy (`shop_id`).
+7. Why decrementing stock and inserting a sale share a transaction.
 
-1. `DEPLOYMENT.md`
-2. `lib/pgConnection.ts` (again)
-3. `scripts/reset.js` (skim — know that it wipes data)
-4. `app/api/admin/reset/route.ts`
-5. `.env.example`
+### Lab — whiteboard the real request
 
-### Trace
+Pick **one** real request (suggestion: `POST /api/auth/login` or `POST /api/sales`). Draw:
 
-```bash
-npm run typecheck
-npm run lint
+```text
+client → middleware → parse → validate → authz → domain → db → json
 ```
 
-Hit a route that will 500 if you like (optional): stop Postgres and `GET /api/products` with a cookie. Read the JSON `hint`. Start Postgres again.
+Fill each box with a **file or function name**. This is the transfer of the whole week. Keep the drawing; it is your cheat sheet when you next change the app.
 
-### Lab — pick **one** capstone (90 minutes max)
+### Apply (pick one capstone, 60–90 min)
 
-Do **one**. Ship it on a branch if it is code; otherwise keep it in your notes.
+Work on a branch. Keep the change small. Use the words from this course in the commit message.
 
-**Option A — Tests for pure domain functions (recommended).**  
-Add a tiny test runner if you want (`node:test` is enough) or a few assertions in a `lib/*.test.ts` using whatever the repo will accept. Cover:
+**A. Tests for domain functions (best default).**  
+`lib/sales.ts` and similar have no HTTP. Add tests (`node:test` is enough) for totals / paid / credit. You are testing Day 4 layering.
 
-- `computeSaleTotals` — paid, partial, credit, overpay
-- `computeBatchMaterialCost` / `computeCostPerKg`
-- `weightedAverageCost` for empty stock vs restock
+**B. One handler, one status-code cleanup.**  
+Find a route that returns Zod’s full `error.format()` and make it return `{ error: message }` with **422**, matching sales. You are practicing a stable error contract.
 
-This teaches the most important backend habit: **logic that can run without HTTP**.
+**C. New GET with query validation.**  
+e.g. filter a list by query param, validated like a body schema. You are practicing Day 2 + Day 4.
 
-**Option B — Align one error-response style.**  
-Pick a route that returns `parsed.error.format()` and change it to the same `{ error: firstIssue.message }` pattern as sales, with status 422. Do not drive-by refactor every file.
+**D. Lab replay in notes only.**  
+If you cannot change the app today: rewrite `POST /api/sales` as a tiny Express app in `docs/backend-lab` (in-memory stock). Same statuses. Then list what the real handler does that yours does not (SQL, transactions, rounding).
 
-**Option C — Read-only API improvement.**  
-Add a documented query param to an existing GET (for example sales filtered by `customerId` or a date key), using Zod for the query string. Follow join style from `app/api/sales/route.ts`. Prove with curl.
+### Exit ticket (week)
 
-**Option D — Written design (if you cannot change prod code today).**  
-Write a one-page design: “Should public checkout decrement stock?” Include current behavior, race conditions, and a proposed transaction. No code.
-
-### Exit ticket (week retrospective)
-
-Answer all five:
-
-1. What file would you open first to add a new admin API?
-2. What must go in the same transaction as inserting a sale?
-3. How does a partner get isolated from another shop’s stock?
-4. Name one backend risk you still would not trust yourself to change (indexes, migrations, money rounding, …).
-5. What will you practice next week?
+1. Draw the shared pipeline from memory.
+2. Name one Express API and its Next.js equivalent for: route param, JSON body, middleware gate, Set-Cookie.
+3. What will you still look up next time (pooling, CSRF, JWT alg, Drizzle)? Looking it up is fine; not knowing the *category* is not.
 
 ---
 
 ## After this week
 
-Stay inside this repo. Suggested follow-ups, one at a time:
+Stay with Node backend ideas, now that you have a map:
 
-1. Add tests around `lib/sales.ts` and `lib/productionCost.ts` if you chose a different capstone.
-2. Read `app/api/wholesale-orders/` and compare to `sales` + `market_orders`.
-3. Sketch (do not implement) moving transactions into `lib/` services so route files only do HTTP.
-4. Learn `EXPLAIN ANALYZE` on the customers outstanding-balance query.
-5. Read `DEPLOYMENT.md` and explain why `PG_POOL_MAX` defaults to 3.
+- Add Fastify or Nest to the same lab folder and reimplement Day 2–3. You should finish faster — that is the point.
+- Read `lib/auth.ts` and `middleware.ts` again; it should feel like Day 3 + 5, not like a foreign language.
+- Learn SQL/transactions next if Day 4’s concurrency paragraph still feels fuzzy — that is data-layer, not framework.
 
-Do **not** start a second backend stack until you can modify a transaction in this one without guessing.
+Do not collect more frameworks until you can add a route + middleware + 422 validation in Express without copying.
 
 ---
 
-## Glossary (as used here)
+## Glossary
 
-| Term | Meaning in Taem Baltina |
+| Term | Meaning |
 | --- | --- |
-| Route handler | `export async function POST` in `app/api/.../route.ts` |
-| Middleware | `middleware.ts`; runs before matching routes |
-| Session | JWT payload in an httpOnly cookie |
-| Schema | TypeScript table defs in `db/schema.ts` |
-| Push | `npm run drizzle:push` — apply schema to Postgres |
-| Transaction | All-or-nothing unit of SQL |
-| Invariant | Rule like “never sell more kg than stock” |
-| 409 Conflict | Valid JSON, but the business refuses |
-| 422 Unprocessable | JSON parsed, Zod failed |
-| COGS | Cost of goods sold, from production batch costs |
-| Partner | Reseller shop with its own stock table |
-| Bootstrap admin | First user created from `ADMIN_USER` / `ADMIN_PASS` |
-| Pool | Reused Postgres connections (`pg.Pool`) |
+| Handler / controller | Function that finishes an HTTP request |
+| Route | Method + path pattern bound to a handler |
+| Router | Group of routes mounted on a prefix |
+| Middleware | Pipeline function around handlers |
+| Edge runtime | Limited JS runtime (Next `middleware.ts`); not full Node |
+| Session | Server-side record keyed by an opaque cookie |
+| JWT | Signed blob of claims; often used as a bearer token |
+| httpOnly | Cookie not readable from JavaScript |
+| Authentication | Proving who you are |
+| Authorization | Checking what you may do |
+| Tenancy | Scoping rows to an org/shop |
+| Validation | Checking shape/type/range of input |
+| Transaction | All-or-nothing group of writes |
+| Pool | Reused DB connections |
+| CORS | Browser rule for cross-origin HTTP |
 
 ---
 
-## File index (week map)
+## Self-check
 
-| Day | Primary files |
-| --- | --- |
-| 1 | `middleware.ts`, `lib/apiErrors.ts`, `app/api/customers/route.ts`, `app/api/expenses/[id]/route.ts`, `lib/db.ts` |
-| 2 | `docs/erd.md`, `db/schema.ts`, `drizzle.config.ts`, `scripts/seed.js` |
-| 3 | `lib/validators/*`, expenses + products routes |
-| 4 | `app/api/sales/route.ts`, `app/api/production/route.ts`, `app/api/purchases/route.ts`, `lib/sales.ts`, `lib/productionCost.ts`, `lib/inventoryCost.ts` |
-| 5 | `lib/auth.ts`, `lib/password.ts`, `lib/adminUsers.ts`, `lib/partnerAuth.ts`, `app/api/auth/*`, `app/api/partner/**` |
-| 6 | `lib/credit.ts`, credit + repayment routes, `lib/profit.ts`, `lib/dashboardMetrics.ts`, finance routes |
-| 7 | `DEPLOYMENT.md`, `lib/pgConnection.ts`, `app/api/admin/reset/route.ts`, your capstone |
+Score 0 / 1 (with notes) / 2 (from memory):
 
----
+- [ ] Node is a runtime; Express/Next are frameworks on HTTP.
+- [ ] I can add `GET`/`POST`/`PATCH` routes with params and query.
+- [ ] I can write middleware that logs, that 401s, and that calls `next()`.
+- [ ] I can choose 401 vs 403 vs 404 vs 409 vs 422.
+- [ ] I can explain server sessions vs JWT vs cookie-stored JWT.
+- [ ] I know why password hashes use a salt and a slow function.
+- [ ] I can filter data by `shopId` after login (tenancy).
+- [ ] I can point at the same ideas in Taem Baltina without rereading this doc.
 
-## End-of-week self-check
-
-Score yourself 0 (cannot) / 1 (with notes) / 2 (from memory):
-
-- [ ] Explain the request path including middleware.
-- [ ] Point at the tables for recipe, production, sale, and partner stock.
-- [ ] Choose 401 vs 404 vs 409 vs 422 for a scenario I describe.
-- [ ] Explain why production and sales use transactions.
-- [ ] Hash vs JWT vs cookie: what each is for.
-- [ ] Find where average ingredient cost is updated.
-- [ ] Use curl with a cookie file against at least three endpoints.
-- [ ] Use `psql` to inspect stock after a sale.
-- [ ] Name every required env var in `DEPLOYMENT.md`.
-- [ ] Make (or specify) one backend change that does not break invariants.
-
-**12+ is a pass.** Below that, repeat the matching day rather than rushing Day 7.
+**12+ is a pass.** Re-run the weak day’s lab instead of collecting more tutorials.
