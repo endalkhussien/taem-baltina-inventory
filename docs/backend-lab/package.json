@@ -1,0 +1,17 @@
+{
+  "name": "backend-lab",
+  "private": true,
+  "description": "Throwaway Express lab for the one-week Node backend curriculum. Not part of the Taem Baltina app.",
+  "type": "commonjs",
+  "scripts": {
+    "day1": "node 01-http.js",
+    "day2": "node 02-routes.js",
+    "day3": "node 03-middleware.js",
+    "day4": "node 04-validation.js",
+    "day5": "node 05-auth.js"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "express": "^4.21.2"
+  }
+}
