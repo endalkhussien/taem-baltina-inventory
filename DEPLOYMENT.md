@@ -165,6 +165,16 @@ Run:
 DATABASE_URL="your-neon-connection-string" npm run drizzle:push
 ```
 
+### Reset All or web orders fail (`market_orders` missing)
+
+Marketplace tables were added after the first deploy. Create them with:
+
+```bash
+DATABASE_URL="your-neon-connection-string" npm run migrate:orders
+```
+
+or `npm run drizzle:push`. After this lands, the live app also auto-creates those tables the next time someone places a web order or runs Reset All.
+
 ### Login does not work
 
 1. Make sure `npm run drizzle:push` was run after the latest deploy so the `admin_users` table exists.

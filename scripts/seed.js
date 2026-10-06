@@ -40,20 +40,20 @@ const connectionString = resolveDatabaseUrl()
 const pool = new Pool(createPgPoolOptions(connectionString))
 
 const products = [
-  { name: 'Berbere', selling_price: 150.0, stock_quantity: 0, alert_threshold: 10 },
-  { name: 'Shiro', selling_price: 120.0, stock_quantity: 0, alert_threshold: 10 },
-  { name: 'Mitmita', selling_price: 200.0, stock_quantity: 0, alert_threshold: 10 }
+  { name: 'Berbere', selling_price: 150.0, stock_quantity: 25, alert_threshold: 10 },
+  { name: 'Shiro', selling_price: 120.0, stock_quantity: 25, alert_threshold: 10 },
+  { name: 'Mitmita', selling_price: 200.0, stock_quantity: 15, alert_threshold: 10 }
 ]
 
 const ingredients = [
-  { name: 'Red pepper', category: 'Spices', quantity: 0, unit: 'kg', cost_per_unit: 80, alert_threshold: 5 },
-  { name: 'Fenugreek', category: 'Spices', quantity: 0, unit: 'kg', cost_per_unit: 120, alert_threshold: 2 },
-  { name: 'Garlic', category: 'Fresh aromatics', quantity: 0, unit: 'kg', cost_per_unit: 90, alert_threshold: 2 },
-  { name: 'Ginger', category: 'Fresh aromatics', quantity: 0, unit: 'kg', cost_per_unit: 95, alert_threshold: 2 },
-  { name: 'Black cumin', category: 'Spices', quantity: 0, unit: 'kg', cost_per_unit: 140, alert_threshold: 1 },
-  { name: 'Chickpea flour', category: 'Flours', quantity: 0, unit: 'kg', cost_per_unit: 65, alert_threshold: 10 },
-  { name: 'Birds eye chili', category: 'Spices', quantity: 0, unit: 'kg', cost_per_unit: 180, alert_threshold: 2 },
-  { name: 'Salt', category: 'Seasoning', quantity: 0, unit: 'kg', cost_per_unit: 20, alert_threshold: 5 }
+  { name: 'Red pepper', category: 'Spices', quantity: 40, unit: 'kg', cost_per_unit: 80, alert_threshold: 5 },
+  { name: 'Fenugreek', category: 'Spices', quantity: 15, unit: 'kg', cost_per_unit: 120, alert_threshold: 2 },
+  { name: 'Garlic', category: 'Fresh aromatics', quantity: 12, unit: 'kg', cost_per_unit: 90, alert_threshold: 2 },
+  { name: 'Ginger', category: 'Fresh aromatics', quantity: 12, unit: 'kg', cost_per_unit: 95, alert_threshold: 2 },
+  { name: 'Black cumin', category: 'Spices', quantity: 8, unit: 'kg', cost_per_unit: 140, alert_threshold: 1 },
+  { name: 'Chickpea flour', category: 'Flours', quantity: 50, unit: 'kg', cost_per_unit: 65, alert_threshold: 10 },
+  { name: 'Birds eye chili', category: 'Spices', quantity: 10, unit: 'kg', cost_per_unit: 180, alert_threshold: 2 },
+  { name: 'Salt', category: 'Seasoning', quantity: 30, unit: 'kg', cost_per_unit: 20, alert_threshold: 5 }
 ]
 
 const recipes = [
@@ -115,6 +115,13 @@ async function seed() {
         console.log('Inserted', p.name)
       } else {
         productIds.set(p.name, res.rows[0].id)
+        // Top up empty stock so the public shop has something to sell after a reset/re-seed.
+        await client.query(
+          `UPDATE products
+           SET stock_quantity = GREATEST(stock_quantity, $1), updated_at = now()
+           WHERE id = $2 AND stock_quantity <= 0`,
+          [p.stock_quantity, res.rows[0].id]
+        )
         console.log('Already exists:', p.name)
       }
     }
@@ -132,7 +139,14 @@ async function seed() {
         console.log('Inserted ingredient', ingredient.name)
       } else {
         ingredientIds.set(ingredient.name, res.rows[0].id)
-        await client.query('UPDATE ingredients SET category = $1 WHERE id = $2', [ingredient.category, res.rows[0].id])
+        await client.query(
+          `UPDATE ingredients
+           SET category = $1,
+               quantity = CASE WHEN quantity <= 0 THEN $2 ELSE quantity END,
+               updated_at = now()
+           WHERE id = $3`,
+          [ingredient.category, ingredient.quantity, res.rows[0].id]
+        )
         console.log('Already exists ingredient:', ingredient.name)
       }
     }

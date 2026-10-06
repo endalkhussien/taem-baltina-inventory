@@ -6,6 +6,7 @@ import {
   integer,
   numeric,
   timestamp,
+  boolean,
   unique,
   index
 } from 'drizzle-orm/pg-core'
@@ -221,6 +222,8 @@ export const market_orders = pgTable('market_orders', {
   status: varchar('status', { length: 30 }).notNull().default('pending'),
   subtotal: numeric('subtotal', { precision: 14, scale: 2, mode: 'number' }).notNull().default(0),
   total_amount: numeric('total_amount', { precision: 14, scale: 2, mode: 'number' }).notNull().default(0),
+  /** True when place-order already deducted finished-goods stock (restore on cancel). */
+  stock_reserved: boolean('stock_reserved').notNull().default(false),
   created_at: timestamp('created_at').defaultNow().notNull(),
   updated_at: timestamp('updated_at').defaultNow().notNull()
 }, (table) => ({
