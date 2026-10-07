@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server'
-import { desc, eq, inArray } from 'drizzle-orm'
+import { desc, inArray } from 'drizzle-orm'
 import { db, schema } from '../../../lib/db'
 import { databaseErrorResponse } from '../../../lib/apiErrors'
+import { ensureMarketplaceSchema } from '../../../lib/ensureSchema'
 
 export async function GET() {
   try {
+    await ensureMarketplaceSchema()
+
     const orders = await db
       .select()
       .from(schema.market_orders)

@@ -26,9 +26,26 @@ function createPgPoolOptions(connectionString) {
   }
 }
 
+async function tableExists(client, name) {
+  const result = await client.query(
+    `SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = $1
+    ) AS exists`,
+    [name]
+  )
+  return Boolean(result.rows[0]?.exists)
+}
+
+async function deleteIfExists(client, name) {
+  if (await tableExists(client, name)) {
+    await client.query(`DELETE FROM ${name}`)
+  }
+}
+
 async function reset() {
   if (process.env.CONFIRM_RESET !== 'yes') {
-    console.error('This deletes all sales, production, purchases, expenses, cash counts, debts, and zeros all stock.')
+    console.error('This deletes all sales, web orders, production, purchases, expenses, cash counts, debts, and zeros all stock.')
     console.error('Run again with CONFIRM_RESET=yes')
     process.exit(1)
   }
@@ -39,22 +56,34 @@ async function reset() {
   try {
     await client.query('BEGIN')
 
-    await client.query('DELETE FROM credit_payments')
-    await client.query('DELETE FROM credit_ledgers')
-    await client.query('DELETE FROM liability_payments')
-    await client.query('DELETE FROM liabilities')
-    await client.query('DELETE FROM cash_entries')
-    await client.query('DELETE FROM repayments')
-    await client.query('DELETE FROM sales')
-    await client.query('DELETE FROM production_batches')
-    await client.query('DELETE FROM purchases')
-    await client.query('DELETE FROM expenses')
+    await deleteIfExists(client, 'market_order_items')
+    await deleteIfExists(client, 'market_orders')
+    await deleteIfExists(client, 'partner_buy_order_items')
+    await deleteIfExists(client, 'partner_buy_orders')
+    await deleteIfExists(client, 'partner_sales')
+    await deleteIfExists(client, 'partner_expenses')
+    if (await tableExists(client, 'partner_stock')) {
+      await client.query('UPDATE partner_stock SET quantity_kg = 0, updated_at = now()')
+    }
+
+    await deleteIfExists(client, 'credit_payments')
+    await deleteIfExists(client, 'credit_ledger_items')
+    await deleteIfExists(client, 'credit_ledgers')
+    await deleteIfExists(client, 'liability_payments')
+    await deleteIfExists(client, 'liabilities')
+    await deleteIfExists(client, 'cash_entries')
+    await deleteIfExists(client, 'repayments')
+    await deleteIfExists(client, 'sales')
+    await deleteIfExists(client, 'production_batches')
+    await deleteIfExists(client, 'purchases')
+    await deleteIfExists(client, 'expenses')
     await client.query('UPDATE products SET stock_quantity = 0, updated_at = now()')
     await client.query('UPDATE ingredients SET quantity = 0, updated_at = now()')
 
     await client.query('COMMIT')
     console.log('Reset complete. All transactional amounts cleared and stock set to zero.')
-    console.log('Products, recipes, raw materials, customers, and admin login were kept.')
+    console.log('Products, recipes, raw materials, customers, partner shops, and admin login were kept.')
+    console.log('Produce finished goods again before the public shop can take new orders.')
   } catch (err) {
     await client.query('ROLLBACK')
     throw err

@@ -87,7 +87,7 @@ export default function OrdersPage() {
           <p className="eyebrow">Marketplace</p>
           <h1 className="font-display text-3xl font-bold text-earth-950">Web orders</h1>
           <p className="mt-2 max-w-2xl text-earth-600">
-            Orders from the public shop. Fulfill when packed — stock is deducted and sales are recorded automatically.
+            Orders from the public shop. Stock is reserved when the customer checks out; fulfill when packed to record the sale.
           </p>
           <p className="mt-3 text-sm font-semibold text-spice-700">{pendingCount} open order(s)</p>
         </div>
@@ -169,7 +169,7 @@ export default function OrdersPage() {
                         className="btn-primary text-xs"
                         onClick={() => updateStatus(order.id, 'fulfilled')}
                       >
-                        Fulfill (deduct stock)
+                        Fulfill & record sale
                       </button>
                       <button
                         type="button"
@@ -177,7 +177,7 @@ export default function OrdersPage() {
                         className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-xs font-semibold text-red-700"
                         onClick={() => updateStatus(order.id, 'cancelled')}
                       >
-                        Cancel
+                        Cancel (release stock)
                       </button>
                     </>
                   )}
@@ -189,7 +189,7 @@ export default function OrdersPage() {
                         className="btn-primary text-xs"
                         onClick={() => updateStatus(order.id, 'fulfilled')}
                       >
-                        Fulfill (deduct stock)
+                        Fulfill & record sale
                       </button>
                       <button
                         type="button"
@@ -197,7 +197,7 @@ export default function OrdersPage() {
                         className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-xs font-semibold text-red-700"
                         onClick={() => updateStatus(order.id, 'cancelled')}
                       >
-                        Cancel
+                        Cancel (release stock)
                       </button>
                     </>
                   )}

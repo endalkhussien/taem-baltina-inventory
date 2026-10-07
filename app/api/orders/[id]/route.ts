@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server'
-import { and, eq, gte, sql } from 'drizzle-orm'
+import { and, eq, gte, inArray, sql } from 'drizzle-orm'
 import { db, schema } from '../../../../lib/db'
 import { marketOrderStatusSchema } from '../../../../lib/validators/order'
 import { computeSaleTotals } from '../../../../lib/sales'
 import { databaseErrorResponse, parseJsonBody } from '../../../../lib/apiErrors'
+import { ensureMarketplaceSchema } from '../../../../lib/ensureSchema'
 
 export async function GET(_request: Request, { params }: { params: { id: string } }) {
   try {
+    await ensureMarketplaceSchema()
     const id = Number(params.id)
     if (!Number.isFinite(id)) return NextResponse.json({ error: 'Invalid order.' }, { status: 400 })
 
@@ -26,6 +28,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
 
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   try {
+    await ensureMarketplaceSchema()
     const id = Number(params.id)
     if (!Number.isFinite(id)) return NextResponse.json({ error: 'Invalid order.' }, { status: 400 })
 
@@ -44,6 +47,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
         .select()
         .from(schema.market_orders)
         .where(eq(schema.market_orders.id, id))
+        .for('update')
         .limit(1)
 
       if (!order) return { error: 'Order not found.', status: 404 as const }
@@ -56,13 +60,31 @@ export async function PATCH(request: Request, { params }: { params: { id: string
         return { error: 'Fulfilled orders are final.', status: 409 as const }
       }
 
-      // Fulfill: deduct stock and create walk-in/customer sales (paid in full for prepaid; COD still create sale as paid when delivered)
-      if (nextStatus === 'fulfilled' && order.status !== 'fulfilled') {
-        const items = await tx
-          .select()
-          .from(schema.market_order_items)
-          .where(eq(schema.market_order_items.order_id, id))
+      if (order.status === nextStatus) {
+        return { order }
+      }
 
+      const items = await tx
+        .select()
+        .from(schema.market_order_items)
+        .where(eq(schema.market_order_items.order_id, id))
+
+      // Cancel: release reserved stock back to the warehouse.
+      if (nextStatus === 'cancelled' && order.stock_reserved) {
+        for (const item of items) {
+          const qty = Number(item.quantity_kg)
+          await tx
+            .update(schema.products)
+            .set({
+              stock_quantity: sql`${schema.products.stock_quantity} + ${qty}`,
+              updated_at: new Date()
+            })
+            .where(eq(schema.products.id, item.product_id))
+        }
+      }
+
+      // Fulfill: record sales. Deduct stock only for legacy orders that never reserved on place.
+      if (nextStatus === 'fulfilled' && order.status !== 'fulfilled') {
         for (const item of items) {
           const qty = Number(item.quantity_kg)
           const [product] = await tx
@@ -74,35 +96,38 @@ export async function PATCH(request: Request, { params }: { params: { id: string
             })
             .from(schema.products)
             .where(eq(schema.products.id, item.product_id))
+            .for('update')
             .limit(1)
 
           if (!product) {
             return { error: `Product missing for line ${item.product_name}.`, status: 404 as const }
           }
 
-          if (Number(product.stock_quantity) < qty) {
-            return {
-              error: `Not enough stock for ${product.name} to fulfill (need ${qty} kg, have ${product.stock_quantity} kg).`,
-              status: 409 as const
+          if (!order.stock_reserved) {
+            if (Number(product.stock_quantity) < qty) {
+              return {
+                error: `Not enough stock for ${product.name} to fulfill (need ${qty} kg, have ${product.stock_quantity} kg).`,
+                status: 409 as const
+              }
             }
-          }
 
-          const [updated] = await tx
-            .update(schema.products)
-            .set({ stock_quantity: sql`${schema.products.stock_quantity} - ${qty}` })
-            .where(and(eq(schema.products.id, product.id), gte(schema.products.stock_quantity, qty)))
-            .returning({ id: schema.products.id })
+            const [updated] = await tx
+              .update(schema.products)
+              .set({ stock_quantity: sql`${schema.products.stock_quantity} - ${qty}` })
+              .where(and(eq(schema.products.id, product.id), gte(schema.products.stock_quantity, qty)))
+              .returning({ id: schema.products.id })
 
-          if (!updated) {
-            return {
-              error: `Could not reserve stock for ${product.name}. Try again.`,
-              status: 409 as const
+            if (!updated) {
+              return {
+                error: `Could not reserve stock for ${product.name}. Try again.`,
+                status: 409 as const
+              }
             }
           }
 
           const unitPrice = Number(item.unit_price)
           const totals = computeSaleTotals(qty, unitPrice, qty * unitPrice)
-          const saleCode = `WEB-${order.order_code}-${item.id}`
+          const saleCode = `${order.order_code}-${item.id}`
 
           await tx.insert(schema.sales).values({
             sale_code: saleCode,
@@ -121,9 +146,22 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
       const [updatedOrder] = await tx
         .update(schema.market_orders)
-        .set({ status: nextStatus, updated_at: new Date() })
-        .where(eq(schema.market_orders.id, id))
+        .set({
+          status: nextStatus,
+          stock_reserved: nextStatus === 'cancelled' ? false : order.stock_reserved,
+          updated_at: new Date()
+        })
+        .where(
+          and(
+            eq(schema.market_orders.id, id),
+            inArray(schema.market_orders.status, ['pending', 'confirmed'])
+          )
+        )
         .returning()
+
+      if (!updatedOrder) {
+        return { error: 'Order was already updated. Refresh and try again.', status: 409 as const }
+      }
 
       return { order: updatedOrder }
     })

@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS market_orders (
   status VARCHAR(30) NOT NULL DEFAULT 'pending',
   subtotal NUMERIC(14, 2) NOT NULL DEFAULT 0,
   total_amount NUMERIC(14, 2) NOT NULL DEFAULT 0,
+  stock_reserved BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMP NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
@@ -35,3 +36,5 @@ CREATE TABLE IF NOT EXISTS market_order_items (
 
 CREATE INDEX IF NOT EXISTS idx_market_order_items_order_id ON market_order_items(order_id);
 CREATE INDEX IF NOT EXISTS idx_market_order_items_product_id ON market_order_items(product_id);
+
+ALTER TABLE market_orders ADD COLUMN IF NOT EXISTS stock_reserved BOOLEAN NOT NULL DEFAULT FALSE;

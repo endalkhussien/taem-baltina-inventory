@@ -572,8 +572,8 @@ export default function FinancePage() {
           <div className="card border-2 border-red-200 bg-red-50/40 mb-6 mt-6">
             <h2 className="font-display text-xl font-black text-red-900 mb-1">Start fresh — reset all amounts to zero</h2>
             <p className="mb-4 text-sm text-red-800">
-              Clears all sales, production batches, purchases, expenses, cash counts, debts, and repayments. Sets finished goods and raw material stock to 0 kg.
-              Products, recipes, customers, and your login are kept.
+              Clears sales, web orders, production, purchases, expenses, cash counts, debts, repayments, and branch wholesale orders. Sets finished goods and raw material stock to 0 kg.
+              Products, recipes, customers, partner shops, and your login are kept. After reset, produce stock again before the public shop can take orders.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
               <div className="flex-1">

@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
-import { eq, inArray } from 'drizzle-orm'
+import { and, eq, gte, inArray, sql } from 'drizzle-orm'
 import { db, schema } from '../../../../lib/db'
 import { marketOrderCreateSchema } from '../../../../lib/validators/order'
 import { databaseErrorResponse, parseJsonBody } from '../../../../lib/apiErrors'
+import { ensureMarketplaceSchema } from '../../../../lib/ensureSchema'
 
 function orderCode() {
   const stamp = Date.now().toString(36).toUpperCase()
@@ -10,8 +11,18 @@ function orderCode() {
   return `WEB-${stamp}-${rand}`
 }
 
+function aggregateItems(items: { productId: number; quantityKg: number }[]) {
+  const byId = new Map<number, number>()
+  for (const item of items) {
+    byId.set(item.productId, Number(((byId.get(item.productId) ?? 0) + item.quantityKg).toFixed(3)))
+  }
+  return [...byId.entries()].map(([productId, quantityKg]) => ({ productId, quantityKg }))
+}
+
 export async function POST(request: Request) {
   try {
+    await ensureMarketplaceSchema()
+
     const body = await parseJsonBody(request)
     if (!body.ok) return body.response
 
@@ -22,7 +33,8 @@ export async function POST(request: Request) {
     }
 
     const data = parsed.data
-    const productIds = data.items.map((item) => item.productId)
+    const aggregated = aggregateItems(data.items)
+    const productIds = aggregated.map((item) => item.productId)
 
     const result = await db.transaction(async (tx) => {
       const products = await tx
@@ -34,6 +46,7 @@ export async function POST(request: Request) {
         })
         .from(schema.products)
         .where(inArray(schema.products.id, productIds))
+        .for('update')
 
       const byId = new Map(products.map((p) => [p.id, p]))
 
@@ -45,14 +58,14 @@ export async function POST(request: Request) {
         line_total: number
       }[] = []
 
-      for (const item of data.items) {
+      for (const item of aggregated) {
         const product = byId.get(item.productId)
         if (!product) {
           return { error: `Product #${item.productId} was not found.`, status: 404 as const }
         }
         if (Number(product.stock_quantity) < item.quantityKg) {
           return {
-            error: 'That quantity is not available right now. Please try a smaller order.',
+            error: `${product.name} only has ${Number(product.stock_quantity)} kg available. Please try a smaller order.`,
             status: 409 as const
           }
         }
@@ -67,9 +80,32 @@ export async function POST(request: Request) {
         })
       }
 
+      // Reserve stock immediately so concurrent shoppers cannot oversell.
+      for (const line of lines) {
+        const [updated] = await tx
+          .update(schema.products)
+          .set({
+            stock_quantity: sql`${schema.products.stock_quantity} - ${line.quantity_kg}`,
+            updated_at: new Date()
+          })
+          .where(
+            and(
+              eq(schema.products.id, line.product_id),
+              gte(schema.products.stock_quantity, line.quantity_kg)
+            )
+          )
+          .returning({ id: schema.products.id })
+
+        if (!updated) {
+          return {
+            error: `Could not reserve stock for ${line.product_name}. Please try again.`,
+            status: 409 as const
+          }
+        }
+      }
+
       const subtotal = Number(lines.reduce((sum, line) => sum + line.line_total, 0).toFixed(2))
 
-      // Upsert-ish customer by phone for ops CRM
       let customerId: number | null = null
       const phone = data.customerPhone.trim()
       const [existing] = await tx
@@ -117,7 +153,8 @@ export async function POST(request: Request) {
           payment_method: data.paymentMethod,
           status: 'pending',
           subtotal,
-          total_amount: subtotal
+          total_amount: subtotal,
+          stock_reserved: true
         })
         .returning()
 
