@@ -3,6 +3,7 @@
 import React, { Suspense, useEffect, useMemo, useState } from 'react'
 import ProductList from '../../../components/ProductList'
 import ProductForm from '../../../components/ProductForm'
+import BeginningStockForm from '../../../components/BeginningStockForm'
 import ProductRecipeEditor from '../../../components/ProductRecipeEditor'
 import AdminNav from '../../../components/AdminNav'
 import { useProducts } from '../../../hooks/useProducts'
@@ -26,11 +27,12 @@ function ProductsContent() {
           <div className="eyebrow">Inventory</div>
           <h1 className="mt-2 font-display text-4xl font-bold text-earth-950">Finished products</h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-earth-500">
-            Maintain selling prices, available stock, reorder alerts, and the recipes that connect each product to raw materials.
+            Register finished goods (Berbere, Shiro, Mitmita), set beginning stock from the dropdown, then keep using production and sales as usual.
           </p>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1 space-y-6">
+            <BeginningStockForm />
             <ProductForm editingId={editing} onDone={() => setEditing(null)} />
           </div>
           <div className="lg:col-span-2">

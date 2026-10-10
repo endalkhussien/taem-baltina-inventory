@@ -62,7 +62,7 @@ export default function ProductForm({ editingId, onDone }: Props) {
         {editingId ? 'Edit Finished Good' : 'Add Finished Good'}
       </h2>
       <p className="mb-5 text-sm text-earth-500">
-        Finished goods are items you produce and sell. Set on-hand kg manually for beginning inventory; production and sales still update stock afterward.
+        Add or edit product name, price, and alert level. For opening balances, use <span className="font-semibold text-earth-700">Beginning stock</span> above (dropdown + kg).
       </p>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
