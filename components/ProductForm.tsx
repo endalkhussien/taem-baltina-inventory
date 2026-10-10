@@ -1,4 +1,4 @@
-"use client"
+'use client'
 
 import React, { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
@@ -31,8 +31,8 @@ export default function ProductForm({ editingId, onDone }: Props) {
         reset({
           name: p.name,
           sellingPrice: Number(p.selling_price),
-          stockQuantity: p.stock_quantity,
-          alertThreshold: p.alert_threshold
+          stockQuantity: Number(p.stock_quantity),
+          alertThreshold: Number(p.alert_threshold)
         })
       }
     } else {
@@ -43,10 +43,11 @@ export default function ProductForm({ editingId, onDone }: Props) {
   const onSubmit = async (vals: any) => {
     try {
       if (editingId) {
-        const { stockQuantity: _ignored, ...updateVals } = vals
-        await updateProduct(editingId, updateVals)
+        await updateProduct(editingId, vals)
+        toast.success('Finished good updated. On-hand stock saved.')
       } else {
         await createProduct(vals)
+        toast.success('Finished good created.')
       }
       reset()
       onDone?.()
@@ -61,7 +62,7 @@ export default function ProductForm({ editingId, onDone }: Props) {
         {editingId ? 'Edit Finished Good' : 'Add Finished Good'}
       </h2>
       <p className="mb-5 text-sm text-earth-500">
-        Finished goods are items you produce and sell. Stock in kg updates automatically when you record production or sales.
+        Finished goods are items you produce and sell. Set on-hand kg manually for beginning inventory; production and sales still update stock afterward.
       </p>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
@@ -71,31 +72,44 @@ export default function ProductForm({ editingId, onDone }: Props) {
         </div>
         <div>
           <label className="block text-sm font-bold text-earth-700 mb-1.5">Selling Price (ETB per kg)</label>
-          <input type="number" step="0.01" className="input-field" {...register('sellingPrice', { valueAsNumber: true })} />
+          <input type="number" step="0.01" min="0" className="input-field" {...register('sellingPrice', { valueAsNumber: true })} />
           {errors.sellingPrice && <p className="mt-1 text-xs font-semibold text-red-600">Selling price must be zero or higher.</p>}
         </div>
-        {editingId && editingProduct ? (
-          <div className="rounded-2xl border border-earth-100 bg-earth-50 p-4 space-y-2">
-            <div className="text-xs font-bold uppercase tracking-wide text-earth-500">Current stock (auto-tracked)</div>
-            <div className="text-2xl font-black text-earth-950">{formatStockKg(editingProduct.stock_quantity)}</div>
-            <div className="text-sm text-earth-600">
-              Produced: {formatStockKg(editingProduct.total_produced ?? 0)} · Sold: {formatStockKg(editingProduct.total_sold ?? 0)}
+        <div>
+          <label className="block text-sm font-bold text-earth-700 mb-1.5">
+            {editingId ? 'On-hand stock (kg)' : 'Opening stock (kg)'}
+          </label>
+          <input
+            type="number"
+            min="0"
+            step="0.001"
+            className="input-field"
+            {...register('stockQuantity', { valueAsNumber: true })}
+          />
+          {errors.stockQuantity && (
+            <p className="mt-1 text-xs font-semibold text-red-600">Stock must be zero or higher.</p>
+          )}
+          {editingId && editingProduct ? (
+            <div className="mt-2 rounded-2xl border border-earth-100 bg-earth-50 p-3 text-sm text-earth-600">
+              <p>
+                Current recorded stock: <span className="font-bold text-earth-950">{formatStockKg(editingProduct.stock_quantity)}</span>
+              </p>
+              <p className="mt-1">
+                Produced: {formatStockKg(editingProduct.total_produced ?? 0)} · Sold: {formatStockKg(editingProduct.total_sold ?? 0)}
+              </p>
+              <p className="mt-1 text-xs text-earth-500">
+                Type the real on-hand kg here to import beginning inventory or correct the balance. Saving replaces the on-hand amount.
+              </p>
             </div>
-            <p className="text-xs text-earth-500">
-              Stock increases when you post a production batch and decreases when you record a sale.
+          ) : (
+            <p className="mt-1 text-xs text-earth-500">
+              Optional beginning balance when you first add the product.
             </p>
-          </div>
-        ) : (
-          <div>
-            <label className="block text-sm font-bold text-earth-700 mb-1.5">Opening Stock (kg)</label>
-            <input type="number" min="0" className="input-field" {...register('stockQuantity', { valueAsNumber: true })} />
-            {errors.stockQuantity && <p className="mt-1 text-xs font-semibold text-red-600">Stock must be a whole number zero or higher.</p>}
-            <p className="mt-1 text-xs text-earth-500">Optional starting balance. After creation, stock is updated only by production and sales.</p>
-          </div>
-        )}
+          )}
+        </div>
         <div>
           <label className="block text-sm font-bold text-earth-700 mb-1.5">Low Stock Alert (kg)</label>
-          <input type="number" min="0" className="input-field" {...register('alertThreshold', { valueAsNumber: true })} />
+          <input type="number" min="0" step="1" className="input-field" {...register('alertThreshold', { valueAsNumber: true })} />
           {errors.alertThreshold && <p className="mt-1 text-xs font-semibold text-red-600">Alert level must be a whole number zero or higher.</p>}
         </div>
         <div className="flex gap-2">
