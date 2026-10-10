@@ -76,10 +76,11 @@ export default function ProductForm({ editingId, onDone }: Props) {
           {errors.sellingPrice && <p className="mt-1 text-xs font-semibold text-red-600">Selling price must be zero or higher.</p>}
         </div>
         <div>
-          <label className="block text-sm font-bold text-earth-700 mb-1.5">
+          <label htmlFor="product-stock-quantity" className="block text-sm font-bold text-earth-700 mb-1.5">
             {editingId ? 'On-hand stock (kg)' : 'Opening stock (kg)'}
           </label>
           <input
+            id="product-stock-quantity"
             type="number"
             min="0"
             step="0.001"
