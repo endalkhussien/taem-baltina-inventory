@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db, schema } from '../../../../lib/db'
-import { z } from 'zod'
 import { eq } from 'drizzle-orm'
+import { productUpdateSchema } from '../../../../lib/validators/product'
 import { databaseErrorResponse, parseJsonBody } from '../../../../lib/apiErrors'
 
 export async function GET(_request: Request, { params }: { params: { id: string } }) {
@@ -21,22 +21,21 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     const id = Number(params.id)
     if (!Number.isInteger(id)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
 
-    const patchSchema = z.object({
-      name: z.string().min(1).optional(),
-      sellingPrice: z.union([z.string(), z.number()]).transform((v) => Number(v)).optional(),
-      alertThreshold: z.number().int().nonnegative().optional()
-    })
-
     const body = await parseJsonBody(request)
     if (!body.ok) return body.response
 
-    const parsed = patchSchema.safeParse(body.data)
+    const parsed = productUpdateSchema.safeParse(body.data)
     if (!parsed.success) return NextResponse.json({ error: parsed.error.format() }, { status: 422 })
 
-    const updateData: any = {}
+    const updateData: Record<string, unknown> = { updated_at: new Date() }
     if (parsed.data.name !== undefined) updateData.name = parsed.data.name
     if (parsed.data.sellingPrice !== undefined) updateData.selling_price = parsed.data.sellingPrice
+    if (parsed.data.stockQuantity !== undefined) updateData.stock_quantity = parsed.data.stockQuantity
     if (parsed.data.alertThreshold !== undefined) updateData.alert_threshold = parsed.data.alertThreshold
+
+    if (Object.keys(updateData).length === 1) {
+      return NextResponse.json({ error: 'No changes provided.' }, { status: 422 })
+    }
 
     const [updated] = await db.update(schema.products).set(updateData).where(eq(schema.products.id, id)).returning()
     if (!updated) return NextResponse.json({ error: 'Not found' }, { status: 404 })

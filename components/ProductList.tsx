@@ -48,7 +48,9 @@ export default function ProductList({ onEdit, onRecipe }: { onEdit: (id: number)
         <div>
           <h2 className="font-display text-xl font-black text-earth-950">Finished Goods Inventory</h2>
           <p className="text-sm text-earth-500">
-            {lowOnly ? 'Showing low-stock products.' : `${productList.length} product${productList.length !== 1 ? 's' : ''} in stock.`}
+            {lowOnly
+              ? 'Showing low-stock products.'
+              : `${productList.length} product${productList.length !== 1 ? 's' : ''} in stock. Use Edit to set beginning on-hand kg.`}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
