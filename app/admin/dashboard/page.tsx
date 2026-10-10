@@ -288,6 +288,37 @@ export default function DashboardPage() {
             />
           </div>
 
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <KpiCard
+              label="Stock value"
+              value={formatEtb(totalStockValue)}
+              hint={`Finished ${formatEtb(finishedRetailValue)} + raw ${formatEtb(rawMaterialStockValue)}`}
+              href="/admin/products"
+              tone="sales"
+            />
+            <KpiCard
+              label="Finished goods (retail)"
+              value={formatEtb(finishedRetailValue)}
+              hint={`${formatStockKg(totalFinishedKg)} on hand`}
+              href="/admin/products"
+              tone="neutral"
+            />
+            <KpiCard
+              label="Finished goods (cost)"
+              value={formatEtb(finishedCostValue)}
+              hint="From production batch costs"
+              href="/admin/production"
+              tone="purchase"
+            />
+            <KpiCard
+              label="Capital / net position"
+              value={formatEtb(netPosition)}
+              hint="Cash + customer credit − debts you owe"
+              href="/admin/finance"
+              tone="profit"
+            />
+          </div>
+
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
             <div className="insight-panel xl:col-span-2">
               <div className="mb-4 flex items-center justify-between gap-3">
